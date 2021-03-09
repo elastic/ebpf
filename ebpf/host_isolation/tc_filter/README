@@ -5,7 +5,7 @@ How to use networking tc eBPF programs:
 2. Add new qdisc to the interface you want to use
 	sudo tc qdisc add dev ens33 clsact
 3. Compile tc eBPF program (clang generates LLVM bytecode, llc generates eBPF bytecode)
-	clang -O2 -I/usr/include/uapi/linux/ -emit-llvm -c tc_filter.c -o - | llc -march=bpf -mcpu=probe -filetype=obj -o tc_filter.o
+	clang -g -O2 -emit-llvm -c tc_filter.c -o - | llc -march=bpf -mcpu=v2 -filetype=obj -o tc_filter.o
 4. Load eBPF program and attach to egress tc (outbound packets, right before they get pushed to the NIC driver)
 	sudo tc filter add dev ens33 egress bpf direct-action obj tc_filter.o sec .text
 5. Attaching to ingress tc is similar (note: direct-action can be abbreviated to 'da'):

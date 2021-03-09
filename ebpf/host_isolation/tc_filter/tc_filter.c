@@ -20,13 +20,13 @@
 
 #define PCKT_FRAGMENTED 65343
 
-struct bpf_elf_map __section("maps") allowed_IPs = {
-	.type = BPF_MAP_TYPE_HASH,
-	.size_key = sizeof(int),
-	.size_value = sizeof(int),
-	.pinning = PIN_GLOBAL_NS,
-	.max_elem = 64,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(key_size, sizeof(int));
+	__uint(value_size, sizeof(int));
+	__uint(max_entries, 64);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+} allowed_IPs __section(".maps");
 
 __attribute__((always_inline))
 static int allow_tcp_pkt_egress(struct tcphdr *tcp, struct iphdr *ip)
