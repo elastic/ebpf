@@ -1,0 +1,22 @@
+How to use networking tc eBPF programs:
+
+1. Clear qdisc
+	sudo tc qdisc del dev ens33 clsact
+2. Add new qdisc to the interface you want to use
+	sudo tc qdisc add dev ens33 clsact
+3. Compile tc eBPF program (clang generates LLVM bytecode, llc generates eBPF bytecode)
+	clang -O2 -I/usr/include/uapi/linux/ -emit-llvm -c tc_filter.c -o - | llc -march=bpf -mcpu=probe -filetype=obj -o tc_filter.o
+4. Load eBPF program and attach to egress tc (outbound packets, right before they get pushed to the NIC driver)
+	sudo tc filter add dev ens33 egress bpf direct-action obj tc_filter.o sec .text
+5. Attaching to ingress tc is similar (note: direct-action can be abbreviated to 'da'):
+	sudo tc filter add dev ens33 ingress bpf direct-action obj tc_filter.o sec .text
+6. View list of loaded eBPF programs in the system:
+	sudo bpftool prog list
+7. Show specific eBPF program by id
+	sudo bpftool prog show id 814
+8. Dump program bytecode (not recommended, better use 'llvm-objdump -S -no-show-raw-insn file.o'
+	sudo bpftool prog dump xlated id 814
+9. Show eBPF maps in the system:
+	sudo bpftool map list/show
+10. Dump eBPF map by id:
+	sudo bpftool map dump id 296
