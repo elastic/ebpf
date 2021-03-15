@@ -9734,7 +9734,7 @@ struct bpf_link *bpf_program__attach_kprobe(struct bpf_program *prog,
 		pr_warn("prog '%s': failed to create %s '%s' perf event: %s\n",
 			prog->name, retprobe ? "kretprobe" : "kprobe", func_name,
 			libbpf_strerror_r(pfd, errmsg, sizeof(errmsg)));
-		pr_warn("trying to create perf event with legacy API\n");
+		pr_warn("fallback - trying to create perf event with legacy API\n");
 
 		// try debugfs kprobe API
 		pfd = perf_event_open_probe_legacy(false /* uprobe */, retprobe, func_name,
@@ -9746,6 +9746,7 @@ struct bpf_link *bpf_program__attach_kprobe(struct bpf_program *prog,
 				libbpf_strerror_r(pfd, errmsg, sizeof(errmsg)));
 			return ERR_PTR(pfd);
 		}
+		pr_warn("success! created perf event with legacy API\n");
 
 	}
 	link = bpf_program__attach_perf_event(prog, pfd);
