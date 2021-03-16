@@ -7,9 +7,9 @@ How to use networking tc eBPF programs:
 3. Compile tc eBPF program (clang generates LLVM bytecode, llc generates eBPF bytecode)
 	clang -g -O2 -I../../../contrib/kernel_hdrs -emit-llvm -c TcFilter.c -o - | llc -march=bpf -mcpu=v2 -filetype=obj -o TcFilter.o
 4. Load eBPF program and attach to egress tc (outbound packets, right before they get pushed to the NIC driver)
-	sudo tc filter add dev ens33 egress bpf direct-action obj tc_filter.o sec .text
+	sudo tc filter add dev ens33 egress bpf direct-action obj TcFilter.o sec .text
 5. Attaching to ingress tc is similar (note: direct-action can be abbreviated to 'da'):
-	sudo tc filter add dev ens33 ingress bpf direct-action obj tc_filter.o sec .text
+	sudo tc filter add dev ens33 ingress bpf direct-action obj TcFilter.o sec .text
 6. View list of loaded eBPF programs in the system:
 	sudo bpftool prog list
 7. Show specific eBPF program by id
