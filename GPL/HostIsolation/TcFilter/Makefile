@@ -1,8 +1,8 @@
 
-tc_loader.o: tc_filter.c $(wildcard %.h)
-	clang -g -O2 -emit-llvm -c tc_filter.c -o - | llc -march=bpf -mcpu=v2 -filetype=obj -o tc_filter.o
+TcFilter.o: TcFilter.c $(wildcard %.h)
+	clang -g -O2 -I../../../contrib/kernel_hdrs -emit-llvm -c TcFilter.c -o - | llc -march=bpf -mcpu=v2 -filetype=obj -o TcFilter.o
 
 .PHONY: clean
 clean:
-	rm tc_filter.o
+	rm TcFilter.o
 
