@@ -9,7 +9,6 @@
 
 // local headers
 #include "kerneldefs.h"
-#include "bpf_elf.h"
 #include "bpf_helpers.h"
 #include "bpf_endian.h"
 
