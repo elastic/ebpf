@@ -2,7 +2,7 @@
 // LICENSE
 //
 // Host Isolation - tool for updating map of allowed IPs
-// 
+//
 #include <argp.h>
 #include <unistd.h>
 #include <time.h>
@@ -54,7 +54,7 @@ cleanup:
 	if (map_IPs_fd >= 0)
 		close(map_IPs_fd);
         if (rv)
-                warn("failure - run with sudo or make sure /sys/fs/bpf/tc/globals/allowed_IPs exists");
+                warn("failure - run with sudo or make sure /sys/fs/bpf/tc/globals/allowed_IPs exists\n");
 
 	return rv;
 }
