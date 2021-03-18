@@ -64,7 +64,7 @@ allow_udp_pkt_egress(
 #if 0
         //TODO: check QDCOUNT==1 for sanity (it's always 1 for any DNS query)
         if ((__u8 *)(udp + 1) + 6 > skb->data_end) {
-            return TC_ACT_SHOT;
+            return 0;
         }
         __u16 *dns = udp + 1;
 #endif
@@ -72,6 +72,7 @@ allow_udp_pkt_egress(
     }
     //TODO DHCP?
 
+    /* drop packet */
     return 0;
 }
 
@@ -88,7 +89,7 @@ classifier(
     if (data + sizeof(struct ethhdr) > data_end)
     {
         /* packet too small */
-        return TC_ACT_SHOT;
+        goto drop_packet;
     }
 
     eth = data;
@@ -98,38 +99,38 @@ classifier(
     if (eth_proto == bpf_htons(ETH_P_ARP))
     {
         /* allow ARP */
-        return TC_ACT_UNSPEC;
+        goto allow_packet;
     }
 
     if (eth_proto != bpf_htons(ETH_P_IP))
     {
         /* drop protocols other than IPv4 and ARP */
-        return TC_ACT_SHOT;
+        goto drop_packet;
     }
 
     ip = data + sizeof(struct ethhdr);
 
     if (ip + 1 > data_end)
     {
-        return TC_ACT_SHOT;
+        goto drop_packet;
     }
 
     if (ip->version != 4)
     {
         /* drop IPv6 */
-        return TC_ACT_SHOT;
+        goto drop_packet;
     }
 
     if (ip->ihl != 5)
     {
         /* drop packets with IP options (5 == 20 bytes == min IP header size ) */
-        return TC_ACT_SHOT;
+        goto drop_packet;
     }
 
     if (ip->frag_off & PCKT_FRAGMENTED)
     {
         /* drop fragmented packets */
-        return TC_ACT_SHOT;
+        goto drop_packet;
     }
 
     __u8 protocol = ip->protocol;
@@ -137,7 +138,7 @@ classifier(
     if (protocol == IPPROTO_ICMP)
     {
         /* drop ICMP */
-        return TC_ACT_SHOT;
+        goto drop_packet;
     }
 
     if (protocol == IPPROTO_UDP)
@@ -146,16 +147,16 @@ classifier(
         struct udphdr *udp = ip + 1;
         if (udp + 1 > data_end)
         {
-            return TC_ACT_SHOT;
+            goto drop_packet;
         }
 
         if (!allow_udp_pkt_egress(udp))
         {
-            return TC_ACT_SHOT;
+            goto drop_packet;
         }
         else
         {
-            return TC_ACT_UNSPEC;
+            goto allow_packet;
         }
     }
     else if (protocol == IPPROTO_TCP)
@@ -164,26 +165,30 @@ classifier(
         struct tcphdr *tcp = ip + 1;
         if (tcp + 1 > data_end)
         {
-            return TC_ACT_SHOT;
+            goto drop_packet;
         }
 
         if (!allow_tcp_pkt_egress(tcp, ip))
         {
-            return TC_ACT_SHOT;
+            goto drop_packet;
         }
         else
         {
-            return TC_ACT_UNSPEC;
+            goto allow_packet;
         }
     }
     else
     {
         /* drop other protos */
-        return TC_ACT_SHOT;
+        goto drop_packet;
     }
 
+drop_packet:
     /* reject everything else */
     return TC_ACT_SHOT;
+
+allow_packet:
+    return TC_ACT_UNSPEC;
 }
 
 char __license[] __section("license") = "GPL";
