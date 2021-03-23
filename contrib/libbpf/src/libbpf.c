@@ -9592,13 +9592,13 @@ static int parse_uint_from_file(const char *file, const char *fmt)
 
 static int determine_kprobe_events_id(const char *name)
 {
-	char buf[256];
-	const char *debugfs = "/sys/kernel/debug/tracing/";
+	char buf[256] = {0};
+	int rv = 0;
 
-	strcpy(buf, debugfs);
-	strcat(buf, "events/kprobes/");
-	strcat(buf, name);
-	strcat(buf, "/id");
+	rv = snprintf(buf, sizeof(buf), "/sys/kernel/debug/tracing/events/kprobes/%s/id", name);
+	if (rv < 0 || rv >= sizeof(buf))
+		return -1;
+
 	return parse_uint_from_file(buf, "%d\n");
 }
 
@@ -9677,17 +9677,19 @@ static int perf_event_open_probe(bool uprobe, bool retprobe, const char *name,
 	return pfd;
 }
 
-static int perf_event_open_probe_legacy(bool uprobe, bool retprobe, const char *name,
-				 uint64_t offset, int pid)
+static int perf_event_open_kprobe_legacy(bool retprobe, const char *name)
 {
-	struct perf_event_attr attr = {};
-	char errmsg[STRERR_BUFSIZE];
-	char buf[256];
-	int id, pfd, err;
+	struct perf_event_attr attr = {0};
+	char errmsg[STRERR_BUFSIZE] = {0};
+	char buf[256] = {0};
+	int id = 0, pfd = 0, err = 0;
 
-	snprintf(buf, sizeof(buf),
+	int rv = snprintf(buf, sizeof(buf),
 		"echo '%c:%s %s' >> /sys/kernel/debug/tracing/kprobe_events",
-		uprobe ? 'r' : 'p', name, name);
+		retprobe ? 'r' : 'p', name, name);
+	if (rv < 0 || rv >= sizeof(buf))
+		return -1;
+
 	if (system(buf) < 0) {
 		pr_warn("failed to set tracing/kprobe_events\n");
 		return -1;
@@ -9707,13 +9709,12 @@ static int perf_event_open_probe_legacy(bool uprobe, bool retprobe, const char *
 
 	/* pid filter is meaningful only for uprobes */
 	pfd = syscall(__NR_perf_event_open, &attr,
-		      pid < 0 ? -1 : pid /* pid */,
-		      pid == -1 ? 0 : -1 /* cpu */,
+		      -1 /* pid */,
+		      0 /* cpu */,
 		      -1 /* group_fd */, PERF_FLAG_FD_CLOEXEC);
 	if (pfd < 0) {
 		err = -errno;
-		pr_warn("%s perf_event_open() failed: %s\n",
-			uprobe ? "uprobe" : "kprobe",
+		pr_warn("kprobe perf_event_open() failed: %s\n",
 			libbpf_strerror_r(err, errmsg, sizeof(errmsg)));
 		return err;
 	}
@@ -9737,8 +9738,7 @@ struct bpf_link *bpf_program__attach_kprobe(struct bpf_program *prog,
 		pr_warn("fallback - trying to create perf event with legacy API\n");
 
 		// try debugfs kprobe API
-		pfd = perf_event_open_probe_legacy(false /* uprobe */, retprobe, func_name,
-					    0 /* offset */, -1 /* pid */);
+		pfd = perf_event_open_kprobe_legacy(retprobe, func_name);
 		if (pfd < 0) {
 			pr_warn("prog '%s': failed to create %s '%s' perf event with legacy API"
 					": %s\n",
