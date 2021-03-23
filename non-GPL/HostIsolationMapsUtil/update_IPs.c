@@ -10,8 +10,6 @@
 #include <bpf/libbpf.h>
 #include <arpa/inet.h>
 
-#define warn(...) fprintf(stderr, __VA_ARGS__)
-
 static int
 libbpf_print_fn(enum libbpf_print_level level,
                 const char *format,
@@ -28,41 +26,46 @@ main(int argc,
     int rv = 0;
     uint32_t key = 0, val = 0;
 
-    libbpf_set_print(libbpf_print_fn);
-
-    map_IPs_fd = bpf_obj_get("/sys/fs/bpf/tc/globals/allowed_IPs");
-    if (map_IPs_fd < 0)
+    if (argc != 2)
     {
+        printf("You need to pass an IPv4 address as an argument\n");
         rv = -1;
         goto cleanup;
     }
 
-    val = 1;
-    inet_pton(AF_INET, "172.67.197.155", &key);
-    rv = bpf_map_update_elem(map_IPs_fd, &key, &val, 0);
-    if (rv)
+    libbpf_set_print(libbpf_print_fn);
+
+    if (!inet_pton(AF_INET, argv[1], &key))
     {
-        warn("failed to add to IPs BPF map \n");
-        goto cleanup;
-    }
-    inet_pton(AF_INET, "104.21.34.41", &key);
-    rv = bpf_map_update_elem(map_IPs_fd, &key, &val, 0);
-    if (rv)
-    {
-        warn("failed to add to IPs BPF map \n");
+        printf("Error: given IP is invalid\n");
+        rv = -1;
         goto cleanup;
     }
 
-    printf("BPF IP MAP UPDATED\n");
+    // values are not used in the hash map
+    val = 1;
+
+    map_IPs_fd = bpf_obj_get("/sys/fs/bpf/tc/globals/allowed_IPs");
+    if (map_IPs_fd < 0)
+    {
+        printf("Error: run with sudo or make sure /sys/fs/bpf/tc/globals/allowed_IPs exists\n");
+        rv = -1;
+        goto cleanup;
+    }
+
+    rv = bpf_map_update_elem(map_IPs_fd, &key, &val, 0);
+    if (rv)
+    {
+        printf("Error: failed to add IP to BPF map \n");
+        goto cleanup;
+    }
+
+    printf("IP %s added to allowed_IPs BPF map!\n", argv[1]);
 
 cleanup:
     if (map_IPs_fd >= 0)
     {
         close(map_IPs_fd);
-    }
-    if (rv)
-    {
-        warn("failure - run with sudo or make sure /sys/fs/bpf/tc/globals/allowed_IPs exists\n");
     }
 
     return rv;
