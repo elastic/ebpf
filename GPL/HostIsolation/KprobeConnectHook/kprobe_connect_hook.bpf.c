@@ -15,6 +15,8 @@
 // TODO: shouldnt be necessary to redefine - check if we have __KERNEL__ flag -> the kernel ptrace.h should be included, not the userspace one
 #define PT_REGS_PARM2(x) ((x)->si)
 
+#define NULL 0
+
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, sizeof(int));
@@ -35,7 +37,8 @@ add_IP_to_allowlist(__u32 daddr)
     // add new entry
     u32 val = 1;
     long rv = bpf_map_update_elem(&allowed_IPs, &daddr, &val, BPF_NOEXIST);
-    if (rv) {
+    if (rv)
+    {
         char errmsg[] = "Error updating hashmap\n";
         bpf_trace_printk(errmsg, sizeof(errmsg));
     }
@@ -49,12 +52,13 @@ add_IP_to_allowlist(__u32 daddr)
 }
 
 static __always_inline int
-enter_tcp_connect(struct pt_regs *ctx, struct sockaddr *uaddr)
+enter_tcp_connect(struct pt_regs *ctx,
+                  struct sockaddr *uaddr)
 {
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = pid_tgid >> 32;
-    __u32 *elem;
-    __u32 daddr;
+    __u32 *elem = NULL;
+    __u32 daddr = 0;
 
     struct sockaddr_in *sin = (struct sockaddr_in*)uaddr;
     bpf_probe_read(&daddr, sizeof(daddr), &sin->sin_addr.s_addr);
@@ -63,7 +67,9 @@ enter_tcp_connect(struct pt_regs *ctx, struct sockaddr *uaddr)
     elem = bpf_map_lookup_elem(&allowed_pids, &pid);
 
     if (!elem)
+    {
         return 0;
+    }
 
     add_IP_to_allowlist(daddr);
 
@@ -71,7 +77,8 @@ enter_tcp_connect(struct pt_regs *ctx, struct sockaddr *uaddr)
 }
 
 SEC("kprobe/tcp_v4_connect")
-int tcp_v4_connect__entry(struct pt_regs *ctx) //struct sock *sk, struct sockaddr *uaddr)
+int
+tcp_v4_connect__entry(struct pt_regs *ctx) //struct sock *sk, struct sockaddr *uaddr)
 {
     //important: define ARCH beforehand so that PT_REGS macro gets args for proper arch
     struct sockaddr *uaddr = (struct sockaddr*)PT_REGS_PARM2(ctx);
