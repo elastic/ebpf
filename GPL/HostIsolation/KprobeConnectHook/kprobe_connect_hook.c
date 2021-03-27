@@ -24,13 +24,13 @@ int main(int argc, char **argv)
 	struct bpf_link *link = NULL;
 	struct bpf_map *ip_map = NULL;
 	struct bpf_map *pids_map = NULL;
-	int prog_fd;
+	int prog_fd = -1;
 	int rv = 0;
 
 	libbpf_set_print(libbpf_print_fn);
 
 	obj = bpf_object__open_file("./kprobe_connect_hook.bpf.o", NULL);
-	if (libbpf_get_error(obj)) {
+	if (!obj || libbpf_get_error(obj)) {
 		printf("failed to open BPF object\n");
 		rv = -1;
 		goto cleanup;
@@ -38,7 +38,7 @@ int main(int argc, char **argv)
 	printf("BPF FILE OPENED\n");
 
 	ip_map = bpf_object__find_map_by_name(obj, "allowed_IPs");
-	if (libbpf_get_error(ip_map)) {
+	if (!ip_map || libbpf_get_error(ip_map)) {
 		printf("failed to load BPF map\n");
 		rv = -1;
 		goto cleanup;
@@ -52,7 +52,7 @@ int main(int argc, char **argv)
 
 	/* pin allowed_pids map when program is loaded */
 	pids_map = bpf_object__find_map_by_name(obj, "allowed_pids");
-	if (libbpf_get_error(pids_map)) {
+	if (!pids_map || libbpf_get_error(pids_map)) {
 		printf("failed to load BPF map\n");
 		rv = -1;
 		goto cleanup;
@@ -72,14 +72,14 @@ int main(int argc, char **argv)
 	printf("BPF PROG LOADED\n");
 
 	prog = bpf_object__find_program_by_title(obj, "kprobe/tcp_v4_connect");
-	if (libbpf_get_error(prog)) {
+	if (!prog || libbpf_get_error(prog)) {
 		printf("failed to find BPF program by name\n");
 		rv = -1;
 		goto cleanup;
 	}
 
 	link = bpf_program__attach(prog);
-	if (libbpf_get_error(link)) {
+	if (!link || libbpf_get_error(link)) {
 		printf("failed to attach BPF program\n");
 		rv = -1;
 		goto cleanup;
@@ -90,9 +90,9 @@ int main(int argc, char **argv)
 	sleep(10*60*60*60);
 
 cleanup:
-	if (!libbpf_get_error(link))
+	if (link && !libbpf_get_error(link))
 		bpf_link__destroy(link);
-	if (!libbpf_get_error(obj))
+	if (obj && !libbpf_get_error(obj))
 		bpf_object__close(obj);
 
 	return rv;
