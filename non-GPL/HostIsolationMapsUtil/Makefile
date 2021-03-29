@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: (LGPL-2.1 OR BSD-2-Clause)
 LIBBPF_OUTPUT := $(abspath ../../contrib/libbpf/build)
+LIBBPF_INCLUDE := $(abspath ../../contrib/libbpf/include/uapi)
 APP_OUTPUT := build
 CLANG ?= clang
 LIBBPF_SRC := $(abspath ../../contrib/libbpf/src)
 LIBBPF_OBJ := $(abspath ../../contrib/libbpf/build/libbpf.a)
-INCLUDES := -I$(LIBBPF_OUTPUT)
+INCLUDES := -I$(LIBBPF_OUTPUT) -I$(LIBBPF_INCLUDE)
 CFLAGS := -g -O2 -Wall
 
 APP = update_IPs
