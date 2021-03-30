@@ -45,10 +45,10 @@ main(int argc,
     // values are not used in the hash map
     val = 1;
 
-    map_PIDs_fd = bpf_obj_get("/sys/fs/bpf/allowed_pids");
+    map_PIDs_fd = bpf_obj_get("/sys/fs/bpf/elastic/endpoint/allowed_pids");
     if (map_PIDs_fd < 0)
     {
-        printf("Error: run with sudo or make sure /sys/fs/bpf/allowed_pids exists\n");
+        printf("Error: run with sudo or make sure /sys/fs/bpf/elastic/endpoint/allowed_pids exists\n");
         rv = -1;
         goto cleanup;
     }
