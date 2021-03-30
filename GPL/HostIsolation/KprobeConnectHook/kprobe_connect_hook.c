@@ -67,7 +67,7 @@ main(int argc,
     }
     printf("BPF MAP #2 LOADED\n");
 
-    result = bpf_map__set_pin_path(pids_map, "/sys/fs/bpf/allowed_pids");
+    result = bpf_map__set_pin_path(pids_map, "/sys/fs/bpf/elastic/endpoint/allowed_pids");
     if (result)
     {
         printf("error setting pin path for map\n");
