@@ -8,10 +8,10 @@ LIBBPF_OBJ := $(abspath ../../contrib/libbpf/build/libbpf.a)
 INCLUDES := -I$(LIBBPF_OUTPUT) -I$(LIBBPF_INCLUDE)
 CFLAGS := -g -O2 -Wall
 
-APP = update_IPs
+APPS = $(APP_OUTPUT)/update_IPs $(APP_OUTPUT)/update_pids
 
 .PHONY: all
-all: $(APP_OUTPUT)/$(APP)
+all: $(APPS)
 
 msg = @printf '  %-8s %s%s\n' "$(1)" "$(notdir $(2))" "$(if $(3), $(3))";
 MAKEFLAGS += --no-print-directory
@@ -25,7 +25,7 @@ $(APP_OUTPUT) $(LIBBPF_OUTPUT):
 	$(call msg,MKDIR,$@)
 	mkdir -p $@
 
-$(APP_OUTPUT)/$(APP): %: %.o $(LIBBPF_OBJ) | $(APP_OUTPUT)
+$(APPS): %: %.o $(LIBBPF_OBJ) | $(APP_OUTPUT)
 	$(call msg,BINARY,$@)
 	$(CC) $(CFLAGS) $^ -lelf -lz -o $@
 
