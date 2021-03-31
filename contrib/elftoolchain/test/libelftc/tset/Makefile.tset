@@ -1,0 +1,11 @@
+# $Id$
+
+# All the test cases in this test suite need -lelftc.  In addition,
+# a few need -lelf.
+DPADD+=		${LIBELFTC} ${LIBELF}
+LDADD+=		-lelftc -lelf
+
+GENERATE_TEST_SCAFFOLDING=	yes
+
+# Test cases do not supply manual pages.
+NOMAN=	noman
