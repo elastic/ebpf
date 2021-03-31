@@ -1,0 +1,8 @@
+# $Id$
+
+all
+	^elftc_string_table
+	^elftc_version
+
+elftc_string_table	:include:/tset/elftc_string_table/tet_scen
+elftc_version	:include:/tset/elftc_version/tet_scen

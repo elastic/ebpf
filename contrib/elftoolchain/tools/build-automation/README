@@ -1,0 +1,10 @@
+.. -*- mode: rst; -*-
+
+Build Automation
+================
+
+This directory contains a utility to build and test the Elftoolchain
+project's sources on a variety of target operating systems and processor
+architectures.
+
+.. $Id$
