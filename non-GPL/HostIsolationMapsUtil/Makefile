@@ -1,13 +1,15 @@
 # SPDX-License-Identifier: (LGPL-2.1 OR BSD-2-Clause)
 LIBBPF_OUTPUT := $(abspath ../../contrib/libbpf/build)
-LIBBPF_INCLUDE := $(abspath ../../contrib/libbpf/include/uapi)
+LIBBPF_UAPI_INCLUDE := $(abspath ../../contrib/libbpf/include/uapi)
+LIBBPF_MAIN_INCLUDE := $(abspath ../../contrib/libbpf/include)
 COMMON_DIR := $(abspath ../Common)
 APP_OUTPUT := build
 CLANG ?= clang
 LIBBPF_SRC := $(abspath ../../contrib/libbpf/src)
 LIBBPF_OBJ := $(abspath ../../contrib/libbpf/build/libbpf.a)
-INCLUDES := -I$(LIBBPF_OUTPUT) -I$(LIBBPF_INCLUDE) -I$(COMMON_DIR)
+INCLUDES := -I$(LIBBPF_OUTPUT) -I$(LIBBPF_UAPI_INCLUDE) -I$(LIBBPF_MAIN_INCLUDE) -I$(COMMON_DIR)
 CFLAGS := -g -O2 -Wall
+LDFLAGS := -L$(abspath ../../contrib/elftoolchain/build)
 
 APPS = $(APP_OUTPUT)/UpdateIPsDemo $(APP_OUTPUT)/UpdatePidsDemo
 
@@ -33,7 +35,7 @@ $(APP_OUTPUT) $(LIBBPF_OUTPUT):
 
 $(APPS): %: %.o $(APP_OUTPUT)/UpdateMaps.o $(LIBBPF_OBJ) $(COMMON_DIR)/Common.o | $(APP_OUTPUT)
 	$(call msg,BINARY,$@)
-	$(CC) $(CFLAGS) $^ -lelf -lz -o $@ 
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -lelf -lz -o $@
 
 $(APP_OUTPUT)/%.o: %.c $(LIBBPF_OBJ) $(COMMON_DIR)/Common.o $(wildcard %.h) | $(APP_OUTPUT)
 	$(call msg,CC,$@)
@@ -49,8 +51,8 @@ $(LIBBPF_OBJ): $(wildcard $(LIBBPF_SRC)/*.[ch]) | $(LIBBPF_OUTPUT)
 	$(call msg,LIB,$@)
 	$(MAKE) -C $(LIBBPF_SRC) BUILD_STATIC_ONLY=1 NO_PKG_CONFIG=1	      \
 		    OBJDIR=$(LIBBPF_OUTPUT)/obj DESTDIR=$(LIBBPF_OUTPUT)		      \
-		    INCLUDEDIR= LIBDIR= UAPIDIR=			      \
-		    install
+            INCLUDEDIR= LIBDIR= UAPIDIR=			      \
+		    CFLAGS="$(CFLAGS)" install
 
 # delete failed targets
 .DELETE_ON_ERROR:
