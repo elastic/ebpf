@@ -1,0 +1,61 @@
+<RazorProject>
+
+    <Project>
+        <Name>Ebpf</Name>
+        <Version>1</Version>
+        <Type>StaticLibrary</Type>
+    </Project>
+
+    <Compiler>
+        <Sources>
+            <Source value="dummy.cpp" />
+        </Sources>
+        <IncludeDirectories />
+    </Compiler>
+
+    <Linker />
+
+    <Options />
+
+    <CustomCommands>
+        <CustomCommand type="Target">
+            <When>PostBuild</When>
+            <Commands>
+                 <Command>make -C GPL/HostIsolation/TcFilter</Command>
+            </Commands>
+            <WorkingDirectory>%(ProjectRoot)</WorkingDirectory>
+            <Comment>Building eBPF</Comment>
+        </CustomCommand>
+        <CustomCommand type="Target">
+            <When>PostBuild</When>
+            <Commands>
+                 <Command>cat contrib/patch/elftoolchain.patch | patch -p0 --forward -d contrib || true </Command>
+                 <Command>export MAKEFLAGS="" &amp;&amp; export MFLAGS="" &amp;&amp; MAKESYSPATH=/opt/endpoint-dev/dev/toolchain/share/mk WITH_TESTS=no bmake -C contrib/elftoolchain </Command>
+                 <Command>mkdir -p contrib/elftoolchain/build </Command>
+                 <Command>cp contrib/elftoolchain/libelf/libelf.a contrib/elftoolchain/build </Command>
+                 <Command>cp contrib/elftoolchain/libelf/libelf.h contrib/elftoolchain/build </Command>
+                 <Command>cp contrib/elftoolchain/libelf/gelf.h contrib/elftoolchain/build </Command>
+                 <Command>cp contrib/elftoolchain/common/elfdefinitions.h contrib/elftoolchain/build </Command>
+            </Commands>
+            <WorkingDirectory>%(ProjectRoot)</WorkingDirectory>
+            <Comment>Building eBPF</Comment>
+        </CustomCommand>
+        <CustomCommand type="Target">
+            <When>PostBuild</When>
+            <Commands>
+                 <Command>make -C non-GPL/HostIsolationMapsUtil</Command>
+            </Commands>
+            <WorkingDirectory>%(ProjectRoot)</WorkingDirectory>
+            <Comment>Building eBPF</Comment>
+        </CustomCommand>
+        <CustomCommand type="Target">
+            <When>PostBuild</When>
+            <Commands>
+                 <Command>make -C non-GPL/HostIsolation/KprobeConnectHook</Command>
+            </Commands>
+            <WorkingDirectory>%(ProjectRoot)</WorkingDirectory>
+            <Comment>Building eBPF</Comment>
+        </CustomCommand>
+    </CustomCommands>
+
+</RazorProject>
