@@ -1,13 +1,5 @@
-// kernel headers
-#include <linux/if_ether.h>
-#include <linux/ip.h>
-#include <linux/udp.h>
-#include <linux/tcp.h>
-#include <linux/pkt_cls.h>
-#include <linux/swab.h>
-#include <arpa/inet.h>
+//TODO license
 
-// local headers
 #include "kerneldefs.h"
 #include "bpf_helpers.h"
 #include "bpf_endian.h"
