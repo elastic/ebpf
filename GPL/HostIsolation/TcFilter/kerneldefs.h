@@ -1,14 +1,47 @@
-// uncomment if you want to use static definitions in this file instead of kernel headers
-//#define NO_KERNEL_HEADERS 1
+typedef signed char __s8;
 
-#if !defined(NO_KERNEL_HEADERS)
-#include <asm/types.h>
-#else
+typedef unsigned char __u8;
+
+typedef short int __s16;
+
+typedef short unsigned int __u16;
+
+typedef int __s32;
 
 typedef unsigned int __u32;
-typedef unsigned short __u16;
-typedef unsigned long long __u64;
-typedef unsigned char __u8;
+
+typedef long long int __s64;
+
+typedef long long unsigned int __u64;
+
+typedef __s8 s8;
+
+typedef __u8 u8;
+
+typedef __s16 s16;
+
+typedef __u16 u16;
+
+typedef __s32 s32;
+
+typedef __u32 u32;
+
+typedef __s64 s64;
+
+typedef __u64 u64;
+
+typedef __u16 __le16;
+
+typedef __u16 __be16;
+
+typedef __u32 __be32;
+
+typedef __u64 __be64;
+
+typedef __u32 __wsum;
+
+typedef u64 uint64_t;
+
 
 #ifdef __CHECKER__
 #define __bitwise__ __attribute__((bitwise))
@@ -258,10 +291,6 @@ struct ethhdr {
 	__be16		h_proto;		/* packet type ID field	*/
 } __attribute__((packed));
 
-#endif //defined(NO_KERNEL_HEADERS)
-
-
-// included always
 enum bpf_map_type {
 	BPF_MAP_TYPE_UNSPEC,
 	BPF_MAP_TYPE_HASH,
