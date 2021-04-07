@@ -15,14 +15,19 @@
 
 #define NULL 0
 
-struct {
+// not to be defined in production builds
+//#define DEBUG_TRACE_PRINTK
+
+struct
+{
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, sizeof(int));
     __uint(value_size, sizeof(int));
     __uint(max_entries, 512);
 } allowed_IPs SEC(".maps");
 
-struct {
+struct
+{
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, sizeof(int));
     __uint(value_size, sizeof(int));
@@ -34,19 +39,14 @@ add_IP_to_allowlist(__u32 daddr)
 {
     // add new entry
     u32 val = 1;
-    long rv = bpf_map_update_elem(&allowed_IPs, &daddr, &val, BPF_NOEXIST);
+    long rv = bpf_map_update_elem(&allowed_IPs, &daddr, &val, BPF_ANY);
+#ifdef DEBUG_TRACE_PRINTK
     if (rv)
     {
         char errmsg[] = "Error updating hashmap\n";
         bpf_trace_printk(errmsg, sizeof(errmsg));
     }
-
-    char x[] = "NEW IP: %u.%u.%u\n";
-    bpf_trace_printk(x, sizeof(x),
-                        (unsigned char)(daddr & 0xFF),
-                        (unsigned char)(0xFF & (unsigned char)(daddr >> 8)),
-                        (unsigned char)(0xFF & (unsigned char)(daddr >> 16))
-                        );
+#endif
 }
 
 static __always_inline int
@@ -64,12 +64,11 @@ enter_tcp_connect(struct pt_regs *ctx,
     // check if pid is allowed
     elem = bpf_map_lookup_elem(&allowed_pids, &pid);
 
-    if (!elem)
+    if (elem)
     {
-        return 0;
+        // pid is allowed, add destination IP to IP allowlist
+        add_IP_to_allowlist(daddr);
     }
-
-    add_IP_to_allowlist(daddr);
 
     return 0;
 }
