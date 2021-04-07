@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: (LGPL-2.1 OR BSD-2-Clause)
 LIBBPF_OUTPUT := $(abspath ../../../contrib/libbpf/build)
+LIBBPF_INCLUDE := $(abspath ../../contrib/libbpf/include/uapi)
 BPF_SRC_PATH := $(abspath ../../../GPL/HostIsolation/KprobeConnectHook)
 APP_OUTPUT := build
 CLANG ?= clang
 LIBBPF_SRC := $(abspath ../../../contrib/libbpf/src)
 LIBBPF_OBJ := $(abspath ../../../contrib/libbpf/build/libbpf.a)
-INCLUDES := -I$(LIBBPF_OUTPUT)
+INCLUDES := -I$(LIBBPF_OUTPUT) -I$(LIBBPF_INCLUDE)
 CFLAGS := -g -O2 -Wall
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
