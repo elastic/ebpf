@@ -19,7 +19,7 @@ struct
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, sizeof(int));
     __uint(value_size, sizeof(int));
-    __uint(max_entries, 64);
+    __uint(max_entries, 512);
     __uint(pinning, LIBBPF_PIN_BY_NAME);
 } allowed_IPs __section(".maps");
 
