@@ -1,19 +1,17 @@
 // TODO:
 // LICENSE
 //
-// Host Isolation demo eBPF program #2
-//
-// Based on tcpconnect(8) from BCC by Brendan Gregg
+// Host Isolation - this eBPF program hooks into tcp_v4_connect kprobe and adds
+// entries to the IP allowlist if an allowed process tries to initiate a connection.
+
+// flag needed to pick the right PT_REGS macros in bpf_tracing.h
+#define __KERNEL__
 
 #include "kerneldefs.h"
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
-
-#define BPF_ANY 0 //TODO include uapi/linux/bpf.h
-#define BPF_NOEXIST 1
-
-// TODO: shouldnt be necessary to redefine - check if we have __KERNEL__ flag -> the kernel ptrace.h should be included, not the userspace one
-#define PT_REGS_PARM2(x) ((x)->si)
+// taken from libbpf uapi include dir
+#include <linux/bpf.h>
 
 #define NULL 0
 
@@ -80,7 +78,7 @@ SEC("kprobe/tcp_v4_connect")
 int
 tcp_v4_connect__entry(struct pt_regs *ctx) //struct sock *sk, struct sockaddr *uaddr)
 {
-    //important: define ARCH beforehand so that PT_REGS macro gets args for proper arch
+    // important: define ARCH env var so that PT_REGS macro gets args for the proper arch
     struct sockaddr *uaddr = (struct sockaddr*)PT_REGS_PARM2(ctx);
 
     return enter_tcp_connect(ctx, uaddr);
