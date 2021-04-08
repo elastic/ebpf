@@ -49,8 +49,7 @@ add_IP_to_allowlist(__u32 daddr)
 }
 
 static __always_inline int
-enter_tcp_connect(struct pt_regs *ctx,
-                  struct sockaddr *uaddr)
+enter_tcp_connect(struct sockaddr *uaddr)
 {
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     __u32 pid = pid_tgid >> 32;
@@ -72,14 +71,14 @@ enter_tcp_connect(struct pt_regs *ctx,
     return 0;
 }
 
+// IMPORTANT:
+// BPF_KPROBE uses PT_REGS_PARM2 macro underneath to get the arg
+// define ARCH env var so that it gets the argument from the right register
 SEC("kprobe/tcp_v4_connect")
 int
-tcp_v4_connect__entry(struct pt_regs *ctx) //struct sock *sk, struct sockaddr *uaddr)
+BPF_KPROBE(tcp_v4_connect, void *sk, struct sockaddr *uaddr)
 {
-    // important: define ARCH env var so that PT_REGS macro gets args for the proper arch
-    struct sockaddr *uaddr = (struct sockaddr*)PT_REGS_PARM2(ctx);
-
-    return enter_tcp_connect(ctx, uaddr);
+    return enter_tcp_connect(uaddr);
 }
 
 char LICENSE[] SEC("license") = "GPL";
