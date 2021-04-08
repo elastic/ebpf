@@ -43,8 +43,7 @@ add_IP_to_allowlist(__u32 daddr)
 #ifdef DEBUG_TRACE_PRINTK
     if (rv)
     {
-        char errmsg[] = "Error updating hashmap\n";
-        bpf_trace_printk(errmsg, sizeof(errmsg));
+        bpf_printk("Error updating hashmap\n");
     }
 #endif
 }
