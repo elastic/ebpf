@@ -49,7 +49,7 @@ main(int argc,
         rv = -1;
         goto cleanup;
     }
-    printf("BPF MAP LOADED\n");
+    printf("BPF ALLOWED_IPS MAP LOADED\n");
 
     result = bpf_map__set_pin_path(ip_map, "/sys/fs/bpf/tc/globals/allowed_IPs");
     if (result)
@@ -65,7 +65,7 @@ main(int argc,
         rv = -1;
         goto cleanup;
     }
-    printf("BPF MAP #2 LOADED\n");
+    printf("BPF ALLOWED_PIDS MAP LOADED\n");
 
     result = bpf_map__set_pin_path(pids_map, "/sys/fs/bpf/elastic/endpoint/allowed_pids");
     if (result)
@@ -80,7 +80,7 @@ main(int argc,
         rv = -1;
         goto cleanup;
     }
-    printf("BPF PROG LOADED\n");
+    printf("BPF PROGRAM LOADED\n");
 
     prog = bpf_object__find_program_by_title(obj, "kprobe/tcp_v4_connect");
     if (!prog || libbpf_get_error(prog))
@@ -97,9 +97,10 @@ main(int argc,
         rv = -1;
         goto cleanup;
     }
-    printf("BPF PROG ATTACHED\n");
+    printf("BPF PROGRAM ATTACHED TO KPROBE\n");
 
     // eBPF program is detached by the kernel when process terminates
+    // sleep for 25 days
     sleep(10*60*60*60);
 
 cleanup:
