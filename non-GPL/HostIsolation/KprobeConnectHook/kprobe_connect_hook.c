@@ -113,8 +113,8 @@ main(int argc,
     dprintf("BPF PROGRAM ATTACHED TO KPROBE\n");
 
     // eBPF program is detached by the kernel when process terminates
-    // sleep for 25 days
-    sleep(10*60*60*60);
+    // sleep forever
+    while(1);
 
 cleanup:
     if (link && !libbpf_get_error(link))
