@@ -58,7 +58,7 @@ main(int argc,
     ip_map = bpf_object__find_map_by_name(obj, "allowed_IPs");
     if (!ip_map || libbpf_get_error(ip_map))
     {
-        printf("failed to load BPF map\n");
+        printf("failed to load allowed_IPs BPF map\n");
         rv = -1;
         goto cleanup;
     }
@@ -74,7 +74,7 @@ main(int argc,
     pids_map = bpf_object__find_map_by_name(obj, "allowed_pids");
     if (!pids_map || libbpf_get_error(pids_map))
     {
-        printf("failed to load BPF map\n");
+        printf("failed to load allowed_pids BPF map\n");
         rv = -1;
         goto cleanup;
     }
