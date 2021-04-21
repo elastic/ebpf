@@ -52,19 +52,19 @@ static __always_inline int
 enter_tcp_connect(struct sockaddr *uaddr)
 {
     __u64 pid_tgid = bpf_get_current_pid_tgid();
-    __u32 pid = pid_tgid >> 32;
+    __u32 tgid = pid_tgid >> 32;
     __u32 *elem = NULL;
     __u32 daddr = 0;
 
     struct sockaddr_in *sin = (struct sockaddr_in*)uaddr;
     bpf_probe_read(&daddr, sizeof(daddr), &sin->sin_addr.s_addr);
 
-    // check if pid is allowed
-    elem = bpf_map_lookup_elem(&allowed_pids, &pid);
+    // check if tgid (userspace PID) is allowed
+    elem = bpf_map_lookup_elem(&allowed_pids, &tgid);
 
     if (elem)
     {
-        // pid is allowed, add destination IP to IP allowlist
+        // tgid (userspace PID) is allowed, add destination IP to IP allowlist
         add_IP_to_allowlist(daddr);
     }
 
