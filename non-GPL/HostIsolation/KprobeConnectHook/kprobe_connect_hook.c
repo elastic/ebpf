@@ -10,6 +10,7 @@
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
 #include <arpa/inet.h>
+#include <sys/stat.h>
 
 // enable debug logging
 #define DEBUG 1
@@ -70,7 +71,21 @@ main(int argc,
         printf("error setting pin path for map\n");
     }
 
-    /* pin allowed_pids map when program is loaded */
+    // create elastic/endpoint dir in bpf fs
+    if (mkdir("/sys/fs/bpf/elastic", 0700) && errno != EEXIST)
+    {
+        printf("failed to create /sys/fs/bpf/elastic dir, err=%d\n", errno);
+        rv = -1;
+        goto cleanup;
+    }
+    if (mkdir("/sys/fs/bpf/elastic/endpoint", 0700) && errno != EEXIST)
+    {
+        printf("failed to create /sys/fs/bpf/elastic/endpoint dir, err=%d\n", errno);
+        rv = -1;
+        goto cleanup;
+    }
+
+    // pin allowed_pids map when program is loaded
     pids_map = bpf_object__find_map_by_name(obj, "allowed_pids");
     if (!pids_map || libbpf_get_error(pids_map))
     {
