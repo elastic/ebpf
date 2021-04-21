@@ -68,7 +68,9 @@ main(int argc,
     result = bpf_map__set_pin_path(ip_map, "/sys/fs/bpf/tc/globals/allowed_IPs");
     if (result)
     {
-        printf("error setting pin path for map\n");
+        printf("failed to set pin path for allowed_IPs map\n");
+        rv = -1;
+        goto cleanup;
     }
 
     // create elastic/endpoint dir in bpf fs
@@ -98,7 +100,9 @@ main(int argc,
     result = bpf_map__set_pin_path(pids_map, "/sys/fs/bpf/elastic/endpoint/allowed_pids");
     if (result)
     {
-        printf("error setting pin path for map\n");
+        printf("failed to set pin path for allowed_pids map\n");
+        rv = -1;
+        goto cleanup;
     }
 
     prog_fd = bpf_object__load(obj);
