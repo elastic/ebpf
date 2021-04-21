@@ -21,16 +21,16 @@
 struct
 {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(key_size, sizeof(int));
-    __uint(value_size, sizeof(int));
+    __uint(key_size, sizeof(u32));
+    __uint(value_size, sizeof(u32));
     __uint(max_entries, 512);
 } allowed_IPs SEC(".maps");
 
 struct
 {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(key_size, sizeof(int));
-    __uint(value_size, sizeof(int));
+    __uint(key_size, sizeof(u32));
+    __uint(value_size, sizeof(u32));
     __uint(max_entries, 128);
 } allowed_pids SEC(".maps");
 
