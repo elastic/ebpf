@@ -13,12 +13,12 @@
 #include <sys/stat.h>
 
 // enable debug logging
-#define DEBUG 1
+#define DEBUG
 
 #ifdef DEBUG
-#define dprintf(fmt, ...) printf(fmt, ##__VA_ARGS__)
+#define dbg_printf(fmt, ...) printf(fmt, ##__VA_ARGS__)
 #else
-#define dprintf(fmt, ...)
+#define dbg_printf(fmt, ...)
 #endif
 
 static int
@@ -54,7 +54,7 @@ main(int argc,
         rv = -1;
         goto cleanup;
     }
-    dprintf("BPF FILE OPENED\n");
+    dbg_printf("BPF FILE OPENED\n");
 
     ip_map = bpf_object__find_map_by_name(obj, "allowed_IPs");
     if (!ip_map || libbpf_get_error(ip_map))
@@ -63,7 +63,7 @@ main(int argc,
         rv = -1;
         goto cleanup;
     }
-    dprintf("BPF ALLOWED_IPS MAP LOADED\n");
+    dbg_printf("BPF ALLOWED_IPS MAP LOADED\n");
 
     result = bpf_map__set_pin_path(ip_map, "/sys/fs/bpf/tc/globals/allowed_IPs");
     if (result)
@@ -95,7 +95,7 @@ main(int argc,
         rv = -1;
         goto cleanup;
     }
-    dprintf("BPF ALLOWED_PIDS MAP LOADED\n");
+    dbg_printf("BPF ALLOWED_PIDS MAP LOADED\n");
 
     result = bpf_map__set_pin_path(pids_map, "/sys/fs/bpf/elastic/endpoint/allowed_pids");
     if (result)
@@ -112,7 +112,7 @@ main(int argc,
         rv = -1;
         goto cleanup;
     }
-    dprintf("BPF PROGRAM LOADED\n");
+    dbg_printf("BPF PROGRAM LOADED\n");
 
     prog = bpf_object__find_program_by_title(obj, "kprobe/tcp_v4_connect");
     if (!prog || libbpf_get_error(prog))
@@ -129,7 +129,7 @@ main(int argc,
         rv = -1;
         goto cleanup;
     }
-    dprintf("BPF PROGRAM ATTACHED TO KPROBE\n");
+    dbg_printf("BPF PROGRAM ATTACHED TO KPROBE\n");
 
     // eBPF program is detached by the kernel when process terminates
     // sleep forever
