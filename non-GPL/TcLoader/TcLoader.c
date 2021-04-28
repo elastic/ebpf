@@ -66,17 +66,17 @@ enum
 
 struct rtnetlink_handle
 {
-    int         fd;
+    int                 fd;
     struct sockaddr_nl  local;
     struct sockaddr_nl  peer;
-    __u32           seq;
-    __u32           dump;
-    int         proto;
+    __u32               seq;
+    __u32               dump;
+    int                 proto;
     FILE               *dump_fp;
 #define RTNL_HANDLE_F_LISTEN_ALL_NSID       0x01
 #define RTNL_HANDLE_F_SUPPRESS_NLERR        0x02
 #define RTNL_HANDLE_F_STRICT_CHK        0x04
-    int         flags;
+    int                 flags;
 };
 
 
@@ -96,6 +96,7 @@ attr_put(struct nlmsghdr *n,
          int attr_len)
 {
     int len = RTA_LENGTH(attr_len);
+    struct rtattr *rta = NULL;
     int rv = -1;
 
     if (NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len) > max)
@@ -105,7 +106,6 @@ attr_put(struct nlmsghdr *n,
         goto out;
     }
 
-    struct rtattr *rta = NULL;
     rta = NLMSG_TAIL(n);
     rta->rta_len = len;
     rta->rta_type = type;
@@ -142,7 +142,7 @@ attr_put_str(struct nlmsghdr *n,
 static void
 rtnetlink_close(struct rtnetlink_handle *r)
 {
-    if (r->fd >= 0)
+    if (r->fd > 0)
     {
         close(r->fd);
         r->fd = -1;
@@ -163,6 +163,13 @@ rtnetlink_open(struct rtnetlink_handle *rth)
     int receivebuf = 1024 * 1024;
     int one = 1;
     int rv = -1;
+
+    if (rth == NULL)
+    {
+        fprintf(stderr, "error: rth is NULL\n");
+        rv = -1;
+        goto out;
+    }
 
     memset(rth, 0, sizeof(*rth));
 
@@ -316,6 +323,7 @@ rtnetlink_send(struct rtnetlink_handle *rtnl,
         .iov_base = nlmsg,
         .iov_len = nlmsg->nlmsg_len
     };
+    struct iovec riov = {0};
 
     struct sockaddr_nl nladdr =
     {
@@ -349,7 +357,6 @@ rtnetlink_send(struct rtnetlink_handle *rtnl,
     }
 
     /* switch to response iov */
-    struct iovec riov;
     memset(&riov, 0, sizeof(riov));
     msg.msg_iov = &riov;
     msg.msg_iovlen = 1;
@@ -453,7 +460,10 @@ netlink_qdisc(int cmd,
               unsigned int flags)
 {
     int rv = -1;
-    struct rtnetlink_handle qdisc_rth = {0};
+    struct rtnetlink_handle qdisc_rth =
+    {
+        .fd = -1
+    };
     struct 
     {
         struct nlmsghdr n;
@@ -510,8 +520,12 @@ netlink_qdisc_del()
     return netlink_qdisc(RTM_DELQDISC, 0);
 }
 
+/* Global variables used by netlink_filter_add_begin/end */
 struct rtattr *tail;
-struct rtnetlink_handle filter_rth = {0};
+struct rtnetlink_handle filter_rth =
+{
+    .fd = -1
+};
 
 struct
 {
@@ -530,6 +544,8 @@ static int
 netlink_filter_add_begin()
 {
     int rv = -1;
+    __u32 protocol = 0;
+    struct nlmsghdr *n = NULL;
 
     if (rtnetlink_open(&filter_rth) < 0)
     {
@@ -539,7 +555,7 @@ netlink_filter_add_begin()
         goto out;
     }
 
-    __u32 protocol = htons(ETH_P_ALL);
+    protocol = htons(ETH_P_ALL);
     filter_req.t.tcm_parent = TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_EGRESS);
     filter_req.t.tcm_info = TC_H_MAKE(0 << 16, protocol);
     attr_put(&filter_req.n, sizeof(filter_req), TCA_KIND, "bpf", strlen("bpf") + 1);
@@ -553,7 +569,7 @@ netlink_filter_add_begin()
         goto out;
     } 
 
-    struct nlmsghdr *n = &filter_req.n;
+    n = &filter_req.n;
     tail = (struct rtattr *)(((void *)n) + NLMSG_ALIGN(n->nlmsg_len));
     attr_put(n, MAX_MSG, TCA_OPTIONS, NULL, 0);
     
@@ -680,7 +696,7 @@ main(int argc,
     }
     printf("BPF PROG LOADED\n");
 
-    prog_fd_dupd = fcntl(bpf_program__fd(prog), F_DUPFD_CLOEXEC, 1);
+    prog_fd_dupd = fcntl(bpf_program__fd(prog), F_DUPFD, 1);
     if (prog_fd_dupd < 0)
     {
         printf("bad prog_fd_dupd\n");
