@@ -65,7 +65,7 @@ main(int argc,
     }
     dbg_printf("BPF ALLOWED_IPS MAP LOADED\n");
 
-    result = bpf_map__set_pin_path(ip_map, "/sys/fs/bpf/tc/globals/allowed_IPs");
+    result = bpf_map__set_pin_path(ip_map, "/sys/fs/bpf/elastic/endpoint/allowed_IPs");
     if (result)
     {
         printf("failed to set pin path for allowed_IPs map\n");

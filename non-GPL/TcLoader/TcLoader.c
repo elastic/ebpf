@@ -24,6 +24,9 @@
 /* UPDATE ACCORDINGLY */
 #define IFNAME_TO_ATTACH_TO "ens33"
 #define EBPF_OBJ_FILE_NAME "tc_filter.o"
+#define EBPF_MAP_PARENT_DIRECTORY "/sys/fs/bpf/elastic"
+#define EBPF_MAP_DIRECTORY "/sys/fs/bpf/elastic/endpoint"
+#define EBPF_MAP_NAME "allowed_IPs"
 
 /* maximum netlink message size */
 #define MAX_MSG 16384
@@ -650,9 +653,17 @@ main(int argc,
         goto out;
     }
 
-    if (mkdir("/sys/fs/bpf/tc/globals", 0700) && errno != EEXIST)
+    /* create elastic/endpoint dir in bpf fs */
+    if (mkdir(EBPF_MAP_PARENT_DIRECTORY, 0700) && errno != EEXIST)
     {
-        fprintf(stderr, "failed to create directory: /sys/fs/bpf/tc/globals\n");
+        fprintf(stderr, "failed to create directory: " EBPF_MAP_PARENT_DIRECTORY " ,err=%d\n", errno);
+        rv = -1;
+        goto out;
+    }
+
+    if (mkdir(EBPF_MAP_DIRECTORY, 0700) && errno != EEXIST)
+    {
+        fprintf(stderr, "failed to create directory: " EBPF_MAP_DIRECTORY " ,err=%d\n", errno);
         rv = -1;
         goto out;
     }
@@ -661,7 +672,7 @@ main(int argc,
 
     DECLARE_LIBBPF_OPTS(bpf_object_open_opts, open_opts,
         .relaxed_maps = true,
-        .pin_root_path = "/sys/fs/bpf/tc/globals",
+        .pin_root_path = EBPF_MAP_DIRECTORY,
     );
 
     obj = bpf_object__open_file(EBPF_OBJ_FILE_NAME, &open_opts);
@@ -683,7 +694,7 @@ main(int argc,
     bpf_object__for_each_map(map, obj)
     {
         bpf_map__set_ifindex(map, 0); //?
-        bpf_map__set_pin_path(map, "/sys/fs/bpf/tc/globals/allowed_IPs");
+        bpf_map__set_pin_path(map, EBPF_MAP_DIRECTORY "/" EBPF_MAP_NAME);
     }
 
     rv = bpf_object__load(obj);

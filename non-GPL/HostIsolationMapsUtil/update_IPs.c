@@ -45,10 +45,10 @@ main(int argc,
     // values are not used in the hash map
     val = 1;
 
-    map_IPs_fd = bpf_obj_get("/sys/fs/bpf/tc/globals/allowed_IPs");
+    map_IPs_fd = bpf_obj_get("/sys/fs/bpf/elastic/endpoint/allowed_IPs");
     if (map_IPs_fd < 0)
     {
-        printf("Error: run with sudo or make sure /sys/fs/bpf/tc/globals/allowed_IPs exists\n");
+        printf("Error: run with sudo or make sure /sys/fs/bpf/elastic/endpoint/allowed_IPs exists\n");
         rv = -1;
         goto cleanup;
     }
