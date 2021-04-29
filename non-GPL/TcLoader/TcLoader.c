@@ -145,7 +145,7 @@ attr_put_str(struct nlmsghdr *n,
 static void
 rtnetlink_close(struct rtnetlink_handle *r)
 {
-    if (r->fd > 0)
+    if (r->fd >= 0)
     {
         close(r->fd);
         r->fd = -1;
@@ -656,14 +656,14 @@ main(int argc,
     /* create elastic/endpoint dir in bpf fs */
     if (mkdir(EBPF_MAP_PARENT_DIRECTORY, 0700) && errno != EEXIST)
     {
-        fprintf(stderr, "failed to create directory: " EBPF_MAP_PARENT_DIRECTORY " ,err=%d\n", errno);
+        perror("failed to create directory: " EBPF_MAP_PARENT_DIRECTORY);
         rv = -1;
         goto out;
     }
 
     if (mkdir(EBPF_MAP_DIRECTORY, 0700) && errno != EEXIST)
     {
-        fprintf(stderr, "failed to create directory: " EBPF_MAP_DIRECTORY " ,err=%d\n", errno);
+        perror("failed to create directory: " EBPF_MAP_DIRECTORY);
         rv = -1;
         goto out;
     }
@@ -707,10 +707,10 @@ main(int argc,
     }
     printf("BPF PROG LOADED\n");
 
-    prog_fd_dupd = fcntl(bpf_program__fd(prog), F_DUPFD, 1);
+    prog_fd_dupd = fcntl(bpf_program__fd(prog), F_DUPFD_CLOEXEC, 1);
     if (prog_fd_dupd < 0)
     {
-        printf("bad prog_fd_dupd\n");
+        perror("bad prog_fd_dupd");
         bpf_object__close(obj);
         rv = -1;
         goto out;
@@ -723,12 +723,14 @@ main(int argc,
     if (netlink_filter_add_end(prog_fd_dupd) != 0)
     {
         fprintf(stderr, "filter_add_end() failed\n");
+        close(prog_fd_dupd);
         rv = -1;
         goto out;
     }
 
     printf("BPF PROG ATTACHED TO TC\n");
 
+    close(prog_fd_dupd);
     rv = 0;
 
 out:
