@@ -1,8 +1,7 @@
 // TODO:
 // LICENSE
 //
-// Host Isolation standalone demo
-// Loader for eBPF program #1 (replacement for 'tc filter add')
+// Loader for tc eBPF programs
 // 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,24 +10,11 @@
 #include <time.h>
 #include <fcntl.h>
 
-#include <bpf/bpf.h>
-#include <bpf/libbpf.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-
-#include <net/if.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 
 #include <Common.h>
-
-/* UPDATE ACCORDINGLY */
-#define IFNAME_TO_ATTACH_TO "ens33"
-#define EBPF_OBJ_FILE_NAME "tc_filter.o"
-
-/* maximum netlink message size */
-#define MAX_MSG 16384
+#include "TcLoader.h"
 
 /* linux definitions */
 #define SOL_NETLINK 270
@@ -66,29 +52,6 @@ enum
 #define NLMSG_TAIL(nmsg) \
     ((struct rtattr *) (((void *) (nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
 
-struct rtnetlink_handle
-{
-    int                 fd;
-    struct sockaddr_nl  local;
-    struct sockaddr_nl  peer;
-    __u32               seq;
-    __u32               dump;
-    int                 proto;
-    FILE               *dump_fp;
-#define RTNL_HANDLE_F_LISTEN_ALL_NSID       0x01
-#define RTNL_HANDLE_F_SUPPRESS_NLERR        0x02
-#define RTNL_HANDLE_F_STRICT_CHK        0x04
-    int                 flags;
-};
-
-
-static int 
-libbpf_print_fn(enum libbpf_print_level level,
-                const char *format,
-                va_list args)
-{
-    return vfprintf(stderr, format, args);
-}
 
 static int
 attr_put(struct nlmsghdr *n,
@@ -103,7 +66,7 @@ attr_put(struct nlmsghdr *n,
 
     if (NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len) > max)
     {
-        fprintf(stderr, "attr_put error: message longer than %d\n", max);
+        ebpf_log("attr_put error: message longer than %d\n", max);
         rv = -1;
         goto out;
     }
@@ -154,7 +117,7 @@ rtnetlink_close(struct rtnetlink_handle *r)
 static void
 rtnetlink_send_error(struct nlmsgerr *err)
 {
-    fprintf(stderr, "rtnetlink replied: %s\n", strerror(-err->error));
+    ebpf_log("rtnetlink replied: %s\n", strerror(-err->error));
 }
 
 static int
@@ -168,7 +131,7 @@ rtnetlink_open(struct rtnetlink_handle *rth)
 
     if (rth == NULL)
     {
-        fprintf(stderr, "error: rth is NULL\n");
+        ebpf_log("error: rth is NULL\n");
         rv = -1;
         goto out;
     }
@@ -179,7 +142,7 @@ rtnetlink_open(struct rtnetlink_handle *rth)
     rth->fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
     if (rth->fd < 0)
     {
-        perror("cannot open netlink socket");
+        ebpf_log("cannot open netlink socket\n");
         rv = -1;
         goto out;
     }
@@ -187,7 +150,7 @@ rtnetlink_open(struct rtnetlink_handle *rth)
     if (setsockopt(rth->fd, SOL_SOCKET, SO_SNDBUF,
                &sendbuf, sizeof(sendbuf)) < 0)
     {
-        perror("error setsockopt sendbuf");
+        ebpf_log("error setsockopt sendbuf\n");
         rv = -1;
         goto out;
     }
@@ -195,7 +158,7 @@ rtnetlink_open(struct rtnetlink_handle *rth)
     if (setsockopt(rth->fd, SOL_SOCKET, SO_RCVBUF,
                &receivebuf, sizeof(receivebuf)) < 0)
     {
-        perror("error setsockopt receivebuf");
+        ebpf_log("error setsockopt receivebuf\n");
         rv = -1;
         goto out;
     }
@@ -203,7 +166,7 @@ rtnetlink_open(struct rtnetlink_handle *rth)
     if (setsockopt(rth->fd, SOL_NETLINK, NETLINK_EXT_ACK,
            &one, sizeof(one)))
     {
-        perror("error setsockopt netlink");
+        ebpf_log("error setsockopt netlink\n");
         rv = -1;
         goto out;
     }
@@ -216,7 +179,7 @@ rtnetlink_open(struct rtnetlink_handle *rth)
     if (bind(rth->fd, (struct sockaddr *)&rth->local,
          sizeof(rth->local)) < 0)
     {
-        perror("failed to bind netlink socket");
+        ebpf_log("failed to bind netlink socket\n");
         rv = -1;
         goto out;
     }
@@ -224,19 +187,19 @@ rtnetlink_open(struct rtnetlink_handle *rth)
     if (getsockname(rth->fd, (struct sockaddr *)&rth->local,
             &address_len) < 0)
     {
-        perror("error getsockname");
+        ebpf_log("error getsockname\n");
         rv = -1;
         goto out;
     }
     if (address_len != sizeof(rth->local))
     {
-        fprintf(stderr, "bad address length %d\n", address_len);
+        ebpf_log("bad address length %d\n", address_len);
         rv = -1;
         goto out;
     }
     if (rth->local.nl_family != AF_NETLINK)
     {
-        fprintf(stderr, "bad address family %d\n",
+        ebpf_log("bad address family %d\n",
             rth->local.nl_family);
         rv = -1;
         goto out;
@@ -260,7 +223,7 @@ rtnetlink_recv(int fd,
 
     if (!msg)
     {
-        fprintf(stderr, "rtnetlink_recv error: NULL parameter\n");
+        ebpf_log("rtnetlink_recv error: NULL parameter\n");
         rv = -1;
         goto out;
     }
@@ -276,7 +239,7 @@ rtnetlink_recv(int fd,
 
     if (len <= 0)
     {
-        fprintf(stderr, "netlink recv error \n");
+        ebpf_log("netlink recv error \n");
         rv = len;
         goto out;
     }
@@ -289,7 +252,7 @@ rtnetlink_recv(int fd,
     buf = malloc(len);
     if (!buf)
     {
-        fprintf(stderr, "malloc error \n");
+        ebpf_log("malloc error \n");
         rv = -ENOMEM;
         goto out;
     }
@@ -305,7 +268,7 @@ rtnetlink_recv(int fd,
     if (len <= 0)
     {
         free(buf);
-        fprintf(stderr, "netlink recv error \n");
+        ebpf_log("netlink recv error \n");
         rv = len;
         goto out;
     }
@@ -356,7 +319,7 @@ rtnetlink_send(struct rtnetlink_handle *rtnl,
 
     if (!rtnl || !nlmsg)
     {
-        fprintf(stderr, "rtnetlink_send error: NULL parameter\n");
+        ebpf_log("rtnetlink_send error: NULL parameter\n");
         rv = -1;
         goto out;
     }
@@ -368,7 +331,7 @@ rtnetlink_send(struct rtnetlink_handle *rtnl,
 
     if (sendmsg(rtnl->fd, &msg, 0) < 0)
     {
-        perror("failure talking to rtnetlink");
+        ebpf_log("failure talking to rtnetlink\n");
         rv = -1;
         goto out;
     }
@@ -388,7 +351,7 @@ rtnetlink_send(struct rtnetlink_handle *rtnl,
 
     if (msg.msg_namelen != sizeof(nladdr))
     {
-        fprintf(stderr, "sender addr length == %d\n",
+        ebpf_log("sender addr length == %d\n",
             msg.msg_namelen);
         rv = -1;
         goto out;
@@ -403,11 +366,11 @@ rtnetlink_send(struct rtnetlink_handle *rtnl,
         {
             if (msg.msg_flags & MSG_TRUNC)
             {
-                fprintf(stderr, "truncated message\n");
+                ebpf_log("truncated message\n");
                 rv = -1;
                 goto out;
             }
-            fprintf(stderr, "bad message length: len=%d\n", len);
+            ebpf_log("bad message length: len=%d\n", len);
             rv = -1;
             goto out;
         }
@@ -430,7 +393,7 @@ rtnetlink_send(struct rtnetlink_handle *rtnl,
 
             if (l < sizeof(struct nlmsgerr))
             {
-                fprintf(stderr, "error truncated\n");
+                ebpf_log("error truncated\n");
                 rv = -1;
                 goto out;
             }
@@ -444,7 +407,7 @@ rtnetlink_send(struct rtnetlink_handle *rtnl,
             goto out;
         }
 
-        fprintf(stderr, "bad netlink reply\n");
+        ebpf_log("bad netlink reply\n");
 
         recv_len -= NLMSG_ALIGN(len);
         h = (struct nlmsghdr *)((char *)h + NLMSG_ALIGN(len));
@@ -452,14 +415,14 @@ rtnetlink_send(struct rtnetlink_handle *rtnl,
 
     if (msg.msg_flags & MSG_TRUNC)
     {
-        fprintf(stderr, "message truncated\n");
+        ebpf_log("message truncated\n");
         rv = -1;
         goto out;
     }
 
     if (recv_len)
     {
-        fprintf(stderr, "uneven reply, remained: %d\n", recv_len);
+        ebpf_log("uneven reply, remained: %d\n", recv_len);
         rv = -1;
         goto out;
     }
@@ -474,19 +437,15 @@ out:
 
 static int 
 netlink_qdisc(int cmd, 
-              unsigned int flags)
+              unsigned int flags,
+              const char *ifname)
 {
     int rv = -1;
     struct rtnetlink_handle qdisc_rth =
     {
         .fd = -1
     };
-    struct 
-    {
-        struct nlmsghdr n;
-        struct tcmsg    t;
-        char        buf[MAX_MSG];
-    } qdisc_req = 
+    struct netlink_msg qdisc_req = 
     {
         .n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg)),
         .n.nlmsg_flags = NLM_F_REQUEST | flags,
@@ -494,9 +453,16 @@ netlink_qdisc(int cmd,
         .t.tcm_family = AF_UNSPEC,
     };
 
+    if (!ifname)
+    {
+        ebpf_log("netlink_qdisc error: NULL parameter\n");
+        rv = -1;
+        goto out;
+    }
+
     if (rtnetlink_open(&qdisc_rth) < 0)
     {
-        fprintf(stderr, "failed to open netlink\n");
+        ebpf_log("failed to open netlink\n");
         rv = -1;
         goto out;
     }
@@ -504,17 +470,17 @@ netlink_qdisc(int cmd,
     qdisc_req.t.tcm_handle = TC_H_MAKE(TC_H_CLSACT, 0);
     attr_put(&qdisc_req.n, sizeof(qdisc_req), TCA_KIND, "clsact", strlen("clsact") + 1);
 
-    qdisc_req.t.tcm_ifindex = if_nametoindex(IFNAME_TO_ATTACH_TO);
+    qdisc_req.t.tcm_ifindex = if_nametoindex(ifname);
     if (qdisc_req.t.tcm_ifindex == 0)
     {
-        fprintf(stderr, "failed to find device %s\n", IFNAME_TO_ATTACH_TO);
+        ebpf_log("failed to find device %s\n", ifname);
         rv = -1;
         goto out;
     } 
     /* talk to netlink */
     if (rtnetlink_send(&qdisc_rth, &qdisc_req.n) < 0)
     {
-        fprintf(stderr, "error talking to the kernel (rtnetlink_send)\n");
+        ebpf_log("error talking to the kernel (rtnetlink_send)\n");
         rv = -1;
         goto out;
     }
@@ -525,69 +491,65 @@ out:
     return rv;
 }
 
-static int 
-netlink_qdisc_add()
+int 
+netlink_qdisc_add(const char *ifname)
 {
-    return netlink_qdisc(RTM_NEWQDISC, NLM_F_EXCL | NLM_F_CREATE);
+    return netlink_qdisc(RTM_NEWQDISC, NLM_F_EXCL | NLM_F_CREATE, ifname);
 }
 
-static int
-netlink_qdisc_del()
+int
+netlink_qdisc_del(const char *ifname)
 {
-    return netlink_qdisc(RTM_DELQDISC, 0);
+    return netlink_qdisc(RTM_DELQDISC, 0, ifname);
 }
 
-/* Global variables used by netlink_filter_add_begin/end */
-struct rtattr *tail;
-struct rtnetlink_handle filter_rth =
-{
-    .fd = -1
-};
-
-struct
-{
-    struct nlmsghdr n;
-    struct tcmsg    t;
-    char        buf[MAX_MSG];
-} filter_req =
-{
-    .n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg)),
-    .n.nlmsg_flags = NLM_F_REQUEST | NLM_F_EXCL | NLM_F_CREATE,
-    .n.nlmsg_type = RTM_NEWTFILTER,
-    .t.tcm_family = AF_UNSPEC,
-};
-
-static int 
-netlink_filter_add_begin()
+int 
+netlink_filter_add_begin(struct netlink_ctx *ctx,
+                         const char *ifname)
 {
     int rv = -1;
     __u32 protocol = 0;
     struct nlmsghdr *n = NULL;
 
-    if (rtnetlink_open(&filter_rth) < 0)
+    if (!ctx)
     {
-        fprintf(stderr, "failed to open netlink\n");
-        rtnetlink_close(&filter_rth);
+        ebpf_log("netlink_filter_add_begin error: NULL parameter\n");
+        rv = -1;
+        goto out;
+    }
+
+    /* Initialize context for filter add */
+    memset(ctx, 0, sizeof(*ctx));
+    ctx->filter_rth.fd = -1;
+    ctx->msg.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg));
+    ctx->msg.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_EXCL | NLM_F_CREATE;
+    ctx->msg.n.nlmsg_type = RTM_NEWTFILTER;
+    ctx->msg.t.tcm_family = AF_UNSPEC;
+
+    if (rtnetlink_open(&ctx->filter_rth) < 0)
+    {
+        ebpf_log("failed to open netlink\n");
+        rtnetlink_close(&ctx->filter_rth);
         rv = -1;
         goto out;
     }
 
     protocol = htons(ETH_P_ALL);
-    filter_req.t.tcm_parent = TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_EGRESS);
-    filter_req.t.tcm_info = TC_H_MAKE(0 << 16, protocol);
-    attr_put(&filter_req.n, sizeof(filter_req), TCA_KIND, "bpf", strlen("bpf") + 1);
+    ctx->msg.t.tcm_parent = TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_EGRESS);
+    ctx->msg.t.tcm_info = TC_H_MAKE(0 << 16, protocol);
+    attr_put(&ctx->msg.n, sizeof(ctx->msg), TCA_KIND, "bpf", strlen("bpf") + 1);
     
-    filter_req.t.tcm_ifindex = if_nametoindex(IFNAME_TO_ATTACH_TO);
-    if (filter_req.t.tcm_ifindex == 0)
+    ctx->msg.t.tcm_ifindex = if_nametoindex(ifname);
+    if (ctx->msg.t.tcm_ifindex == 0)
     {
-        fprintf(stderr, "failed to find device %s\n", IFNAME_TO_ATTACH_TO);
-        rtnetlink_close(&filter_rth);
+        ebpf_log("failed to find device %s\n", ifname);
+        rtnetlink_close(&ctx->filter_rth);
         rv = -1;
         goto out;
     } 
 
-    n = &filter_req.n;
-    tail = (struct rtattr *)(((void *)n) + NLMSG_ALIGN(n->nlmsg_len));
+    n = &ctx->msg.n;
+    ctx->tail = (struct rtattr *)(((void *)n) + NLMSG_ALIGN(n->nlmsg_len));
     attr_put(n, MAX_MSG, TCA_OPTIONS, NULL, 0);
     
     rv = 0;
@@ -595,158 +557,48 @@ out:
     return rv;
 }
 
-static int 
-netlink_filter_add_end(int fd)
+int 
+netlink_filter_add_end(int fd,
+                       struct netlink_ctx *ctx,
+                       const char *ebpf_obj_filename)
 {
-    struct nlmsghdr *nl = &filter_req.n;
+    struct nlmsghdr *nl = &ctx->msg.n;
+    char buf[128];
     int rv = -1;
+    int len = 0;
+
+    memset(&buf, 0, sizeof(buf));
+
+    if (!ebpf_obj_filename)
+    {
+        ebpf_log("netlink_filter_add_end error: NULL parameter\n");
+        rv = -1;
+        goto out;
+    }
+
+    len = snprintf(buf, sizeof(buf), "%s:[.text]", ebpf_obj_filename);
+    if (len < 0 || len >= sizeof(buf))
+    {
+        ebpf_log("netlink_filter_add_end error: filename too long\n");
+        rv = -1;
+        goto out;
+    }
 
     attr_put_32(nl, MAX_MSG, TCA_BPF_FD, fd);
-    attr_put_str(nl, MAX_MSG, TCA_BPF_NAME, EBPF_OBJ_FILE_NAME ":[.text]");
+    attr_put_str(nl, MAX_MSG, TCA_BPF_NAME, buf);
     attr_put_32(nl, MAX_MSG, TCA_BPF_FLAGS, TCA_BPF_FLAG_ACT_DIRECT);   
-    tail->rta_len = (((void *)nl) + nl->nlmsg_len) - (void *)tail;
+    ctx->tail->rta_len = (((void *)nl) + nl->nlmsg_len) - (void *)ctx->tail;
 
     /* talk to netlink */
-    if (rtnetlink_send(&filter_rth, &filter_req.n) < 0)
+    if (rtnetlink_send(&ctx->filter_rth, &ctx->msg.n) < 0)
     {
-        fprintf(stderr, "error talking to the kernel (rtnetlink_send)\n");
+        ebpf_log("error talking to the kernel (rtnetlink_send)\n");
         rv = -1;
         goto out;
     }
 
     rv = 0;
 out:
-    rtnetlink_close(&filter_rth);
-    return rv;
-}
-
-int 
-main(int argc, 
-     char **argv)
-{
-    struct bpf_program *prog = NULL;
-    struct bpf_program *p = NULL;
-    struct bpf_object *obj = NULL;
-    struct bpf_map *map = NULL;
-    int prog_fd_dupd = 0;
-    int rv = -1;
-
-    /* do the same things as 'tc qdisc del dev <iface> clsact' */
-    if (netlink_qdisc_del() != 0)
-    {
-        fprintf(stderr, "failed to del qdisc\n");
-    }
-    else
-    {
-        printf("DELETED QDISC\n");
-    }
-
-    /* if 'unload' is passed as arg, only delete qdisc */
-    if (argc > 1 && !strcmp(argv[1], "unload"))
-    {
-        rv = 0;
-        goto out;
-    }
-
-    /* 'tc qdisc add dev <iface> clsact' */
-    if (netlink_qdisc_add() != 0)
-    {
-        fprintf(stderr, "failed to add qdisc\n");
-        rv = -1;
-        goto out;
-    }
-
-    printf("ADDED QDISC\n");
-
-    /* 'tc filter add dev <iface> egress bpf da obj <ebpf_file> sec .text' */
-    /* finished when netlink_filter_add_end() is called */
-    if (netlink_filter_add_begin() != 0)
-    {
-        fprintf(stderr, "filter_add_begin() failed\n");
-        rv = -1;
-        goto out;
-    }
-
-    /* create elastic/endpoint dir in bpf fs */
-    if (mkdir(EBPF_MAP_PARENT_DIRECTORY, 0700) && errno != EEXIST)
-    {
-        perror("failed to create directory: " EBPF_MAP_PARENT_DIRECTORY);
-        rv = -1;
-        goto out;
-    }
-
-    if (mkdir(EBPF_MAP_DIRECTORY, 0700) && errno != EEXIST)
-    {
-        perror("failed to create directory: " EBPF_MAP_DIRECTORY);
-        rv = -1;
-        goto out;
-    }
-
-    libbpf_set_print(libbpf_print_fn);
-
-    DECLARE_LIBBPF_OPTS(bpf_object_open_opts, open_opts,
-        .relaxed_maps = true,
-        .pin_root_path = EBPF_MAP_DIRECTORY,
-    );
-
-    obj = bpf_object__open_file(EBPF_OBJ_FILE_NAME, &open_opts);
-    if (!obj || libbpf_get_error(obj))
-    {
-        fprintf(stderr, "failed to open BPF object\n");
-        rv = -1;
-        goto out;
-    }
-    printf("BPF FILE OPENED\n");
-
-    bpf_object__for_each_program(p, obj)
-    {
-        bpf_program__set_type(p, BPF_PROG_TYPE_SCHED_CLS);
-        bpf_program__set_ifindex(p, 0); //?
-        if (!prog)
-            prog = p;
-    }
-    bpf_object__for_each_map(map, obj)
-    {
-        bpf_map__set_ifindex(map, 0); //?
-        bpf_map__set_pin_path(map, EBPF_MAP_DIRECTORY "/" EBPF_ALLOWED_IPS_MAP_NAME);
-    }
-
-    rv = bpf_object__load(obj);
-    if (rv)
-    {
-        fprintf(stderr, "failed to load BPF program\n");
-        bpf_object__close(obj);
-        rv = -1;
-        goto out;
-    }
-    printf("BPF PROG LOADED\n");
-
-    prog_fd_dupd = fcntl(bpf_program__fd(prog), F_DUPFD_CLOEXEC, 1);
-    if (prog_fd_dupd < 0)
-    {
-        perror("bad prog_fd_dupd");
-        bpf_object__close(obj);
-        rv = -1;
-        goto out;
-    }
-    
-    bpf_object__close(obj);
-    obj = NULL;
-
-    /* tc filter add continued */
-    if (netlink_filter_add_end(prog_fd_dupd) != 0)
-    {
-        fprintf(stderr, "filter_add_end() failed\n");
-        close(prog_fd_dupd);
-        rv = -1;
-        goto out;
-    }
-
-    printf("BPF PROG ATTACHED TO TC\n");
-
-    close(prog_fd_dupd);
-    rv = 0;
-
-out:
+    rtnetlink_close(&ctx->filter_rth);
     return rv;
 }
