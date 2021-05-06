@@ -13,67 +13,46 @@
 #include <sys/stat.h>
 
 #include <Common.h>
-
-// enable debug logging
-#define DEBUG
-
-#ifdef DEBUG
-#define dbg_printf(fmt, ...) printf(fmt, ##__VA_ARGS__)
-#else
-#define dbg_printf(fmt, ...)
-#endif
-
-static int
-libbpf_print_fn(enum libbpf_print_level level,
-                const char *format,
-                va_list args)
-{
-#ifdef DEBUG
-    return vfprintf(stderr, format, args);
-#else
-    return 0;
-#endif
-}
+#include "kprobe_loader.h"
 
 int
 main(int argc,
      char **argv)
 {
-    struct bpf_program *prog = NULL;
     struct bpf_object *obj = NULL;
     struct bpf_link *link = NULL;
-    struct bpf_map *ip_map = NULL;
-    struct bpf_map *pids_map = NULL;
-    int prog_fd = -1;
-    int rv = 0, result = 0;
+    int rv = 0;
 
-    libbpf_set_print(libbpf_print_fn);
+    ebpf_set_log_func(ebpf_default_log_func());
 
-    obj = bpf_object__open_file("./kprobe_connect_hook.bpf.o", NULL);
-    if (!obj || libbpf_get_error(obj))
+    obj = ebpf_open_object_file("./kprobe_connect_hook.bpf.o");
+    if (!obj)
     {
         printf("failed to open BPF object\n");
         rv = -1;
         goto cleanup;
     }
-    dbg_printf("BPF FILE OPENED\n");
+    printf("BPF FILE OPENED\n");
 
-    ip_map = bpf_object__find_map_by_name(obj, EBPF_ALLOWED_IPS_MAP_NAME);
-    if (!ip_map || libbpf_get_error(ip_map))
+    // pin allowed_IPs map when program is loaded
+    rv = ebpf_map_set_pin_path(obj, EBPF_ALLOWED_IPS_MAP_NAME, EBPF_ALLOWED_IPS_MAP_PATH);
+    if (!rv)
     {
-        printf("failed to load " EBPF_ALLOWED_IPS_MAP_NAME " BPF map\n");
+        printf("failed to init " EBPF_ALLOWED_IPS_MAP_NAME " BPF map\n");
         rv = -1;
         goto cleanup;
     }
-    dbg_printf("BPF ALLOWED_IPS MAP LOADED\n");
+    printf("BPF ALLOWED_IPS MAP LOADED\n");
 
-    result = bpf_map__set_pin_path(ip_map, EBPF_ALLOWED_IPS_MAP_PATH);
-    if (result)
+    // pin allowed_pids map when program is loaded
+    rv = ebpf_map_set_pin_path(obj, EBPF_ALLOWED_PIDS_MAP_NAME, EBPF_ALLOWED_PIDS_MAP_PATH);
+    if (!rv)
     {
-        printf("failed to set pin path for " EBPF_ALLOWED_IPS_MAP_NAME " map\n");
+        printf("failed to init " EBPF_ALLOWED_PIDS_MAP_NAME " BPF map\n");
         rv = -1;
         goto cleanup;
     }
+    printf("BPF ALLOWED_PIDS MAP LOADED\n");
 
     // create elastic/endpoint dir in bpf fs
     if (mkdir(EBPF_MAP_PARENT_DIRECTORY, 0700) && errno != EEXIST)
@@ -89,62 +68,27 @@ main(int argc,
         goto cleanup;
     }
 
-    // pin allowed_pids map when program is loaded
-    pids_map = bpf_object__find_map_by_name(obj, EBPF_ALLOWED_PIDS_MAP_NAME);
-    if (!pids_map || libbpf_get_error(pids_map))
+    link = ebpf_load_and_attach_kprobe(obj, "kprobe/tcp_v4_connect");
+    if (!link)
     {
-        printf("failed to load " EBPF_ALLOWED_PIDS_MAP_NAME " BPF map\n");
+        printf("failed to load and attach kprobe\n");
         rv = -1;
         goto cleanup;
     }
-    dbg_printf("BPF ALLOWED_PIDS MAP LOADED\n");
-
-    result = bpf_map__set_pin_path(pids_map, EBPF_ALLOWED_PIDS_MAP_PATH);
-    if (result)
-    {
-        printf("failed to set pin path for " EBPF_ALLOWED_PIDS_MAP_NAME " map\n");
-        rv = -1;
-        goto cleanup;
-    }
-
-    prog_fd = bpf_object__load(obj);
-    if (prog_fd < 0)
-    {
-        printf("failed to load BPF program\n");
-        rv = -1;
-        goto cleanup;
-    }
-    dbg_printf("BPF PROGRAM LOADED\n");
-
-    prog = bpf_object__find_program_by_title(obj, "kprobe/tcp_v4_connect");
-    if (!prog || libbpf_get_error(prog))
-    {
-        printf("failed to find BPF program by name\n");
-        rv = -1;
-        goto cleanup;
-    }
-
-    link = bpf_program__attach(prog);
-    if (!link || libbpf_get_error(link))
-    {
-        printf("failed to attach BPF program\n");
-        rv = -1;
-        goto cleanup;
-    }
-    dbg_printf("BPF PROGRAM ATTACHED TO KPROBE\n");
+    printf("BPF PROGRAM ATTACHED TO KPROBE\n");
 
     // eBPF program is detached by the kernel when process terminates
     // sleep forever
     while(1);
 
 cleanup:
-    if (link && !libbpf_get_error(link))
+    if (link)
     {
-        bpf_link__destroy(link);
+        ebpf_link_destroy(link);
     }
-    if (obj && !libbpf_get_error(obj))
+    if (obj)
     {
-        bpf_object__close(obj);
+        ebpf_object_close(obj);
     }
 
     return rv;
