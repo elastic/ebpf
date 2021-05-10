@@ -21,12 +21,11 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 
+#include <Common.h>
+
 /* UPDATE ACCORDINGLY */
 #define IFNAME_TO_ATTACH_TO "ens33"
 #define EBPF_OBJ_FILE_NAME "tc_filter.o"
-#define EBPF_MAP_PARENT_DIRECTORY "/sys/fs/bpf/elastic"
-#define EBPF_MAP_DIRECTORY "/sys/fs/bpf/elastic/endpoint"
-#define EBPF_MAP_NAME "allowed_IPs"
 
 /* maximum netlink message size */
 #define MAX_MSG 16384
@@ -694,7 +693,7 @@ main(int argc,
     bpf_object__for_each_map(map, obj)
     {
         bpf_map__set_ifindex(map, 0); //?
-        bpf_map__set_pin_path(map, EBPF_MAP_DIRECTORY "/" EBPF_MAP_NAME);
+        bpf_map__set_pin_path(map, EBPF_MAP_DIRECTORY "/" EBPF_ALLOWED_IPS_MAP_NAME);
     }
 
     rv = bpf_object__load(obj);
