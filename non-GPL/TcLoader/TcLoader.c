@@ -253,11 +253,19 @@ rtnetlink_recv(int fd,
                struct msghdr *msg,
                char **answer)
 {
-    struct iovec *iov = msg->msg_iov;
+    struct iovec *iov = NULL;
     char *buf = NULL;
     int len = 0;
     int rv = 0;
 
+    if (!msg)
+    {
+        fprintf(stderr, "rtnetlink_recv error: NULL parameter\n");
+        rv = -1;
+        goto out;
+    }
+
+    iov = msg->msg_iov;
     iov->iov_base = NULL;
     iov->iov_len = 0;
 
@@ -345,6 +353,13 @@ rtnetlink_send(struct rtnetlink_handle *rtnl,
     int recv_len = 0;
     char *buf = NULL;
     int rv = -1;
+
+    if (!rtnl || !nlmsg)
+    {
+        fprintf(stderr, "rtnetlink_send error: NULL parameter\n");
+        rv = -1;
+        goto out;
+    }
 
     h = iov.iov_base;
     h->nlmsg_seq = seq = ++rtnl->seq;
