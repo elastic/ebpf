@@ -10,6 +10,8 @@
 #include <bpf/libbpf.h>
 #include <arpa/inet.h>
 
+#include <Common.h>
+
 static int
 libbpf_print_fn(enum libbpf_print_level level,
                 const char *format,
@@ -45,10 +47,10 @@ main(int argc,
     // values are not used in the hash map
     val = 1;
 
-    map_PIDs_fd = bpf_obj_get("/sys/fs/bpf/elastic/endpoint/allowed_pids");
+    map_PIDs_fd = bpf_obj_get(EBPF_ALLOWED_PIDS_MAP_PATH);
     if (map_PIDs_fd < 0)
     {
-        printf("Error: run with sudo or make sure /sys/fs/bpf/elastic/endpoint/allowed_pids exists\n");
+        printf("Error: run with sudo or make sure " EBPF_ALLOWED_PIDS_MAP_PATH " exists\n");
         rv = -1;
         goto cleanup;
     }
@@ -60,7 +62,7 @@ main(int argc,
         goto cleanup;
     }
 
-    printf("PID %u added to allowed_pids BPF map!\n", key);
+    printf("PID %u added to " EBPF_ALLOWED_PIDS_MAP_NAME " BPF map!\n", key);
 
 cleanup:
     if (map_PIDs_fd >= 0)

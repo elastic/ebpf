@@ -12,6 +12,8 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 
+#include <Common.h>
+
 // enable debug logging
 #define DEBUG
 
@@ -56,51 +58,51 @@ main(int argc,
     }
     dbg_printf("BPF FILE OPENED\n");
 
-    ip_map = bpf_object__find_map_by_name(obj, "allowed_IPs");
+    ip_map = bpf_object__find_map_by_name(obj, EBPF_ALLOWED_IPS_MAP_NAME);
     if (!ip_map || libbpf_get_error(ip_map))
     {
-        printf("failed to load allowed_IPs BPF map\n");
+        printf("failed to load " EBPF_ALLOWED_IPS_MAP_NAME " BPF map\n");
         rv = -1;
         goto cleanup;
     }
     dbg_printf("BPF ALLOWED_IPS MAP LOADED\n");
 
-    result = bpf_map__set_pin_path(ip_map, "/sys/fs/bpf/elastic/endpoint/allowed_IPs");
+    result = bpf_map__set_pin_path(ip_map, EBPF_ALLOWED_IPS_MAP_PATH);
     if (result)
     {
-        printf("failed to set pin path for allowed_IPs map\n");
+        printf("failed to set pin path for " EBPF_ALLOWED_IPS_MAP_NAME " map\n");
         rv = -1;
         goto cleanup;
     }
 
     // create elastic/endpoint dir in bpf fs
-    if (mkdir("/sys/fs/bpf/elastic", 0700) && errno != EEXIST)
+    if (mkdir(EBPF_MAP_PARENT_DIRECTORY, 0700) && errno != EEXIST)
     {
-        printf("failed to create /sys/fs/bpf/elastic dir, err=%d\n", errno);
+        printf("failed to create " EBPF_MAP_PARENT_DIRECTORY " dir, err=%d\n", errno);
         rv = -1;
         goto cleanup;
     }
-    if (mkdir("/sys/fs/bpf/elastic/endpoint", 0700) && errno != EEXIST)
+    if (mkdir(EBPF_MAP_DIRECTORY, 0700) && errno != EEXIST)
     {
-        printf("failed to create /sys/fs/bpf/elastic/endpoint dir, err=%d\n", errno);
+        printf("failed to create " EBPF_MAP_DIRECTORY " dir, err=%d\n", errno);
         rv = -1;
         goto cleanup;
     }
 
     // pin allowed_pids map when program is loaded
-    pids_map = bpf_object__find_map_by_name(obj, "allowed_pids");
+    pids_map = bpf_object__find_map_by_name(obj, EBPF_ALLOWED_PIDS_MAP_NAME);
     if (!pids_map || libbpf_get_error(pids_map))
     {
-        printf("failed to load allowed_pids BPF map\n");
+        printf("failed to load " EBPF_ALLOWED_PIDS_MAP_NAME " BPF map\n");
         rv = -1;
         goto cleanup;
     }
     dbg_printf("BPF ALLOWED_PIDS MAP LOADED\n");
 
-    result = bpf_map__set_pin_path(pids_map, "/sys/fs/bpf/elastic/endpoint/allowed_pids");
+    result = bpf_map__set_pin_path(pids_map, EBPF_ALLOWED_PIDS_MAP_PATH);
     if (result)
     {
-        printf("failed to set pin path for allowed_pids map\n");
+        printf("failed to set pin path for " EBPF_ALLOWED_PIDS_MAP_NAME " map\n");
         rv = -1;
         goto cleanup;
     }
