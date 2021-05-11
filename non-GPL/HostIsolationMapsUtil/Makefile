@@ -38,10 +38,6 @@ $(APP_OUTPUT)/%.o: %.c $(LIBBPF_OBJ) $(COMMON_DIR)/Common.o $(wildcard %.h) | $(
 	$(call msg,CC,$@)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $(filter %.c,$^) -o $@
 
-$(APP_OUTPUT)/update_maps.o: update_maps.c update_maps.h $(LIBBPF_OBJ) $(COMMON_DIR)/Common.o | $(APP_OUTPUT)
-	$(call msg,CC,$@)
-	$(CC) $(CFLAGS) $(INCLUDES) -c $(filter %.c,$^) -o $@
-
 # Build eBPF common
 $(COMMON_DIR)/Common.o: $(COMMON_DIR)/Common.c $(COMMON_DIR)/Common.h $(LIBBPF_OBJ)
 	$(call msg,CC,$@)
