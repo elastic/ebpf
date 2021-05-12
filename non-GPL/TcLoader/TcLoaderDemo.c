@@ -23,7 +23,7 @@
 
 /* UPDATE ACCORDINGLY */
 #define IFNAME_TO_ATTACH_TO "ens33"
-#define EBPF_OBJ_FILE_NAME "tc_filter.o"
+#define EBPF_OBJ_FILE_NAME "TcFilter.bpf.o"
 
 int 
 main(int argc, 
