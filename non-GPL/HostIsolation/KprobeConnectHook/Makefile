@@ -11,7 +11,7 @@ INCLUDES := -I$(LIBBPF_OUTPUT) -I$(LIBBPF_INCLUDE) -I$(COMMON_DIR)
 CFLAGS := -g -O2 -Wall
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
-APP = KprobeConnectHook
+APP = KprobeConnectHookDemo
 
 .PHONY: all
 ifndef BUILD_STATIC_LIB
@@ -40,7 +40,7 @@ $(APP_OUTPUT)/%.o: %.c $(LIBBPF_OBJ) $(COMMON_DIR)/Common.o $(wildcard %.h) | $(
 	$(call msg,CC,$@)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $(filter %.c,$^) -o $@
 
-$(APP_OUTPUT)/$(APP).bpf.o: $(BPF_SRC_PATH)/$(APP).bpf.c $(LIBBPF_OBJ) $(wildcard $(BPF_SRC_PATH)/*.h) | $(APP_OUTPUT)
+$(APP_OUTPUT)/KprobeConnectHook.bpf.o: $(BPF_SRC_PATH)/KprobeConnectHook.bpf.c $(LIBBPF_OBJ) $(wildcard $(BPF_SRC_PATH)/*.h) | $(APP_OUTPUT)
 	$(call msg,BPF,$@)
 	$(CLANG) -g -O2 -target bpf -D__TARGET_ARCH_$(ARCH)		\
 			$(INCLUDES) -c $(filter %.c,$^) -o $@

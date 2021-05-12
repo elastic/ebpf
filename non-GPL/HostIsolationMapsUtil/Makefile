@@ -9,7 +9,7 @@ LIBBPF_OBJ := $(abspath ../../contrib/libbpf/build/libbpf.a)
 INCLUDES := -I$(LIBBPF_OUTPUT) -I$(LIBBPF_INCLUDE) -I$(COMMON_DIR)
 CFLAGS := -g -O2 -Wall
 
-APPS = $(APP_OUTPUT)/UpdateIPs $(APP_OUTPUT)/UpdatePids
+APPS = $(APP_OUTPUT)/UpdateIPsDemo $(APP_OUTPUT)/UpdatePidsDemo
 
 .PHONY: all
 ifndef BUILD_STATIC_LIB
