@@ -1,7 +1,7 @@
 // TODO:
 // LICENSE
 //
-// Host Isolation - tool for updating map of allowed IPs
+// Host Isolation - tool for updating map of allowed IPs and pids
 //
 #include <argp.h>
 #include <unistd.h>
