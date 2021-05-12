@@ -79,7 +79,7 @@ main(int argc,
 
     // eBPF program is detached by the kernel when process terminates
     // sleep forever
-    while(1);
+    pause();
 
 cleanup:
     if (link)

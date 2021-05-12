@@ -562,19 +562,20 @@ netlink_filter_add_end(int fd,
                        struct netlink_ctx *ctx,
                        const char *ebpf_obj_filename)
 {
-    struct nlmsghdr *nl = &ctx->msg.n;
+    struct nlmsghdr *nl = NULL;
     char buf[128];
     int rv = -1;
     int len = 0;
 
-    memset(buf, 0, sizeof(buf));
-
-    if (!ebpf_obj_filename)
+    if (!ctx || !ebpf_obj_filename)
     {
         ebpf_log("netlink_filter_add_end error: NULL parameter\n");
         rv = -1;
         goto out;
     }
+
+    nl = &ctx->msg.n;
+    memset(buf, 0, sizeof(buf));
 
     len = snprintf(buf, sizeof(buf), "%s:[.text]", ebpf_obj_filename);
     if (len < 0 || len >= sizeof(buf))
@@ -599,6 +600,9 @@ netlink_filter_add_end(int fd,
 
     rv = 0;
 out:
-    rtnetlink_close(&ctx->filter_rth);
+    if (ctx)
+    {
+        rtnetlink_close(&ctx->filter_rth);
+    }
     return rv;
 }
