@@ -27,6 +27,7 @@ MAKEFLAGS += --no-print-directory
 clean:
 	$(call msg,CLEAN)
 	rm -rf $(APP_OUTPUT) $(LIBBPF_OUTPUT)
+	rm -f $(COMMON_DIR)/Common.o
 
 $(APP_OUTPUT) $(LIBBPF_OUTPUT):
 	$(call msg,MKDIR,$@)
