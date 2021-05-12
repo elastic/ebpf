@@ -567,7 +567,7 @@ netlink_filter_add_end(int fd,
     int rv = -1;
     int len = 0;
 
-    memset(&buf, 0, sizeof(buf));
+    memset(buf, 0, sizeof(buf));
 
     if (!ebpf_obj_filename)
     {
