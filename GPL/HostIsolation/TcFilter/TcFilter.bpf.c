@@ -1,6 +1,6 @@
 //TODO license
 
-#include "kerneldefs.h"
+#include "Kerneldefs.h"
 #include "bpf_helpers.h"
 #include "bpf_endian.h"
 

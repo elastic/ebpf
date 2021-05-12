@@ -9,13 +9,13 @@ LIBBPF_OBJ := $(abspath ../../contrib/libbpf/build/libbpf.a)
 INCLUDES := -I$(LIBBPF_OUTPUT) -I$(LIBBPF_INCLUDE) -I$(COMMON_DIR)
 CFLAGS := -g -O2 -Wall
 
-APPS = $(APP_OUTPUT)/update_IPs $(APP_OUTPUT)/update_pids
+APPS = $(APP_OUTPUT)/UpdateIPs $(APP_OUTPUT)/UpdatePids
 
 .PHONY: all
 ifndef BUILD_STATIC_LIB
 all: $(APPS)
 else
-all: $(APP_OUTPUT)/update_maps.o
+all: $(APP_OUTPUT)/UpdateMaps.o
 endif
 
 msg = @printf '  %-8s %s%s\n' "$(1)" "$(notdir $(2))" "$(if $(3), $(3))";
@@ -30,7 +30,7 @@ $(APP_OUTPUT) $(LIBBPF_OUTPUT):
 	$(call msg,MKDIR,$@)
 	mkdir -p $@
 
-$(APPS): %: %.o $(APP_OUTPUT)/update_maps.o $(LIBBPF_OBJ) $(COMMON_DIR)/Common.o | $(APP_OUTPUT)
+$(APPS): %: %.o $(APP_OUTPUT)/UpdateMaps.o $(LIBBPF_OBJ) $(COMMON_DIR)/Common.o | $(APP_OUTPUT)
 	$(call msg,BINARY,$@)
 	$(CC) $(CFLAGS) $^ -lelf -lz -o $@ 
 

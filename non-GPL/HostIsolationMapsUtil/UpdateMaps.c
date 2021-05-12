@@ -9,7 +9,7 @@
 #include <arpa/inet.h>
 
 #include <Common.h>
-#include "update_maps.h"
+#include "UpdateMaps.h"
 
 static int
 ebpf_update_map(const char *map_path,

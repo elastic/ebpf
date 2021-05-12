@@ -13,7 +13,7 @@
 #include <sys/stat.h>
 
 #include <Common.h>
-#include "kprobe_loader.h"
+#include "KprobeLoader.h"
 
 int
 main(int argc,
@@ -25,7 +25,7 @@ main(int argc,
 
     ebpf_set_log_func(ebpf_default_log_func());
 
-    obj = ebpf_open_object_file("./kprobe_connect_hook.bpf.o");
+    obj = ebpf_open_object_file("./KprobeConnectHook.bpf.o");
     if (!obj)
     {
         printf("failed to open BPF object\n");
