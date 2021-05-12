@@ -101,6 +101,7 @@ main(int argc,
     if (!obj || libbpf_get_error(obj))
     {
         fprintf(stderr, "failed to open BPF object\n");
+        bpf_object__close(obj);
         rv = -1;
         goto out;
     }
