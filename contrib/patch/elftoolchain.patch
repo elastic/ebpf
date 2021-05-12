@@ -1,8 +1,19 @@
 diff --git elftoolchain/Makefile elftoolchain/Makefile
-index e871398..5f35cb1 100644
+index e871398..aba055c 100644
 --- elftoolchain/Makefile
 +++ elftoolchain/Makefile
-@@ -24,18 +24,6 @@ SUBDIR += isa  # ('isa' does not build on all platforms yet).
+@@ -10,10 +10,6 @@ SUBDIR += common
+ 
+ # Build the base libraries next.
+ SUBDIR += libelf
+-SUBDIR += libdwarf
+-
+-# Build additional APIs.
+-SUBDIR += libelftc
+ .if defined(WITH_PE) && ${WITH_PE} == "yes"
+ SUBDIR += libpe
+ .endif
+@@ -24,18 +20,6 @@ SUBDIR += isa  # ('isa' does not build on all platforms yet).
  .endif
  
  # Build tools after the libraries.
