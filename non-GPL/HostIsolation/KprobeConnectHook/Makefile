@@ -11,13 +11,13 @@ INCLUDES := -I$(LIBBPF_OUTPUT) -I$(LIBBPF_INCLUDE) -I$(COMMON_DIR)
 CFLAGS := -g -O2 -Wall
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
-APP = kprobe_connect_hook
+APP = KprobeConnectHook
 
 .PHONY: all
 ifndef BUILD_STATIC_LIB
-all: $(APP_OUTPUT)/$(APP) $(APP_OUTPUT)/kprobe_connect_hook.bpf.o
+all: $(APP_OUTPUT)/$(APP) $(APP_OUTPUT)/KprobeConnectHook.bpf.o
 else
-all: $(APP_OUTPUT)/kprobe_loader.o $(APP_OUTPUT)/kprobe_connect_hook.bpf.o
+all: $(APP_OUTPUT)/KprobeLoader.o $(APP_OUTPUT)/KprobeConnectHook.bpf.o
 endif
 
 msg = @printf '  %-8s %s%s\n' "$(1)" "$(notdir $(2))" "$(if $(3), $(3))";
@@ -32,7 +32,7 @@ $(APP_OUTPUT) $(LIBBPF_OUTPUT):
 	$(call msg,MKDIR,$@)
 	mkdir -p $@
 
-$(APP_OUTPUT)/$(APP): %: %.o $(APP_OUTPUT)/kprobe_loader.o $(LIBBPF_OBJ) $(COMMON_DIR)/Common.o | $(APP_OUTPUT)
+$(APP_OUTPUT)/$(APP): %: %.o $(APP_OUTPUT)/KprobeLoader.o $(LIBBPF_OBJ) $(COMMON_DIR)/Common.o | $(APP_OUTPUT)
 	$(call msg,BINARY,$@)
 	$(CC) $(CFLAGS) $^ -lelf -lz -o $@
 

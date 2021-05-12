@@ -7,7 +7,7 @@
 // flag needed to pick the right PT_REGS macros in bpf_tracing.h
 #define __KERNEL__
 
-#include "kerneldefs.h"
+#include "Kerneldefs.h"
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 // taken from libbpf uapi include dir

@@ -13,7 +13,7 @@
 #include <sys/stat.h>
 
 #include <Common.h>
-#include "kprobe_loader.h"
+#include "KprobeLoader.h"
 
 struct bpf_object *
 ebpf_open_object_file(const char *file_path)
