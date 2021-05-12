@@ -31,6 +31,7 @@ ebpf_open_object_file(const char *file_path)
     if (!obj || libbpf_get_error(obj))
     {
         ebpf_log("failed to open BPF object\n");
+        ebpf_object_close(obj);
         obj = NULL;
         goto cleanup;
     }
@@ -102,6 +103,7 @@ ebpf_load_and_attach_kprobe(struct bpf_object *obj,
     if (!link || libbpf_get_error(link))
     {
         ebpf_log("failed to attach BPF program\n");
+        ebpf_link_destroy(link);
         link = NULL;
         goto cleanup;
     }
