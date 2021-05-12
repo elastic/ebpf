@@ -36,7 +36,7 @@ main(int argc,
 
     // pin allowed_IPs map when program is loaded
     rv = ebpf_map_set_pin_path(obj, EBPF_ALLOWED_IPS_MAP_NAME, EBPF_ALLOWED_IPS_MAP_PATH);
-    if (!rv)
+    if (rv)
     {
         printf("failed to init " EBPF_ALLOWED_IPS_MAP_NAME " BPF map\n");
         rv = -1;
@@ -46,7 +46,7 @@ main(int argc,
 
     // pin allowed_pids map when program is loaded
     rv = ebpf_map_set_pin_path(obj, EBPF_ALLOWED_PIDS_MAP_NAME, EBPF_ALLOWED_PIDS_MAP_PATH);
-    if (!rv)
+    if (rv)
     {
         printf("failed to init " EBPF_ALLOWED_PIDS_MAP_NAME " BPF map\n");
         rv = -1;
