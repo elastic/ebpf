@@ -9,3 +9,4 @@ make -C GPL/HostIsolation/TcFilter clean
 make -C non-GPL/TcLoader clean
 make -C non-GPL/HostIsolationMapsUtil clean
 make -C non-GPL/HostIsolation/KprobeConnectHook clean
+rm -rf build
