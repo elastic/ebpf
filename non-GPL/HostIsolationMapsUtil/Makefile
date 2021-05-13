@@ -1,4 +1,8 @@
-# SPDX-License-Identifier: (LGPL-2.1 OR BSD-2-Clause)
+# Copyright 2021 Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
+# or more contributor license agreements. Licensed under the Elastic License 2.0;
+# you may not use this file except in compliance with the Elastic License 2.0.
+
+
 LIBBPF_OUTPUT := $(abspath ../../contrib/libbpf/build)
 LIBBPF_UAPI_INCLUDE := $(abspath ../../contrib/libbpf/include/uapi)
 LIBBPF_MAIN_INCLUDE := $(abspath ../../contrib/libbpf/include)
