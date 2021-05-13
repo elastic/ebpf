@@ -13,7 +13,8 @@ make -C non-GPL/HostIsolation/KprobeConnectHook BUILD_STATIC_LIB=1
 mkdir -p build
 ar cr build/libeBPF.a non-GPL/HostIsolationMapsUtil/build/UpdateMaps.o \
                       non-GPL/HostIsolation/KprobeConnectHook/build/KprobeLoader.o \
-                      non-GPL/TcLoader/build/TcLoader.o
+                      non-GPL/TcLoader/build/TcLoader.o \
+                      non-GPL/Common/Common.o
 
 mkdir -p build/include
 cp non-GPL/Common/Common.h build/include
