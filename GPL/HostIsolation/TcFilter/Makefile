@@ -4,5 +4,5 @@ TcFilter.bpf.o: TcFilter.bpf.c $(wildcard %.h) Kerneldefs.h
 
 .PHONY: clean
 clean:
-	rm TcFilter.bpf.o
+	rm -f TcFilter.bpf.o
 
