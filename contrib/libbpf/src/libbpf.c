@@ -8178,6 +8178,11 @@ const char *bpf_object__name(const struct bpf_object *obj)
 	return obj ? obj->name : ERR_PTR(-EINVAL);
 }
 
+void bpf_object__set_kversion(struct bpf_object *obj, uint32_t kern_ver)
+{
+	obj->kern_version = kern_ver;
+}
+
 unsigned int bpf_object__kversion(const struct bpf_object *obj)
 {
 	return obj ? obj->kern_version : 0;
