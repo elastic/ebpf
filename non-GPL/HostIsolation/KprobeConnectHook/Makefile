@@ -2,6 +2,7 @@
 LIBBPF_OUTPUT := $(abspath ../../../contrib/libbpf/build)
 LIBBPF_UAPI_INCLUDE := $(abspath ../../../contrib/libbpf/include/uapi)
 LIBBPF_MAIN_INCLUDE := $(abspath ../../../contrib/libbpf/include)
+ELFTOOLCHAIN_OUTPUT := $(abspath ../../../contrib/elftoolchain/build)
 COMMON_DIR := $(abspath ../../Common)
 BPF_SRC_PATH := $(abspath ../../../GPL/HostIsolation/KprobeConnectHook)
 APP_OUTPUT := build
@@ -10,7 +11,7 @@ LIBBPF_SRC := $(abspath ../../../contrib/libbpf/src)
 LIBBPF_OBJ := $(abspath ../../../contrib/libbpf/build/libbpf.a)
 INCLUDES := -I$(LIBBPF_OUTPUT) -I$(LIBBPF_UAPI_INCLUDE) -I$(LIBBPF_MAIN_INCLUDE) -I$(COMMON_DIR)
 CFLAGS := -g -O2 -Wall
-LDFLAGS := -L$(abspath ../../../contrib/elftoolchain/build)
+LDFLAGS := -L$(ELFTOOLCHAIN_OUTPUT)
 ARCH := $(shell uname -m | sed 's/x86_64/x86/')
 
 APP = KprobeConnectHookDemo
@@ -56,10 +57,12 @@ $(COMMON_DIR)/Common.o: $(COMMON_DIR)/Common.c $(COMMON_DIR)/Common.h $(LIBBPF_O
 # Build libbpf.a
 $(LIBBPF_OBJ): $(wildcard $(LIBBPF_SRC)/*.[ch]) | $(LIBBPF_OUTPUT)
 	$(call msg,LIB,$@)
-	$(MAKE) -C $(LIBBPF_SRC) BUILD_STATIC_ONLY=1 NO_PKG_CONFIG=1	\
-		OBJDIR=$(LIBBPF_OUTPUT)/obj DESTDIR=$(LIBBPF_OUTPUT)	\
-		INCLUDEDIR= LIBDIR= UAPIDIR=	\
-		install
+	$(MAKE) -C $(LIBBPF_SRC) BUILD_STATIC_ONLY=1 NO_PKG_CONFIG=1          \
+                    OBJDIR=$(LIBBPF_OUTPUT)/obj DESTDIR=$(LIBBPF_OUTPUT)      \
+                    INCLUDEDIR= LIBDIR= UAPIDIR=                              \
+                    CFLAGS="$(CFLAGS) -I$(ELFTOOLCHAIN_OUTPUT)"               \
+                    install
+
 
 # delete failed targets
 .DELETE_ON_ERROR:
