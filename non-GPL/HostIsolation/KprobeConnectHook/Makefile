@@ -15,10 +15,11 @@ APP_OUTPUT := build
 CLANG ?= clang
 LIBBPF_SRC := $(abspath ../../../contrib/libbpf/src)
 LIBBPF_OBJ := $(abspath ../../../contrib/libbpf/build/libbpf.a)
-INCLUDES := -I$(LIBBPF_OUTPUT) -I$(LIBBPF_UAPI_INCLUDE) -I$(LIBBPF_MAIN_INCLUDE) -I$(COMMON_DIR)
+INCLUDES := -I$(LIBBPF_OUTPUT) -I$(LIBBPF_UAPI_INCLUDE) -I$(LIBBPF_MAIN_INCLUDE) -I$(COMMON_DIR) -I/usr/include/x86_64-linux-gnu
 CFLAGS := -g -O2 -Wall
 LDFLAGS := -L$(ELFTOOLCHAIN_OUTPUT)
-ARCH := $(shell uname -m | sed 's/x86_64/x86/')
+ARCH := $(shell uname -m)
+ARCH_TRUNC := $(shell uname -m | sed 's/x86_64/x86/')
 
 APP = KprobeConnectHookDemo
 
@@ -52,7 +53,7 @@ $(APP_OUTPUT)/%.o: %.c $(LIBBPF_OBJ) $(COMMON_DIR)/Common.o $(wildcard %.h) | $(
 
 $(APP_OUTPUT)/KprobeConnectHook.bpf.o: $(BPF_SRC_PATH)/KprobeConnectHook.bpf.c $(LIBBPF_OBJ) $(wildcard $(BPF_SRC_PATH)/*.h) | $(APP_OUTPUT)
 	$(call msg,BPF,$@)
-	$(CLANG) -g -O2 -target bpf -D__TARGET_ARCH_$(ARCH)		\
+	$(CLANG) -g -O2 -target bpf -D__TARGET_ARCH_$(ARCH_TRUNC) -D__$(ARCH)__		\
 			$(INCLUDES) -c $(filter %.c,$^) -o $@
 
 # Build eBPF common
