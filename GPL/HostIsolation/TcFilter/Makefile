@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
 # Elastic eBPF
 # Copyright 2021 Elasticsearch BV
 #
