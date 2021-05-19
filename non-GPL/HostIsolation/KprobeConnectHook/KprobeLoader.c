@@ -19,12 +19,17 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 
-#include <link.h>
 #include <sys/auxv.h>
 #include <Common.h>
 #include "KprobeLoader.h"
 
 #define MAX_LOAD_METHODS 2
+
+#if defined(__LP64__)
+#define ElfW(type) Elf64_ ## type
+#else
+#define ElfW(type) Elf32_ ## type
+#endif
 
 static unsigned int
 find_version_note(unsigned long base)
