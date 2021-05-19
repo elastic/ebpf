@@ -10,10 +10,6 @@ SUBDIR += common
 
 # Build the base libraries next.
 SUBDIR += libelf
-SUBDIR += libdwarf
-
-# Build additional APIs.
-SUBDIR += libelftc
 .if defined(WITH_PE) && ${WITH_PE} == "yes"
 SUBDIR += libpe
 .endif
@@ -24,18 +20,6 @@ SUBDIR += isa  # ('isa' does not build on all platforms yet).
 .endif
 
 # Build tools after the libraries.
-SUBDIR += addr2line
-SUBDIR += ar
-SUBDIR += brandelf
-SUBDIR += cxxfilt
-SUBDIR += elfcopy
-SUBDIR += elfdump
-SUBDIR += findtextrel
-SUBDIR += ld
-SUBDIR += nm
-SUBDIR += readelf
-SUBDIR += size
-SUBDIR += strings
 
 # Build the test suites.
 .if exists(${.CURDIR}/test) && defined(WITH_TESTS) && ${WITH_TESTS} == "yes"
