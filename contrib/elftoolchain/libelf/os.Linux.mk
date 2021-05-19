@@ -17,7 +17,6 @@ CFLAGS+=	-Wformat-zero-length
 CFLAGS+=	-Wpointer-sign
 CFLAGS+=	-Wpointer-to-int-cast
 CFLAGS+=	-Wsign-compare
-CFLAGS+=	-Wunused-const-variable
 CFLAGS+=	-Wunused-parameter
 CFLAGS+=	-Wold-style-definition
 CFLAGS+=	-Wpointer-arith
