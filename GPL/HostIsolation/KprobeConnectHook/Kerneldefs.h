@@ -61,10 +61,6 @@ typedef __u64 __be64;
 
 typedef __u32 __wsum;
 
-#if 0
-typedef u64 uint64_t;
-#endif
-
 
 struct in_addr {
 	__be32 s_addr;
