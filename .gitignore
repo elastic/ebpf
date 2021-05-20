@@ -1,0 +1,7 @@
+/build/
+/contrib/elftoolchain/build/
+/contrib/elftoolchain/build_obj/
+/contrib/libbpf/build/
+/non-GPL/HostIsolation/KprobeConnectHook/build/
+/non-GPL/HostIsolationMapsUtil/build/
+/non-GPL/TcLoader/build/
