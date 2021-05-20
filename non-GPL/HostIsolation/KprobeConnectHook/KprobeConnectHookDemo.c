@@ -18,6 +18,7 @@
 #include <bpf/libbpf.h>
 #include <arpa/inet.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 
 #include <Common.h>
 #include "KprobeLoader.h"
@@ -108,14 +109,36 @@ main(int argc,
     struct bpf_object *obj = NULL;
     struct bpf_link *link = NULL;
     enum ebpf_load_method load_method = EBPF_METHOD_NO_OVERRIDE;
+    struct rlimit rl = {};
     int rv = -1;
 
     ebpf_set_log_func(ebpf_default_log_func());
+
+    // increase locked memory rlimit to accommodate maps (which are treated as locked memory)
+    if (getrlimit(RLIMIT_MEMLOCK, &rl) == 0)
+    {
+        // set rlimit to 1MB
+        rl.rlim_max = 1024 * 1024;
+        rl.rlim_cur = rl.rlim_max;
+        if (setrlimit(RLIMIT_MEMLOCK, &rl) != 0)
+        {
+            printf("setting rlimit failed! please run with sudo\n");
+            rv = -1;
+            goto cleanup;
+        }
+    }
+    else
+    {
+        printf("setting rlimit failed! please run with sudo\n");
+        rv = -1;
+        goto cleanup;
+    }
 
     // loading may fail on some older platforms - try all known methods
     rv = -1;
     while (rv && load_method < EBPF_MAX_LOAD_METHODS)
     {
+        printf("trying loading method %d\n", load_method);
         rv = try_load_ebpf_kprobe("./KprobeConnectHook.bpf.o", load_method, &obj, &link);
         load_method++;
     }
