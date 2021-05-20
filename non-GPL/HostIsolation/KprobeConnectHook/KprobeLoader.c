@@ -23,8 +23,6 @@
 #include <Common.h>
 #include "KprobeLoader.h"
 
-#define MAX_LOAD_METHODS 2
-
 #if defined(__LP64__)
 #define ElfW(type) Elf64_ ## type
 #else
@@ -83,7 +81,7 @@ out:
 }
 
 static unsigned int
-get_kernel_version(int method)
+get_kernel_version(enum ebpf_load_method method)
 {
     unsigned int code = 0;
     int rv = 0;
@@ -91,21 +89,31 @@ get_kernel_version(int method)
 
     switch (method)
     {
-        case 0:
+        case EBPF_METHOD_NO_OVERRIDE:
+        {
+            // default method - do not override kernel version
+            code = 0;
+            goto out;
+        }
+        case EBPF_METHOD_VDSO:
         {
             // Fetch LINUX_VERSION_CODE from the vDSO .note section.
             // This always matches the running kernel, but is not supported on arm32.
             unsigned long base = getauxval(AT_SYSINFO_EHDR);
             // Check ELF magic value
             if (base && !memcmp((void *)base, ELFMAG, 4))
+            {
                 code = find_version_note(base);
+            }
+            goto out;
         }
-        case 1:
+        case EBPF_METHOD_VERSION_H:
         {
             // check if version.h exists
             f = fopen("/usr/include/linux/version.h", "r");
             if (!f)
             {
+                code = 0;
                 goto out;
             }
             rv = fscanf(f, "#define LINUX_VERSION_CODE %d", &code);
@@ -116,9 +124,11 @@ get_kernel_version(int method)
                 goto out;
             }
             fclose(f);
+            goto out;
         }
         default:
         {
+            code = 0;
             goto out;
         }
     }
@@ -189,30 +199,25 @@ cleanup:
 
 struct bpf_link *
 ebpf_load_and_attach_kprobe(struct bpf_object *obj,
-                            const char *program_sec_name)
+                            const char *program_sec_name,
+                            enum ebpf_load_method load_method)
 {
     struct bpf_program *prog = NULL;
     struct bpf_link *link = NULL;
     int prog_fd = -1;
-    int load_attempt = 0;
     unsigned int kernel_version = 0;
-
-    prog_fd = bpf_object__load(obj);
 
     // Load may fail if an incorrect kernel version number was passed to the
     // bpf() syscall (old Linux kernels verify that, while newer kernels ignore it).
-    // Try a few methods of getting the kernel version and retry loading.
-    while (prog_fd < 0 && load_attempt < MAX_LOAD_METHODS)
+    // Try one of the methods of getting the kernel version, set it in libbpf and load
+    kernel_version = get_kernel_version(load_method);
+    if (kernel_version != 0)
     {
-        kernel_version = get_kernel_version(load_attempt++);
-        if (kernel_version == 0)
-        {
-            continue;
-        }
+        ebpf_log("got kernel_version=%d according to method=%d\n", kernel_version, load_method);
         bpf_object__set_kversion(obj, kernel_version);
-        prog_fd = bpf_object__load(obj);
     }
 
+    prog_fd = bpf_object__load(obj);
     if (prog_fd < 0)
     {
         ebpf_log("failed to load BPF program\n");

@@ -22,17 +22,18 @@
 #include <Common.h>
 #include "KprobeLoader.h"
 
-int
-main(int argc,
-     char **argv)
+// try to load and attach an eBPF kprobe program with a specified load_method
+static int
+try_load_ebpf_kprobe(const char *ebpf_file,
+                     enum ebpf_load_method load_method,
+                     struct bpf_object **bpf_obj,
+                     struct bpf_link **bpf_link)
 {
     struct bpf_object *obj = NULL;
     struct bpf_link *link = NULL;
     int rv = 0;
 
-    ebpf_set_log_func(ebpf_default_log_func());
-
-    obj = ebpf_open_object_file("./KprobeConnectHook.bpf.o");
+    obj = ebpf_open_object_file(ebpf_file);
     if (!obj)
     {
         printf("failed to open BPF object\n");
@@ -75,7 +76,7 @@ main(int argc,
         goto cleanup;
     }
 
-    link = ebpf_load_and_attach_kprobe(obj, "kprobe/tcp_v4_connect");
+    link = ebpf_load_and_attach_kprobe(obj, "kprobe/tcp_v4_connect", load_method);
     if (!link)
     {
         printf("failed to load and attach kprobe\n");
@@ -84,19 +85,53 @@ main(int argc,
     }
     printf("BPF PROGRAM ATTACHED TO KPROBE\n");
 
+    rv = 0;
+
+cleanup:
+    if (rv)
+    {
+        ebpf_object_close(obj);
+        ebpf_link_destroy(link);
+    }
+    else
+    {
+        *bpf_obj = obj;
+        *bpf_link = link;
+    }
+    return rv;
+}
+
+int
+main(int argc,
+     char **argv)
+{
+    struct bpf_object *obj = NULL;
+    struct bpf_link *link = NULL;
+    enum ebpf_load_method load_method = EBPF_METHOD_NO_OVERRIDE;
+    int rv = -1;
+
+    ebpf_set_log_func(ebpf_default_log_func());
+
+    // loading may fail on some older platforms - try all known methods
+    rv = -1;
+    while (rv && load_method < EBPF_MAX_LOAD_METHODS)
+    {
+        rv = try_load_ebpf_kprobe("./KprobeConnectHook.bpf.o", load_method, &obj, &link);
+        load_method++;
+    }
+
+    if (rv)
+    {
+        goto cleanup;
+    }
+
     // eBPF program is detached by the kernel when process terminates
-    // sleep forever
+    // block until a signal arrives
     pause();
 
 cleanup:
-    if (link)
-    {
-        ebpf_link_destroy(link);
-    }
-    if (obj)
-    {
-        ebpf_object_close(obj);
-    }
-
+    // release libbpf resources
+    ebpf_object_close(obj);
+    ebpf_link_destroy(link);
     return rv;
 }
