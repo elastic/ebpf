@@ -9,6 +9,14 @@
 
 #include <Common.h>
 
+enum ebpf_load_method
+{
+    EBPF_METHOD_NO_OVERRIDE = 0,
+    EBPF_METHOD_VDSO,
+    EBPF_METHOD_VERSION_H,
+    EBPF_MAX_LOAD_METHODS,
+};
+
 /**
  * @brief Open eBPF object file
  *
@@ -39,7 +47,8 @@ ebpf_map_set_pin_path(struct bpf_object *obj,
  */
 struct bpf_link *
 ebpf_load_and_attach_kprobe(struct bpf_object *obj,
-                            const char *program_sec_name);
+                            const char *program_sec_name,
+                            enum ebpf_load_method load_method);
 
 /**
  * @brief Destroy link and cleanup resources
