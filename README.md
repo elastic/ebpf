@@ -11,13 +11,11 @@ Directory layout:
 
     contrib/libbpf - copied repo: github.com/libbpf/libbpf @ 767d82ca
 
-    contrib/patch - .patch files to apply to imported code (mostly elftoolchain)
-
     GPL - eBPF programs which are GPL licensed
 
     non-GPL - tools, utilities with Elastic non-GPL license
 
-    build_demos.sh - build script for demo build 
+    build_demos.sh - build script for demo build
 
     build_lib.sh - build script for static library
 
@@ -25,7 +23,7 @@ Directory layout:
 
 ---------------------------------------------------------
 eBPF programs consist of:
-    
+
     KprobeConnectHook - hooks into tcp_v4_connect and adds destination IP to allowlist if PID is allowed
 
     TcFilter - attaches to network interface and filters packets based on allowed IPs
@@ -39,7 +37,7 @@ Tools and loaders consist of:
     KprobeConnectHookDemo - Loader for KprobeConnectHook eBPF program
 
     TcLoaderDemo - Loader for TcFilter eBPF program, attaches to ens33 interface by default
-    
+
 ---------------------------------------------------------
 How to run Host Isolation demo:
 
