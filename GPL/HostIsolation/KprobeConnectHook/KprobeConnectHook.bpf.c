@@ -31,8 +31,6 @@
 // taken from libbpf uapi include dir
 #include <linux/bpf.h>
 
-#define NULL 0
-
 // not to be defined in production builds
 //#define DEBUG_TRACE_PRINTK
 
