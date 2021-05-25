@@ -19,10 +19,7 @@
                     dummy.o
             </Output>
             <Commands>
-                 <Command>./contrib/build_libelf.sh</Command>
-                 <Command>make -C GPL/HostIsolation/TcFilter</Command>
-                 <Command>make -C non-GPL/HostIsolationMapsUtil</Command>
-                 <Command>make -C non-GPL/HostIsolation/KprobeConnectHook</Command>
+                 <Command>./build_lib.sh</Command>
                  <Command>touch dummy.cpp</Command>
             </Commands>
             <WorkingDirectory>%(ProjectRoot)</WorkingDirectory>
