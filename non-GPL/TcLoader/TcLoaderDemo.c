@@ -16,6 +16,7 @@
 #include <argp.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <string.h>
 
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
@@ -24,6 +25,9 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+
+#include <bpf/bpf.h>
+#include <bpf/libbpf.h>
 
 #include <Common.h>
 #include "TcLoader.h"

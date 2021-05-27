@@ -11,15 +11,14 @@
 // Host Isolation standalone demo
 // Loader for eBPF program #2 (attaches to tcp_v4_connect kprobe)
 // 
-#include <argp.h>
-#include <unistd.h>
-#include <time.h>
-#include <bpf/bpf.h>
-#include <bpf/libbpf.h>
-#include <arpa/inet.h>
-#include <sys/stat.h>
 
 #include <sys/auxv.h>
+#include <stdio.h>
+#include <string.h>
+#include <bpf/bpf.h>
+#include <bpf/libbpf.h>
+#include <unistd.h>
+
 #include <Common.h>
 #include "KprobeLoader.h"
 
