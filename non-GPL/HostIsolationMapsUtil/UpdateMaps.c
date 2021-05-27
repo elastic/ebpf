@@ -14,6 +14,8 @@
 #include <unistd.h>
 #include <time.h>
 #include <arpa/inet.h>
+#include <bpf/bpf.h>
+#include <bpf/libbpf.h>
 
 #include <Common.h>
 #include "UpdateMaps.h"
