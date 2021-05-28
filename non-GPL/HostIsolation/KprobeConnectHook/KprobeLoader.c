@@ -12,7 +12,6 @@
 // Loader for eBPF program #2 (attaches to tcp_v4_connect kprobe)
 // 
 
-#include <sys/auxv.h>
 #include <stdio.h>
 #include <string.h>
 #include <bpf/bpf.h>
@@ -21,6 +20,15 @@
 
 #include <Common.h>
 #include "KprobeLoader.h"
+#include <elf.h>
+#include <errno.h>
+
+// requires glibc >= 2.16
+//#define GETAUXVAL_SUPPORTED
+
+#ifdef GETAUXVAL_SUPPORTED
+#include <sys/auxv.h>
+#endif
 
 #if defined(__LP64__)
 #define ElfW(type) Elf64_ ## type
@@ -79,6 +87,47 @@ out:
     return version_code;
 }
 
+static unsigned long
+get_auxiliary_vector_base(int at_key)
+{
+    unsigned long base = 0;
+
+#ifdef GETAUXVAL_SUPPORTED
+    base = getauxval(at_key);
+    return base;
+#else
+	FILE *f = NULL;
+    int err = 0;
+
+	f = fopen("/proc/self/auxv", "r");
+	if (!f) {
+		err = -errno;
+		ebpf_log("failed to open /proc/self/auxv: %d\n", err);
+		return 0;
+	}
+
+	while (true) {
+        unsigned long key = 0;
+        unsigned long value = 0;
+        int ret = -1;
+		ret = fread(&key, sizeof(key), 1, f);
+		if (ret != 1)
+			break;
+		ret = fread(&value, sizeof(value), 1, f);
+		if (ret != 1)
+			break;
+		if (key == 0 && value == 0)
+			break;
+        if (key == at_key)
+        {
+            base = value;
+            return base;
+        }
+	}
+    return base;
+#endif
+}
+
 static unsigned int
 get_kernel_version(enum ebpf_load_method method)
 {
@@ -98,7 +147,7 @@ get_kernel_version(enum ebpf_load_method method)
         {
             // Fetch LINUX_VERSION_CODE from the vDSO .note section.
             // This always matches the running kernel, but is not supported on arm32.
-            unsigned long base = getauxval(AT_SYSINFO_EHDR);
+            unsigned long base = get_auxiliary_vector_base(AT_SYSINFO_EHDR);
             // Check ELF magic value
             if (base && !memcmp((void *)base, ELFMAG, 4))
             {
