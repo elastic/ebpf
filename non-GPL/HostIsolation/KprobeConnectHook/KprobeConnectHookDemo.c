@@ -112,7 +112,7 @@ main(int argc,
     struct rlimit rl = {};
     int rv = -1;
 
-    ebpf_set_log_func(ebpf_default_log_func());
+    ebpf_set_default_log_func();
 
     // increase locked memory rlimit to accommodate maps (which are treated as locked memory)
     if (getrlimit(RLIMIT_MEMLOCK, &rl) == 0)

@@ -14,17 +14,44 @@
 #include <argp.h>
 #include <unistd.h>
 
+#include <bpf/bpf.h>
+#include <bpf/libbpf.h>
 #include "Common.h"
 
-// common log function
-static libbpf_print_fn_t g_log_func = libbpf_print_fn;
+static int
+ebpf_print_fn(enum ebpf_print_level level,
+              const char *format,
+              va_list args);
+static int
+wrapper_print_fn(enum libbpf_print_level level,
+                 const char *format,
+                 va_list args);
 
-int
-libbpf_print_fn(enum libbpf_print_level level,
-                const char *format,
-                va_list args)
+// common log function and wrappers (needed to decouple clients from libbpf definitions)
+static ebpf_print_fn_t g_ebpf_log_func = ebpf_print_fn;
+
+// default log function - print to stderr
+static int
+ebpf_print_fn(enum ebpf_print_level level,
+              const char *format,
+              va_list args)
 {
     return vfprintf(stderr, format, args);
+}
+
+// must match libbpf_print_fn_t signature defined in libbpf.h
+static int
+wrapper_print_fn(enum libbpf_print_level level,
+                 const char *format,
+                 va_list args)
+{
+    if (!g_ebpf_log_func)
+    {
+        return -1;
+    }
+
+    // convert libbpf_print_level to ebpf_print_level
+    return g_ebpf_log_func((enum ebpf_print_level)level, format, args);
 }
 
 __attribute__((format(printf, 1, 2)))
@@ -33,26 +60,30 @@ ebpf_log(const char *format, ...)
 {
     va_list args;
 
-    if (!g_log_func)
+    if (!g_ebpf_log_func)
+    {
         return;
+    }
 
     va_start(args, format);
-    g_log_func(LIBBPF_WARN, format, args);
+    g_ebpf_log_func(EBPF_WARN, format, args);
     va_end(args);
 }
 
-
-libbpf_print_fn_t
-ebpf_default_log_func()
+void
+ebpf_set_default_log_func()
 {
-    return libbpf_print_fn;
+    // set log function for this module
+    g_ebpf_log_func = ebpf_print_fn;
+    // set log function for libbpf
+    libbpf_set_print(wrapper_print_fn);
 }
 
 void
-ebpf_set_log_func(libbpf_print_fn_t fn)
+ebpf_set_log_func(ebpf_print_fn_t fn)
 {
     // set log function for this module
-    g_log_func = fn;
+    g_ebpf_log_func = fn;
     // set log function for libbpf
-    libbpf_set_print(fn);
+    libbpf_set_print(wrapper_print_fn);
 }

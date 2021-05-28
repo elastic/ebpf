@@ -16,6 +16,7 @@
 #include <argp.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <string.h>
 
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
@@ -24,6 +25,9 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+
+#include <bpf/bpf.h>
+#include <bpf/libbpf.h>
 
 #include <Common.h>
 #include "TcLoader.h"
@@ -97,7 +101,7 @@ main(int argc,
         goto out;
     }
 
-    ebpf_set_log_func(ebpf_default_log_func());
+    ebpf_set_default_log_func();
 
     DECLARE_LIBBPF_OPTS(bpf_object_open_opts, open_opts,
         .relaxed_maps = true,

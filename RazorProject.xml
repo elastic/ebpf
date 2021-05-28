@@ -20,6 +20,7 @@
             </Output>
             <Commands>
                  <Command>./build_lib.sh</Command>
+                 <Command>cp build/libeBPF.a ../../Build/Elastic/Linux/LINUX_GCC/x64/Debug/libEbpf.a</Command>
                  <Command>touch dummy.cpp</Command>
             </Commands>
             <WorkingDirectory>%(ProjectRoot)</WorkingDirectory>

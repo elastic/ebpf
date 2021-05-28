@@ -25,7 +25,7 @@ main(int argc,
     int rv = 0;
     uint32_t pid = 0;
 
-    ebpf_set_log_func(ebpf_default_log_func());
+    ebpf_set_default_log_func();
 
     if (argc != 2)
     {

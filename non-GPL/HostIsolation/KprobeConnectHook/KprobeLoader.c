@@ -13,6 +13,12 @@
 // 
 
 #include <sys/auxv.h>
+#include <stdio.h>
+#include <string.h>
+#include <bpf/bpf.h>
+#include <bpf/libbpf.h>
+#include <unistd.h>
+
 #include <Common.h>
 #include "KprobeLoader.h"
 
