@@ -18,10 +18,18 @@ make -C non-GPL/HostIsolationMapsUtil BUILD_STATIC_LIB=1
 make -C non-GPL/HostIsolation/KprobeConnectHook BUILD_STATIC_LIB=1
 
 mkdir -p build
+mkdir -p temporary_obj_dir
+cd temporary_obj_dir
+ar x ../contrib/libbpf/build/libbpf.a
+ar x ../contrib/elftoolchain/build/libelf.a
+cd ..
 ar cr build/libeBPF.a non-GPL/HostIsolationMapsUtil/build/UpdateMaps.o \
                       non-GPL/HostIsolation/KprobeConnectHook/build/KprobeLoader.o \
                       non-GPL/TcLoader/build/TcLoader.o \
-                      non-GPL/Common/Common.o
+                      non-GPL/Common/Common.o \
+                      temporary_obj_dir/*.o
+
+rm -rf temporary_obj_dir
 
 mkdir -p build/include
 cp non-GPL/Common/Common.h build/include
