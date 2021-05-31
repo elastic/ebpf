@@ -15,7 +15,7 @@ CLANG ?= clang
 LIBBPF_SRC := $(abspath ../../contrib/libbpf/src)
 LIBBPF_OBJ := $(abspath ../../contrib/libbpf/build/libbpf.a)
 INCLUDES := -I$(LIBBPF_OUTPUT) -I$(LIBBPF_UAPI_INCLUDE) -I$(LIBBPF_MAIN_INCLUDE) -I$(COMMON_DIR)
-CFLAGS := -g -O2 -Wall
+CFLAGS := -g -O2 -Wall -fPIC
 LDFLAGS := -L$(ELFTOOLCHAIN_OUTPUT)
 
 APPS = $(APP_OUTPUT)/TcLoaderDemo
