@@ -28,3 +28,4 @@ CFLAGS+=	-Wstrict-overflow
 CFLAGS+=	-Wswitch
 CFLAGS+=	-Wunused-parameter
 CFLAGS+=	-Wwrite-strings
+CFLAGS+=	-fPIC
