@@ -1,19 +1,50 @@
 #include <Common.h>
 
+/**
+ * @brief Open eBPF object file
+ *
+ * @param[in] file_path Path to the eBPF object file
+ * @returns eBPF object handle to be passed to other functions
+ */
 struct bpf_object *
 ebpf_open_object_file(const char *file_path);
 
+/**
+ * @brief Pin eBPF map by name and path
+ *
+ * @param[in] obj eBPF object handle
+ * @param[in] map_name Name of the eBPF map (as in the bpf filesystem)
+ * @param[in] map_path Path to the eBPF map in the bpf filesystem
+ * @return Error value (0 for success)
+ */
 int
 ebpf_map_set_pin_path(struct bpf_object *obj,
                       const char *map_name,
                       const char *map_path);
+/**
+ * @brief Load and attach eBPF program to a kprobe
+ *
+ * @param[in] obj eBPF object handle
+ * @param[in] program_sec_name eBPF program name (section name in ELF)
+ * @returns eBPF link handle to be passed to other functions
+ */
 struct bpf_link *
 ebpf_load_and_attach_kprobe(struct bpf_object *obj,
                             const char *program_sec_name);
 
+/**
+ * @brief Destroy link and cleanup resources
+ *
+ * @param[in] link eBPF link handle
+ */
 void
 ebpf_link_destroy(struct bpf_link *link);
 
+/**
+ * @brief Close eBPF object and cleanup resources
+ *
+ * @param[in] obj eBPF object handle
+ */
 void
 ebpf_object_close(struct bpf_object *obj);
 
