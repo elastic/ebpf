@@ -112,7 +112,9 @@ main(int argc,
         bpf_program__set_type(p, BPF_PROG_TYPE_SCHED_CLS);
         bpf_program__set_ifindex(p, 0); //?
         if (!prog)
+        {
             prog = p;
+        }
     }
     bpf_object__for_each_map(map, obj)
     {
