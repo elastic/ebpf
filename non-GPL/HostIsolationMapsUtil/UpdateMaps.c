@@ -38,8 +38,16 @@ static int
 ebpf_update_map(const char *map_path, uint32_t key, uint32_t val)
 {
     int rv = 0;
-    int map_fd = bpf_obj_get(map_path);
+    int map_fd = -1;
 
+    if (map_path == NULL)
+    {
+        ebpf_log("Error: map_path is NULL\n");
+        rv = -1;
+        goto cleanup;
+    }
+
+    map_fd = bpf_obj_get(map_path);
     if (map_fd < 0)
     {
         ebpf_log("Error: run with sudo or make sure %s exists\n", map_path);
