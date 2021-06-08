@@ -20,7 +20,7 @@ main(int argc,
 
     ebpf_set_log_func(ebpf_default_log_func());
 
-    if (argc != 2)
+    if (2 != argc)
     {
         printf("You need to pass an IPv4 address as an argument\n");
         rv = -1;
@@ -37,7 +37,7 @@ main(int argc,
 
     rv = ebpf_map_allowed_IPs_add(IPaddr);
 
-    if (rv == 0)
+    if (0 == rv)
         printf("IP %s added to " EBPF_ALLOWED_IPS_MAP_NAME " BPF map!\n", argv[1]);
 
 cleanup:
