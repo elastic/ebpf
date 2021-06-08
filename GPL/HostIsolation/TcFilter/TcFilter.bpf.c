@@ -52,7 +52,7 @@ static int
 allow_udp_pkt_egress(
     struct udphdr *udp)
 {
-    if (bpf_ntohs(udp->dest) == 53)
+    if (53 == bpf_ntohs(udp->dest))
     {
         /* allow DNS port */
         return 1;
@@ -115,14 +115,14 @@ classifier(
         goto out;
     }
 
-    if (ip->version != 4)
+    if (4 != ip->version)
     {
         /* drop IPv6 */
         rv = DROP_PACKET;
         goto out;
     }
 
-    if (ip->ihl != 5)
+    if (5 != ip->ihl)
     {
         /* drop packets with IP options (5 == 20 bytes == min IP header size ) */
         rv = DROP_PACKET;
