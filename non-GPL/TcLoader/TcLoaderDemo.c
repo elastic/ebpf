@@ -50,7 +50,7 @@ main(int argc,
     }
 
     /* if 'unload' is passed as arg, only delete qdisc */
-    if (argc > 1 && !strcmp(argv[1], "unload"))
+    if ((argc > 1) && !strcmp(argv[1], "unload"))
     {
         rv = 0;
         goto out;
