@@ -9,8 +9,6 @@
    __attribute__((section(NAME), used))
 #endif
 
-#define PCKT_FRAGMENTED 65343
-
 // you took NULL for granted didn't you :)
 #define NULL 0
 
@@ -125,13 +123,6 @@ classifier(
     if (5 != ip->ihl)
     {
         /* drop packets with IP options (5 == 20 bytes == min IP header size ) */
-        rv = DROP_PACKET;
-        goto out;
-    }
-
-    if (ip->frag_off & PCKT_FRAGMENTED)
-    {
-        /* drop fragmented packets */
         rv = DROP_PACKET;
         goto out;
     }
