@@ -375,7 +375,7 @@ rtnetlink_send(struct rtnetlink_handle *rtnl,
             goto out;
         }
 
-        if (nladdr.nl_pid != 0 ||
+        if (0 != nladdr.nl_pid ||
             h->nlmsg_pid != rtnl->local.nl_pid ||
             h->nlmsg_seq > seq || h->nlmsg_seq < seq - 1)
         {
@@ -471,7 +471,7 @@ netlink_qdisc(int cmd,
     attr_put(&qdisc_req.n, sizeof(qdisc_req), TCA_KIND, "clsact", strlen("clsact") + 1);
 
     qdisc_req.t.tcm_ifindex = if_nametoindex(ifname);
-    if (qdisc_req.t.tcm_ifindex == 0)
+    if (0 == qdisc_req.t.tcm_ifindex)
     {
         ebpf_log("failed to find device %s\n", ifname);
         rv = -1;
@@ -540,7 +540,7 @@ netlink_filter_add_begin(struct netlink_ctx *ctx,
     attr_put(&ctx->msg.n, sizeof(ctx->msg), TCA_KIND, "bpf", strlen("bpf") + 1);
     
     ctx->msg.t.tcm_ifindex = if_nametoindex(ifname);
-    if (ctx->msg.t.tcm_ifindex == 0)
+    if (0 == ctx->msg.t.tcm_ifindex)
     {
         ebpf_log("failed to find device %s\n", ifname);
         rtnetlink_close(&ctx->filter_rth);

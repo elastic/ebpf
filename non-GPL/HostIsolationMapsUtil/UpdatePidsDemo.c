@@ -20,7 +20,7 @@ main(int argc,
 
     ebpf_set_log_func(ebpf_default_log_func());
 
-    if (argc != 2)
+    if (2 != argc)
     {
         printf("You need to pass a PID number as an argument\n");
         rv = -1;
@@ -36,7 +36,7 @@ main(int argc,
 
     rv = ebpf_map_allowed_pids_add(pid);
 
-    if (rv == 0)
+    if (0 == rv)
         printf("PID %u added to " EBPF_ALLOWED_PIDS_MAP_NAME " BPF map!\n", pid);
 
 cleanup:
