@@ -32,7 +32,7 @@
 static unsigned int
 find_version_note(unsigned long base)
 {
-    ElfW(Ehdr) *ehdr;
+    ElfW(Ehdr) *ehdr = NULL;
     unsigned int version_code = 0;
     int i = 0;
 
