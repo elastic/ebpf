@@ -155,6 +155,13 @@ classifier(
         goto out;
     }
 
+    if (0x7F == (bpf_ntohl(ip->daddr) >> 24))
+    {
+        /* local traffic (127.x.x.x) is allowed */
+        rv = ALLOW_PACKET;
+        goto out;
+    }
+
     __u8 protocol = ip->protocol;
 
     if (protocol == IPPROTO_ICMP)
