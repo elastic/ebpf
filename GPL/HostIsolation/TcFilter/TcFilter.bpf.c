@@ -47,8 +47,7 @@ struct
 
 __attribute__((always_inline))
 static int
-allow_tcp_pkt_egress(
-    struct tcphdr *tcp,
+allow_destination_IP(
     struct iphdr *ip)
 {
     __u32 *elem = NULL;
@@ -64,6 +63,16 @@ allow_tcp_pkt_egress(
         /* IP is allowed */
         return 1;
     }
+}
+
+__attribute__((always_inline))
+static int
+allow_tcp_pkt_egress(
+    struct tcphdr *tcp,
+    struct iphdr *ip)
+{
+    /* TCP packets are currently only filtered based on destination IP */
+    return allow_destination_IP(ip);
 }
 
 __attribute__((always_inline))
@@ -157,13 +166,6 @@ classifier(
 
     __u8 protocol = ip->protocol;
 
-    if (protocol == IPPROTO_ICMP)
-    {
-        /* drop ICMP */
-        rv = DROP_PACKET;
-        goto out;
-    }
-
     if (protocol == IPPROTO_UDP)
     {
         /* handle UDP */
@@ -196,6 +198,20 @@ classifier(
         }
 
         if (!allow_tcp_pkt_egress(tcp, ip))
+        {
+            rv = DROP_PACKET;
+            goto out;
+        }
+        else
+        {
+            rv = ALLOW_PACKET;
+            goto out;
+        }
+    }
+    else if (protocol == IPPROTO_ICMP)
+    {
+        /* check IP exceptionlist for ICMP */
+        if (!allow_destination_IP(ip))
         {
             rv = DROP_PACKET;
             goto out;
