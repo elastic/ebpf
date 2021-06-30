@@ -36,6 +36,10 @@
 #define DROP_PACKET TC_ACT_SHOT
 #define ALLOW_PACKET TC_ACT_UNSPEC
 
+#define DNS_PORT (53)
+#define DHCP_SERVER_PORT (67)
+#define DHCP_CLIENT_PORT (68)
+
 struct
 {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -80,9 +84,10 @@ static int
 allow_udp_pkt_egress(
     struct udphdr *udp)
 {
-    if (53 == bpf_ntohs(udp->dest))
+    if ((DNS_PORT == bpf_ntohs(udp->source)) ||
+        (DNS_PORT == bpf_ntohs(udp->dest)))
     {
-        /* allow DNS port */
+        /* allow DNS port (both client and server) */
         return 1;
 #if 0
         //TODO: check QDCOUNT==1 for sanity (it's always 1 for any DNS query)
@@ -93,10 +98,18 @@ allow_udp_pkt_egress(
 #endif
 
     }
-    //TODO DHCP?
-
-    /* drop packet */
-    return 0;
+    else if
+        (((DHCP_SERVER_PORT == bpf_ntohs(udp->dest)) && (DHCP_CLIENT_PORT == bpf_ntohs(udp->source))) ||
+         ((DHCP_CLIENT_PORT == bpf_ntohs(udp->dest)) && (DHCP_SERVER_PORT == bpf_ntohs(udp->source))))
+    {
+        /* allow DHCP ports (both client and server) */
+        return 1;
+    }
+    else
+    {
+        /* drop packet */
+        return 0;
+    }
 }
 
 int
