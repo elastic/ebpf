@@ -1,1 +1,6 @@
-Source code in this repository is variously licensed under the GNU General Public License version 3, the Elastic 2.0 license, or the BSD license. Source code in the 'GPL' directory is licensed under the GPL version 3 license, source code in the 'non-GPL' directory is licensed under the Elastic 2.0 license, and source code in the 'contrib' directory is third-party code licensed under the BSD license.
+Source code in this repository is variously licensed under the GNU General
+Public License version 3, the Elastic 2.0 license, or the BSD license. Source
+code in the 'GPL' directory is licensed under the GPL version 3 license, source
+code in the 'non-GPL' directory is licensed under the Elastic 2.0 license, and
+source code in the 'contrib' directory is third-party code licensed under the
+BSD license.
