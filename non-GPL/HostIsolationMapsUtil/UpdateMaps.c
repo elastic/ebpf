@@ -13,6 +13,7 @@
 #include <argp.h>
 #include <unistd.h>
 #include <time.h>
+#include <errno.h>
 #include <arpa/inet.h>
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
@@ -67,7 +68,7 @@ ebpf_update_map(const char *map_path, uint32_t key, uint32_t val)
     rv = bpf_map_update_elem(map_fd, &key, &val, 0);
     if (rv)
     {
-        ebpf_log("Error: failed to add entry to map: %s \n", map_path);
+        ebpf_log("Error: failed to add entry to map: %s, errno=%d\n", map_path, errno);
         goto cleanup;
     }
 
