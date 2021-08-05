@@ -28,3 +28,19 @@ ebpf_map_allowed_IPs_add(uint32_t IPaddr);
  */
 int
 ebpf_map_allowed_pids_add(uint32_t pid);
+
+/**
+ * @brief Clear IP allowlist
+ *
+ * @return Error value (0 for success)
+ */
+int
+ebpf_map_allowed_IPs_clear();
+
+/**
+ * @brief Clear pid allowlist
+ *
+ * @return Error value (0 for success)
+ */
+int
+ebpf_map_allowed_pids_clear();
