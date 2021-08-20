@@ -107,8 +107,8 @@ allow_udp_pkt_egress(
     }
     else
     {
-        /* drop packet */
-        return 0;
+        /* allow packet */
+        return 1;
     }
 }
 
