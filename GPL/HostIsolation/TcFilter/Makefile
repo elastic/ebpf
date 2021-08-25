@@ -16,11 +16,42 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+SHELL = /bin/bash
+
+CXX ?= clang++
+LLC ?= llc
+CLANG ?= clang
+
+
+GTEST_SRC ?= ../../../contrib/googletest/googletest
+LIBBPF_BUILD := $(abspath ../../../contrib/libbpf/build)
+TEST_INCLUDES := -I$(LIBBPF_BUILD) -I$(GTEST_SRC)/include
+LIBELF_BUILD := $(abspath ../../../contrib/elftoolchain/build)
+
+LDFLAGS := -lpthread -lz -L$(LIBBPF_BUILD) -lbpf -L$(LIBELF_BUILD) -lelf 
+CXXFLAGS ?= -g -Wall -Wextra -pthread
+
+TEST_LIBS := 
+TEST_FILES ?= $(wildcard *Test.cpp)
 
 TcFilter.bpf.o: TcFilter.bpf.c $(wildcard %.h) Kerneldefs.h
-	clang -g -O2 -I../../../contrib/kernel_hdrs -emit-llvm -c TcFilter.bpf.c -o - | llc -march=bpf -mcpu=v2 -filetype=obj -o TcFilter.bpf.o
+	$(CLANG) -g -O2 -I../../../contrib/kernel_hdrs -emit-llvm -c $< -o - | $(LLC) -march=bpf -mcpu=v2 -filetype=obj -o $@
 
 .PHONY: clean
 clean:
 	rm -f TcFilter.bpf.o
+	rm -rf _testout
 
+_testout:
+	mkdir -p _testout
+
+_testout/gtest-all.o : _testout
+	mkdir -p $<
+	$(CXX) $(CXXFLAGS) -I$(GTEST_SRC)/include -I$(GTEST_SRC) $(CXXFLAGS) -c $(GTEST_SRC)/src/gtest-all.cc -o $@
+
+_testout/test: _testout/gtest-all.o
+	$(CXX) $(TEST_INCLUDES) $(CXXFLAGS) $(GTEST_SRC)/src/gtest_main.cc $(TEST_FILES) -o $@ $(LDFLAGS)  $<
+
+.PHONY: test
+test: _testout/test TcFilter.bpf.o
+	$<
