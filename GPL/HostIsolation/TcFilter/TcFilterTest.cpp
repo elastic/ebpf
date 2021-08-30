@@ -20,6 +20,7 @@
 #include <linux/if_ether.h>
 #include <linux/in.h>
 #include <linux/ip.h>
+#include <linux/ipv6.h>
 #include <linux/tcp.h>
 
 #include <bpf/bpf.h>
@@ -31,21 +32,31 @@
 
 #include <gtest/gtest.h>
 
-#define MAGIC_BYTES 123
 #define OBJECT_PATH_ENV_VAR "ELASTIC_EBPF_TC_FILTER_OBJ_PATH"
 #define DEFAULT_OBJECT_PATH "TcFilter.bpf.o"
 
-struct ipv4_packet {
+#define MAGIC_BYTES 123
+#define __packed __attribute__((__packed__))
+struct packet_v4
+{
 	struct ethhdr eth;
 	struct iphdr iph;
 	struct tcphdr tcp;
 } __packed;
+
+struct packet_v6 {
+	struct ethhdr eth;
+	struct ipv6hdr iph;
+	struct tcphdr tcp;
+} __packed;
+
 
 class TcFilterTest : public ::testing::Test
 {
     protected:
         struct bpf_object *m_obj = nullptr;
         int m_prog_fd = -1;
+
         virtual void
         SetUp() override {
             struct bpf_object_load_attr load_attr = {};
@@ -72,6 +83,7 @@ class TcFilterTest : public ::testing::Test
         virtual void
         TearDown() override {
             bpf_object__close(m_obj);
+            m_prog_fd = -1;
         }
         static void
         SetUpTestSuite() {
@@ -81,23 +93,49 @@ class TcFilterTest : public ::testing::Test
         }
 };
 
-TEST_F(TcFilterTest, Classifier)
+TEST_F(TcFilterTest, TestAllowArpPacket)
 { 
     struct bpf_prog_test_run_attr tattr = {};
     struct ethhdr eth {};
-    eth.h_proto = __bpf_htons(ETH_P_IP);
+    eth.h_proto = __bpf_htons(ETH_P_ARP);
 
     struct iphdr iph {};
-    iph.version = 4;
-    iph.ihl = 5;
-    iph.protocol = IPPROTO_TCP;
-    iph.tot_len = __bpf_htons(MAGIC_BYTES);
 
     struct tcphdr tcp {};
-    tcp.urg_ptr = 123;
-    tcp.doff = 5;
 
-    struct ipv4_packet pkt_v4 = {
+    struct packet_v4 pkt_v4 = {
+        eth = eth,
+        iph = iph,
+        tcp = tcp,
+    };
+
+    struct __sk_buff skb = {};
+
+    tattr.ctx_in = &skb;
+    tattr.ctx_size_in = sizeof(skb);
+    tattr.data_in = &pkt_v4;
+    tattr.data_size_in = sizeof(pkt_v4);
+    tattr.ctx_out = &skb;
+    tattr.ctx_size_out = sizeof(skb);
+
+    tattr.prog_fd = m_prog_fd;
+    
+    ASSERT_FALSE(bpf_prog_test_run_xattr(&tattr));
+
+    EXPECT_EQ(tattr.retval, (unsigned int)-1);
+}
+
+TEST_F(TcFilterTest, TestDropUnsupportedPackets)
+{ 
+    struct bpf_prog_test_run_attr tattr = {};
+    struct ethhdr eth {};
+    eth.h_proto = __bpf_htons(ETH_P_LOOP);
+
+    struct iphdr iph {};
+
+    struct tcphdr tcp {};
+
+    struct packet_v4 pkt_v4 = {
         eth = eth,
         iph = iph,
         tcp = tcp,
@@ -117,4 +155,85 @@ TEST_F(TcFilterTest, Classifier)
     ASSERT_FALSE(bpf_prog_test_run_xattr(&tattr));
 
     EXPECT_EQ(tattr.retval, (unsigned int)2);
+}
+
+TEST_F(TcFilterTest, TestDropIPV6Packets)
+{ 
+    struct bpf_prog_test_run_attr tattr = {};
+    struct ethhdr eth {};
+    eth.h_proto = __bpf_htons(ETH_P_IP);
+
+    struct ipv6hdr iph {};
+    iph.version = 6;
+
+    struct tcphdr tcp {};
+
+    struct packet_v6 pkt_v6 = {
+        eth = eth,
+        iph = iph,
+        tcp = tcp,
+    };
+
+    struct __sk_buff skb = {};
+
+    tattr.ctx_in = &skb;
+    tattr.ctx_size_in = sizeof(skb);
+    tattr.data_in = &pkt_v6;
+    tattr.data_size_in = sizeof(pkt_v6);
+    tattr.ctx_out = &skb;
+    tattr.ctx_size_out = sizeof(skb);
+
+    tattr.prog_fd = m_prog_fd;
+    
+    ASSERT_FALSE(bpf_prog_test_run_xattr(&tattr));
+
+    EXPECT_EQ(tattr.retval, (unsigned int)2);
+}
+
+TEST_F(TcFilterTest, TestDropInvalidHeaderLength)
+{
+    unsigned int retval;
+    struct ethhdr eth {};
+    eth.h_proto = __bpf_htons(ETH_P_IP);
+
+    struct iphdr iph {};
+    iph.version = 4;
+    iph.ihl = 10;
+
+    struct tcphdr tcp {};
+
+    struct packet_v4 pkt_v4 = {
+        eth = eth,
+        iph = iph,
+        tcp = tcp,
+    };
+
+    ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+
+    EXPECT_EQ(retval, (unsigned int)2);
+}
+
+
+TEST_F(TcFilterTest, TestDropFragmentedPacket)
+{
+    unsigned int retval;
+    struct ethhdr eth {};
+    eth.h_proto = __bpf_htons(ETH_P_IP);
+
+    struct iphdr iph {};
+    iph.version = 4;
+    iph.ihl = 5;
+    iph.frag_off |= 65343;
+
+    struct tcphdr tcp {};
+
+    struct packet_v4 pkt_v4 = {
+        eth = eth,
+        iph = iph,
+        tcp = tcp,
+    };
+
+    ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+
+    EXPECT_EQ(retval, (unsigned int)2);
 }
