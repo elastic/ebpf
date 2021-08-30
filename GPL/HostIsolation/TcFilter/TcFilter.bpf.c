@@ -60,7 +60,7 @@ allow_destination_IP(
     if (!elem)
     {
         /* destination IP not in allowlist - reject */
-        return 0;
+        return 1;
     }
     else
     {
