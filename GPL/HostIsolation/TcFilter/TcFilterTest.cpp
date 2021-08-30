@@ -22,6 +22,7 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/tcp.h>
+#include <linux/udp.h>
 
 #include <bpf/bpf.h>
 #include <bpf/bpf_endian.h>
@@ -39,15 +40,22 @@
 #define __packed __attribute__((__packed__))
 struct packet_v4
 {
-	struct ethhdr eth;
-	struct iphdr iph;
-	struct tcphdr tcp;
+    struct ethhdr eth;
+    struct iphdr iph;
+    struct tcphdr tcp;
+} __packed;
+
+struct packet_v4_udp
+{
+    struct ethhdr eth;
+    struct iphdr iph;
+    struct udphdr udp;
 } __packed;
 
 struct packet_v6 {
-	struct ethhdr eth;
-	struct ipv6hdr iph;
-	struct tcphdr tcp;
+    struct ethhdr eth;
+    struct ipv6hdr iph;
+    struct tcphdr tcp;
 } __packed;
 
 
@@ -236,4 +244,242 @@ TEST_F(TcFilterTest, TestDropFragmentedPacket)
     ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
 
     EXPECT_EQ(retval, (unsigned int)2);
+}
+
+TEST_F(TcFilterTest, TestAllowUDPPacketDNSPortSource)
+{
+    unsigned int retval;
+    struct ethhdr eth {};
+    eth.h_proto = __bpf_htons(ETH_P_IP);
+
+    struct iphdr iph {};
+    iph.version = 4;
+    iph.ihl = 5;
+    iph.protocol = IPPROTO_UDP;
+
+    struct udphdr udp {};
+    udp.source = __bpf_htons(53);
+
+    struct packet_v4_udp pkt_v4 = {
+        eth = eth,
+        iph = iph,
+        udp = udp,
+    };
+
+    ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+
+    EXPECT_EQ(retval, (unsigned int)-1);
+}
+
+TEST_F(TcFilterTest, TestAllowUDPPacketDNSPortDest)
+{
+    unsigned int retval;
+    struct ethhdr eth {};
+    eth.h_proto = __bpf_htons(ETH_P_IP);
+
+    struct iphdr iph {};
+    iph.version = 4;
+    iph.ihl = 5;
+    iph.protocol = IPPROTO_UDP;
+
+    struct udphdr udp {};
+    udp.dest = __bpf_htons(53);
+
+    struct packet_v4_udp pkt_v4 = {
+        eth = eth,
+        iph = iph,
+        udp = udp,
+    };
+
+    ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+
+    EXPECT_EQ(retval, (unsigned int)-1);
+}
+
+TEST_F(TcFilterTest, TestAllowUDPPacketDHCPClient)
+{
+    unsigned int retval;
+    struct ethhdr eth {};
+    eth.h_proto = __bpf_htons(ETH_P_IP);
+
+    struct iphdr iph {};
+    iph.version = 4;
+    iph.ihl = 5;
+    iph.protocol = IPPROTO_UDP;
+
+    struct udphdr udp {};
+    udp.source = __bpf_htons(67);
+    udp.dest = __bpf_htons(68);
+
+    struct packet_v4_udp pkt_v4 = {
+        eth = eth,
+        iph = iph,
+        udp = udp,
+    };
+
+    ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+
+    EXPECT_EQ(retval, (unsigned int)-1);
+}
+
+TEST_F(TcFilterTest, TestAllowUDPPacketDHCPServer)
+{
+    unsigned int retval;
+    struct ethhdr eth {};
+    eth.h_proto = __bpf_htons(ETH_P_IP);
+
+    struct iphdr iph {};
+    iph.version = 4;
+    iph.ihl = 5;
+    iph.protocol = IPPROTO_UDP;
+
+    struct udphdr udp {};
+    udp.source = __bpf_htons(68);
+    udp.dest = __bpf_htons(67);
+
+    struct packet_v4_udp pkt_v4 = {
+        eth = eth,
+        iph = iph,
+        udp = udp,
+    };
+
+    ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+
+    EXPECT_EQ(retval, (unsigned int)-1);
+}
+
+TEST_F(TcFilterTest, TestDropUnkownUDPPackets)
+{
+    unsigned int retval;
+    struct ethhdr eth {};
+    eth.h_proto = __bpf_htons(ETH_P_IP);
+
+    struct iphdr iph {};
+    iph.version = 4;
+    iph.ihl = 5;
+    iph.protocol = IPPROTO_UDP;
+
+    struct udphdr udp {};
+
+    struct packet_v4_udp pkt_v4 = {
+        eth = eth,
+        iph = iph,
+        udp = udp,
+    };
+
+    ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+
+    EXPECT_EQ(retval, (unsigned int)2);
+}
+
+TEST_F(TcFilterTest, TestDropUnkownTCPDestination)
+{
+    unsigned int retval;
+    struct ethhdr eth {};
+    eth.h_proto = __bpf_htons(ETH_P_IP);
+
+    struct iphdr iph {};
+    iph.version = 4;
+    iph.ihl = 5;
+    iph.protocol = IPPROTO_TCP;
+
+    struct tcphdr tcp {};
+
+    struct packet_v4 pkt_v4 = {
+        eth = eth,
+        iph = iph,
+        tcp = tcp,
+    };
+
+    ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+
+    EXPECT_EQ(retval, (unsigned int)2);
+}
+
+TEST_F(TcFilterTest, TestAllowTCPAddressInAllowedIPs)
+{
+    int allowed_ips_map_fd;
+    unsigned int retval;
+    struct ethhdr eth {};
+    eth.h_proto = __bpf_htons(ETH_P_IP);
+
+    struct iphdr iph {};
+    iph.version = 4;
+    iph.ihl = 5;
+    iph.protocol = IPPROTO_TCP;
+    iph.daddr = __bpf_htonl(0x0A010203); // 10.1.2.3
+
+    allowed_ips_map_fd = bpf_object__find_map_fd_by_name(m_obj, "allowed_IPs");
+
+    int val = 1;
+    int ret = bpf_map_update_elem(allowed_ips_map_fd, &iph.daddr, &val, BPF_ANY);
+    ASSERT_EQ(ret, 0);
+
+    struct tcphdr tcp {};
+
+    struct packet_v4 pkt_v4 = {
+        eth = eth,
+        iph = iph,
+        tcp = tcp,
+    };
+
+    ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+
+    EXPECT_EQ(retval, (unsigned int)-1);
+}
+
+TEST_F(TcFilterTest, TestDropUnkownICMPDestination)
+{
+    unsigned int retval;
+    struct ethhdr eth {};
+    eth.h_proto = __bpf_htons(ETH_P_IP);
+
+    struct iphdr iph {};
+    iph.version = 4;
+    iph.ihl = 5;
+    iph.protocol = IPPROTO_ICMP;
+
+    struct tcphdr tcp {};
+
+    struct packet_v4 pkt_v4 = {
+        eth = eth,
+        iph = iph,
+        tcp = tcp,
+    };
+
+    ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+
+    EXPECT_EQ(retval, (unsigned int)2);
+}
+
+TEST_F(TcFilterTest, TestAllowICMPAddressInAllowedIPs)
+{
+    int allowed_ips_map_fd;
+    unsigned int retval;
+    struct ethhdr eth {};
+    eth.h_proto = __bpf_htons(ETH_P_IP);
+
+    struct iphdr iph {};
+    iph.version = 4;
+    iph.ihl = 5;
+    iph.protocol = IPPROTO_ICMP;
+    iph.daddr = __bpf_htonl(0x0A010203); // 10.1.2.3
+
+    allowed_ips_map_fd = bpf_object__find_map_fd_by_name(m_obj, "allowed_IPs");
+
+    int val = 1;
+    int ret = bpf_map_update_elem(allowed_ips_map_fd, &iph.daddr, &val, BPF_ANY);
+    ASSERT_EQ(ret, 0);
+
+    struct tcphdr tcp {};
+
+    struct packet_v4 pkt_v4 = {
+        eth = eth,
+        iph = iph,
+        tcp = tcp,
+    };
+
+    ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+
+    EXPECT_EQ(retval, (unsigned int)-1);
 }
