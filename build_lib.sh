@@ -13,6 +13,7 @@ set -euv
 
 ./contrib/build_libelf.sh
 make -C GPL/HostIsolation/TcFilter BUILD_STATIC_LIB=1
+make -C GPL/HostIsolation/TcFilter _testout/test
 make -C non-GPL/TcLoader BUILD_STATIC_LIB=1
 make -C non-GPL/HostIsolationMapsUtil BUILD_STATIC_LIB=1
 make -C non-GPL/HostIsolation/KprobeConnectHook BUILD_STATIC_LIB=1
@@ -40,3 +41,6 @@ cp non-GPL/TcLoader/TcLoader.h build/include
 mkdir -p build/ebpf
 cp non-GPL/HostIsolation/KprobeConnectHook/build/KprobeConnectHook.bpf.o build/ebpf
 cp GPL/HostIsolation/TcFilter/TcFilter.bpf.o build/ebpf
+
+mkdir -p build/test
+cp GPL/HostIsolation/TcFilter/_testout/test build/test/TcFilterTest

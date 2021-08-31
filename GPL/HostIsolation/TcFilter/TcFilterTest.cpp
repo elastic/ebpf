@@ -23,6 +23,7 @@
 #include <linux/ipv6.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
+#include <linux/pkt_cls.h>
 
 #include <bpf/bpf.h>
 #include <bpf/bpf_endian.h>
@@ -33,8 +34,11 @@
 
 #include <gtest/gtest.h>
 
+#include "TcFilterdefs.h"
+
 #define OBJECT_PATH_ENV_VAR "ELASTIC_EBPF_TC_FILTER_OBJ_PATH"
 #define DEFAULT_OBJECT_PATH "TcFilter.bpf.o"
+#define CLASSIFIER_SECTION_NAME "classifier"
 
 #define MAGIC_BYTES 123
 #define __packed __attribute__((__packed__))
@@ -77,7 +81,7 @@ class TcFilterTest : public ::testing::Test
             ASSERT_FALSE(libbpf_get_error(m_obj));
             load_attr.obj = m_obj;
 
-            prog = bpf_object__find_program_by_name(m_obj, "classifier");
+            prog = bpf_object__find_program_by_name(m_obj, CLASSIFIER_SECTION_NAME);
             ASSERT_FALSE(prog == NULL);
             bpf_program__set_type(prog, BPF_PROG_TYPE_SCHED_CLS);
 
@@ -130,7 +134,7 @@ TEST_F(TcFilterTest, TestAllowArpPacket)
     
     ASSERT_FALSE(bpf_prog_test_run_xattr(&tattr));
 
-    EXPECT_EQ(tattr.retval, (unsigned int)-1);
+    EXPECT_EQ(tattr.retval, (unsigned int)ALLOW_PACKET);
 }
 
 TEST_F(TcFilterTest, TestDropUnsupportedPackets)
@@ -162,7 +166,7 @@ TEST_F(TcFilterTest, TestDropUnsupportedPackets)
     
     ASSERT_FALSE(bpf_prog_test_run_xattr(&tattr));
 
-    EXPECT_EQ(tattr.retval, (unsigned int)2);
+    EXPECT_EQ(tattr.retval, (unsigned int)DROP_PACKET);
 }
 
 TEST_F(TcFilterTest, TestDropIPV6Packets)
@@ -195,7 +199,7 @@ TEST_F(TcFilterTest, TestDropIPV6Packets)
     
     ASSERT_FALSE(bpf_prog_test_run_xattr(&tattr));
 
-    EXPECT_EQ(tattr.retval, (unsigned int)2);
+    EXPECT_EQ(tattr.retval, (unsigned int)DROP_PACKET);
 }
 
 TEST_F(TcFilterTest, TestDropInvalidHeaderLength)
@@ -218,7 +222,7 @@ TEST_F(TcFilterTest, TestDropInvalidHeaderLength)
 
     ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
 
-    EXPECT_EQ(retval, (unsigned int)2);
+    EXPECT_EQ(retval, (unsigned int)DROP_PACKET);
 }
 
 
@@ -231,7 +235,7 @@ TEST_F(TcFilterTest, TestDropFragmentedPacket)
     struct iphdr iph {};
     iph.version = 4;
     iph.ihl = 5;
-    iph.frag_off |= 65343;
+    iph.frag_off |= PCKT_FRAGMENTED;
 
     struct tcphdr tcp {};
 
@@ -243,7 +247,7 @@ TEST_F(TcFilterTest, TestDropFragmentedPacket)
 
     ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
 
-    EXPECT_EQ(retval, (unsigned int)2);
+    EXPECT_EQ(retval, (unsigned int)DROP_PACKET);
 }
 
 TEST_F(TcFilterTest, TestAllowUDPPacketDNSPortSource)
@@ -268,7 +272,7 @@ TEST_F(TcFilterTest, TestAllowUDPPacketDNSPortSource)
 
     ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
 
-    EXPECT_EQ(retval, (unsigned int)-1);
+    EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
 }
 
 TEST_F(TcFilterTest, TestAllowUDPPacketDNSPortDest)
@@ -293,7 +297,7 @@ TEST_F(TcFilterTest, TestAllowUDPPacketDNSPortDest)
 
     ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
 
-    EXPECT_EQ(retval, (unsigned int)-1);
+    EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
 }
 
 TEST_F(TcFilterTest, TestAllowUDPPacketDHCPClient)
@@ -308,8 +312,8 @@ TEST_F(TcFilterTest, TestAllowUDPPacketDHCPClient)
     iph.protocol = IPPROTO_UDP;
 
     struct udphdr udp {};
-    udp.source = __bpf_htons(67);
-    udp.dest = __bpf_htons(68);
+    udp.source = __bpf_htons(DHCP_SERVER_PORT);
+    udp.dest = __bpf_htons(DHCP_CLIENT_PORT);
 
     struct packet_v4_udp pkt_v4 = {
         eth = eth,
@@ -319,7 +323,7 @@ TEST_F(TcFilterTest, TestAllowUDPPacketDHCPClient)
 
     ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
 
-    EXPECT_EQ(retval, (unsigned int)-1);
+    EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
 }
 
 TEST_F(TcFilterTest, TestAllowUDPPacketDHCPServer)
@@ -334,8 +338,8 @@ TEST_F(TcFilterTest, TestAllowUDPPacketDHCPServer)
     iph.protocol = IPPROTO_UDP;
 
     struct udphdr udp {};
-    udp.source = __bpf_htons(68);
-    udp.dest = __bpf_htons(67);
+    udp.source = __bpf_htons(DHCP_CLIENT_PORT);
+    udp.dest = __bpf_htons(DHCP_SERVER_PORT);
 
     struct packet_v4_udp pkt_v4 = {
         eth = eth,
@@ -345,7 +349,7 @@ TEST_F(TcFilterTest, TestAllowUDPPacketDHCPServer)
 
     ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
 
-    EXPECT_EQ(retval, (unsigned int)-1);
+    EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
 }
 
 TEST_F(TcFilterTest, TestDropUnkownUDPPackets)
@@ -369,7 +373,7 @@ TEST_F(TcFilterTest, TestDropUnkownUDPPackets)
 
     ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
 
-    EXPECT_EQ(retval, (unsigned int)2);
+    EXPECT_EQ(retval, (unsigned int)DROP_PACKET);
 }
 
 TEST_F(TcFilterTest, TestDropUnkownTCPDestination)
@@ -393,7 +397,7 @@ TEST_F(TcFilterTest, TestDropUnkownTCPDestination)
 
     ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
 
-    EXPECT_EQ(retval, (unsigned int)2);
+    EXPECT_EQ(retval, (unsigned int)DROP_PACKET);
 }
 
 TEST_F(TcFilterTest, TestAllowTCPAddressInAllowedIPs)
@@ -425,7 +429,7 @@ TEST_F(TcFilterTest, TestAllowTCPAddressInAllowedIPs)
 
     ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
 
-    EXPECT_EQ(retval, (unsigned int)-1);
+    EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
 }
 
 TEST_F(TcFilterTest, TestDropUnkownICMPDestination)
@@ -449,7 +453,7 @@ TEST_F(TcFilterTest, TestDropUnkownICMPDestination)
 
     ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
 
-    EXPECT_EQ(retval, (unsigned int)2);
+    EXPECT_EQ(retval, (unsigned int)DROP_PACKET);
 }
 
 TEST_F(TcFilterTest, TestAllowICMPAddressInAllowedIPs)
@@ -481,5 +485,5 @@ TEST_F(TcFilterTest, TestAllowICMPAddressInAllowedIPs)
 
     ASSERT_FALSE(bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
 
-    EXPECT_EQ(retval, (unsigned int)-1);
+    EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
 }
