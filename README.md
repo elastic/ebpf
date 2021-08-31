@@ -11,6 +11,8 @@ Directory layout:
 
     contrib/libbpf - copied repo: github.com/libbpf/libbpf @ 767d82ca
 
+    contrib/googletest - copied repo: github.com/google/googletest @ 955c7f83
+
     GPL - eBPF programs which are GPL licensed
 
     non-GPL - tools, utilities with Elastic non-GPL license
@@ -38,6 +40,10 @@ Tools and loaders consist of:
 
     TcLoaderDemo - Loader for TcFilter eBPF program, attaches to ens33 interface by default
 
+Tests consist of:
+
+    TcFilterTest - test suite the TcFilter.bpf.o program using BPF_PROG_TEST_RUN
+
 ---------------------------------------------------------
 How to run Host Isolation demo:
 
@@ -63,12 +69,7 @@ How to run Host Isolation demo:
 
 ## Run Tests
 
-```
-git submodule update --init --recursive
-```
-
-
-### TcFilter
+### TcFilterTest
 
 ```
 sudo make -C GPL/HostIsolation/TcFilter test
