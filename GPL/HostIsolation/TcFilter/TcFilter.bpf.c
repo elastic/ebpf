@@ -18,27 +18,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #include "Kerneldefs.h"
 #include "bpf_helpers.h"
 #include "bpf_endian.h"
+#include "TcFilterdefs.h"
 
 #ifndef __section
 # define __section(NAME)                  \
    __attribute__((section(NAME), used))
 #endif
 
-#define PCKT_FRAGMENTED 65343
 
 // you took NULL for granted didn't you :)
 #define NULL 0
-
-#define DROP_PACKET TC_ACT_SHOT
-#define ALLOW_PACKET TC_ACT_UNSPEC
-
-#define DNS_PORT (53)
-#define DHCP_SERVER_PORT (67)
-#define DHCP_CLIENT_PORT (68)
 
 struct
 {

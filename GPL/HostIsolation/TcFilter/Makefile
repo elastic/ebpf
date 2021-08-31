@@ -47,7 +47,7 @@ _testout:
 
 _testout/gtest-all.o : _testout
 	mkdir -p $<
-	$(CXX) $(CXXFLAGS) -I$(GTEST_SRC)/include -I$(GTEST_SRC) $(CXXFLAGS) -c $(GTEST_SRC)/src/gtest-all.cc -o $@
+	$(CXX) $(CXXFLAGS) -I$(GTEST_SRC)/include -I$(GTEST_SRC) -c $(GTEST_SRC)/src/gtest-all.cc -o $@
 
 _testout/test: _testout/gtest-all.o
 	$(CXX) $(TEST_INCLUDES) $(CXXFLAGS) $(GTEST_SRC)/src/gtest_main.cc $(TEST_FILES) -o $@ $(LDFLAGS)  $<
