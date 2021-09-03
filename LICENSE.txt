@@ -1,7 +1,7 @@
-Source code in this repository is variously licensed under the GNU General
-Public License version 2 (licenses/GPL-LICENSE.txt), the Elastic 2.0 license
-(licenses/ELASTIC-LICENSE-2.0.txt), or the BSD license
-(licenses/BSD-2-CLAUSE-LICENSE.txt). Source code in the 'GPL' directory is
-licensed under the GPL version 2 license, source code in the 'non-GPL'
-directory is licensed under the Elastic 2.0 license, and source code in the
-'contrib' directory is third-party code licensed under the BSD license.
+The https://github.com/elastic/ebpf repository contains source code under various licenses:
+
+- Source code in the 'GPL' directory is licensed under the GNU General Public License version 2 (licenses/GPL-LICENSE.txt).
+- Source code in the 'non-GPL' directory is licensed under the Elastic License 2.0 (licenses/ELASTIC-LICENSE-2.0.txt).
+- Source code in the 'contrib' directory is third-party code licensed under the BSD 2-Clause license (licenses/BSD-2-CLAUSE-LICENSE.txt).
+
+The binary files `KprobeConnectHook.bpf.o` and `TcFilter.bpf.o` are compiled from exclusively GPLv2-licensed code, and are distributed along with the GPLv2 License (GPL-LICENSE.txt).
