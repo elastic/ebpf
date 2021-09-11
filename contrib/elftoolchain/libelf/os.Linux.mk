@@ -20,7 +20,6 @@ CFLAGS+=	-Wsign-compare
 CFLAGS+=	-Wunused-parameter
 CFLAGS+=	-Wold-style-definition
 CFLAGS+=	-Wpointer-arith
-CFLAGS+=	-Wredundant-decls
 CFLAGS+=	-Wreturn-type
 CFLAGS+=	-Wshadow
 CFLAGS+=	-Wstrict-prototypes
