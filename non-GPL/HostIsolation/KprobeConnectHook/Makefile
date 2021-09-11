@@ -18,8 +18,8 @@ LIBBPF_OBJ := $(abspath ../../../contrib/libbpf/build/libbpf.a)
 INCLUDES := -I$(LIBBPF_OUTPUT) -I$(LIBBPF_UAPI_INCLUDE) -I$(LIBBPF_MAIN_INCLUDE) -I$(COMMON_DIR)
 CFLAGS := -g -O2 -Wall -fPIC
 LDFLAGS := -L$(ELFTOOLCHAIN_OUTPUT)
-ARCH := $(shell uname -m)
-ARCH_TRUNC := $(shell uname -m | sed 's/x86_64/x86/')
+ARCH ?= $(shell uname -m)
+ARCH_TRUNC ?= $(shell uname -m | sed 's/x86_64/x86/')
 
 APP = KprobeConnectHookDemo
 

@@ -40,7 +40,7 @@ $1 ~ "Machine:" {
         } else if (match($0, "PowerPC64")) {
             elfarch = "EM_PPC64";
         } else {
-            elfarch = "unknown";
+            elfarch = "EM_AARCH64";
         }
     }
 END {
