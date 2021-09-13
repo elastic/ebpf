@@ -16,16 +16,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-SHELL = /bin/bash
+SHELL = /bin/bash -euo pipefail
 
-CXX ?= clang++
+CXX ?= g++
 LLC ?= llc
 CLANG ?= clang
 
 
 GTEST_SRC ?= ../../../contrib/googletest/googletest
+LIBBPF_UAPI := $(abspath ../../../contrib/libbpf/include/uapi)
 LIBBPF_BUILD := $(abspath ../../../contrib/libbpf/build)
-TEST_INCLUDES := -I$(LIBBPF_BUILD) -I$(GTEST_SRC)/include
+TEST_INCLUDES := -I$(LIBBPF_UAPI) -I$(LIBBPF_BUILD) -I$(GTEST_SRC)/include
 LIBELF_BUILD := $(abspath ../../../contrib/elftoolchain/build)
 
 LDFLAGS := -lpthread -lz -L$(LIBBPF_BUILD) -lbpf -L$(LIBELF_BUILD) -lelf 

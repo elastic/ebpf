@@ -42,7 +42,7 @@ Tools and loaders consist of:
 
 Tests consist of:
 
-    TcFilterTest - test suite the TcFilter.bpf.o program using BPF_PROG_TEST_RUN
+    TcFilterTest - test suite for the TcFilter.bpf.o program using BPF_PROG_TEST_RUN
 
 ---------------------------------------------------------
 How to run Host Isolation demo:
