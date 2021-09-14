@@ -351,10 +351,9 @@ struct ethhdr {
 } __attribute__((packed));
 
 // This header might be included in userspace programs (e.g TcFilterTest.cpp)
-// that want to share some definitions with kernel space programs (TcFilter.bpf.c).
-// In this case, is very likely that the userspace program will be compiled with libbpf
-// which already defines the types below
-#ifndef __LIBBPF_BPF_H
+// where we want to share some definitions with kernel space programs (TcFilter.bpf.c).
+// In this case, we need to gate some specific kernel definitions that are not needed in userspace.
+#ifdef __KERNEL__
 enum bpf_map_type {
 	BPF_MAP_TYPE_UNSPEC,
 	BPF_MAP_TYPE_HASH,
@@ -406,5 +405,7 @@ struct __sk_buff {
 	
 	// Note: there are more fields but we don't use them
 };
+#else
+#define __aligned_u64 __u64 __attribute__((aligned(8)))
+#endif // __KERNEL__
 
-#endif

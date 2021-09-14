@@ -35,8 +35,23 @@ CXXFLAGS ?= -g -Wall -Wextra -pthread
 TEST_LIBS := 
 TEST_FILES ?= $(wildcard *Test.cpp)
 
+# We never want the stdinc flags in our BPF program, they can contain
+# things the eBPF program cannot compile or provide LLVM builtins that we can't use.
+NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)
+
 TcFilter.bpf.o: TcFilter.bpf.c $(wildcard %.h) Kerneldefs.h
-	$(CLANG) -g -O2 -I../../../contrib/kernel_hdrs -emit-llvm -c $< -o - | $(LLC) -march=bpf -mcpu=v2 -filetype=obj -o $@
+	$(CLANG) -g -O2 $(NOSTDINC_FLAGS) \
+		-I../../../contrib/kernel_hdrs \
+		-D__KERNEL__ \
+		-D__BPF_TRACING__ \
+		-Wno-unused-value \
+		-Wno-pointer-sign \
+		-Wno-compare-distinct-pointer-types \
+		-Wno-gnu-variable-sized-type-not-at-end \
+		-Wno-address-of-packed-member \
+		-Wno-tautological-compare \
+		-fno-asynchronous-unwind-tables \
+		-emit-llvm -c $< -o - | $(LLC) -march=bpf -mcpu=v2 -filetype=obj -o $@
 
 .PHONY: clean
 clean:
