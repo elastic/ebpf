@@ -18,6 +18,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "Kerneldefs.h"
 #include <bpf/bpf.h>
 #include <bpf/bpf_endian.h>
 #include <bpf/libbpf.h>
@@ -27,7 +28,6 @@
 #include <sched.h>
 #include <sys/resource.h>
 
-#include "Kerneldefs.h"
 #include "TcFilterdefs.h"
 
 #define OBJECT_PATH_ENV_VAR "ELASTIC_EBPF_TC_FILTER_OBJ_PATH"
