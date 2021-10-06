@@ -142,7 +142,8 @@ pipeline {
             {
                 script
                 {
-                    echo "Build step"
+                    println "Build step"
+
                     sh "./build_lib.sh"
 
                     // TODO: use different stash names for files of different architectures
@@ -161,7 +162,7 @@ pipeline {
             {
                 script
                 {
-                    echo "Test step"
+                    println "Test step"
 
                     // Generate the test closures to run
                     test_closures = getTestClosures()
