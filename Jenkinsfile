@@ -60,7 +60,6 @@ def generateTestClosure(arch, machine_name)
             {
 
                 // Unstash the test files
-                // TODO: use different stash names for files of different architectures
                 unstash("tests-${arch}")
 
                 def testBinaries = findFiles(glob: 'build/test/*Test')
@@ -74,7 +73,7 @@ def generateTestClosure(arch, machine_name)
                     {
                         println "Running test binary: ${test.name}"
 
-                        def test_result_file = "{test.name}-result.xml"
+                        def test_result_file = "${test.name}-result.xml"
                         def test_output_file = "test-output-${machine_name}-${test.name}.txt"
 
                         // Run the test binary
