@@ -32,6 +32,14 @@
 // you took NULL for granted didn't you :)
 #define NULL 0
 
+#define BPF_F_NO_PREALLOC	(1U << 0)
+
+/* Key of an a BPF_MAP_TYPE_LPM_TRIE entry */
+struct bpf_lpm_trie_key {
+	__u32	prefixlen;	/* up to 32 for AF_INET, 128 for AF_INET6 */
+	__u32	data;	/* Arbitrary size */
+};
+
 struct
 {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -41,13 +49,36 @@ struct
     __uint(pinning, LIBBPF_PIN_BY_NAME);
 } allowed_IPs __section(".maps");
 
+struct
+{
+    __uint(type, BPF_MAP_TYPE_LPM_TRIE);
+    __uint(key_size, 8);
+    __uint(value_size, sizeof(int));
+    __uint(max_entries, 256);
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} allowed_subnets __section(".maps");
+
 __attribute__((always_inline))
 static int
 allow_destination_IP(
     struct iphdr *ip)
 {
     __u32 *elem = NULL;
+    struct bpf_lpm_trie_key lpm_key = {
+        .prefixlen = 32,
+        .data = ip->daddr,
+    };
 
+    /* Check allowed subnets first */
+    elem = bpf_map_lookup_elem(&allowed_subnets, &lpm_key);
+    if (elem)
+    {
+        /* IP matches allowed subnet */
+        return 1;
+    }
+
+    /* Now check allowed IPs map */
     elem = bpf_map_lookup_elem(&allowed_IPs, &ip->daddr);
     if (!elem)
     {
