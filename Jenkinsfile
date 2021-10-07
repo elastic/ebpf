@@ -168,17 +168,18 @@ pipeline {
                         "MAKESYSPATH=/opt/endpoint-dev/dev/toolchain/share/mk"])
                     {
                         sh "./build_lib.sh"
+
+                        // Stash the x64 tests
+                        stash includes: "build/test/**", name: "tests-x64"
+
+                        // Copy and archive the build dir
+                        sh "cp -r build build-x64"
+                        archiveArtifacts "build-x64/**"
+
+                        // Clean the build
+                        sh "./clean.sh"
                     }
 
-                    // Stash the x64 tests
-                    stash includes: "build/test/**", name: "tests-x64"
-
-                    // Copy and archive the build dir
-                    sh "cp -r build build-x64"
-                    archiveArtifacts "build-x64/**"
-
-                    // Clean the build
-                    sh "./clean.sh"
 
                     /*
                     // Build the aarch64 binaries
