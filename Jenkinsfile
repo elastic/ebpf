@@ -56,23 +56,38 @@ def generateTestClosure(arch, machine_name)
 
             println "Running tests on ${machine_name} for arch ${arch}"
 
-            // Unstash the test files
-            // TODO: use different stash names for files of different architectures
-            unstash("tests")
-
-            def testBinaries = findFiles(glob: './build/test/*Test')
-
-            for (test in testBinaries)
+            try
             {
-                println "Running test binary: ${test}"
 
-                // Run the test binary
-                sh "sudo ${test} >& test-output-${machine_name}-${test.name}.txt"
+                // Unstash the test files
+                // TODO: use different stash names for files of different architectures
+                unstash("tests")
 
-                // TODO? use junit to pick up xml test result file?
+                def testBinaries = findFiles(glob: './build/test/*Test')
 
-                // Archive the output
-                archiveArtifacts "test-output*txt"
+                dir("./build/test")
+                {
+                    for (test in testBinaries)
+                    {
+                        println "Running test binary: ${test.name}"
+
+                        def test_result_file = "{test.name}-result.xml"
+                        def test_output_file = "test-output-${machine_name}-${test.name}.txt"
+
+                        // Run the test binary
+                        sh "sudo ./${test.name} --gtest_output=xml:${test_result_file} >& ${test_output_file}"
+
+                        // Store the test results
+                        junit keepLongStdio: true, testResults: "${test_result_file}"
+
+                        // Archive the output
+                        archiveArtifacts test_output_file
+                    }
+                }
+            }
+            catch(err)
+            {
+                error("Caught exception running tests on ${machine_name} for arch ${arch}: [${err}]")
             }
         }
     }
@@ -144,9 +159,10 @@ pipeline {
                 {
                     println "Build step"
 
-                    sh "sudo apt-get -y install bmake"
-
-                    sh "./build_lib.sh"
+                    withEnv(["PATH=/opt/endpoint-dev/dev/toolchain/bin:$PATH"])
+                    {
+                        sh "./build_lib.sh"
+                    }
 
                     // TODO: use different stash names for files of different architectures
                     stash includes: "build/test/*Test", name: "tests"
