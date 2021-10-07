@@ -61,12 +61,15 @@ def generateTestClosure(arch, machine_name)
 
                 // Unstash the test files
                 // TODO: use different stash names for files of different architectures
-                unstash("tests")
+                unstash("tests-${arch}")
 
                 def testBinaries = findFiles(glob: './build/test/*Test')
 
+                sh "ls -alR"
+
                 dir("./build/test")
                 {
+                    sh "ls -al"
                     for (test in testBinaries)
                     {
                         println "Running test binary: ${test.name}"
@@ -159,16 +162,40 @@ pipeline {
                 {
                     println "Building x64 ebpf"
 
+                    // Build the x64 binaries
                     withEnv(["PATH=/opt/endpoint-dev/dev/toolchain/bin:$PATH",
                         "CPATH=/opt/endpoint-dev/dev/sysroot/x86_64-linux-gnu/usr/include",
-                        "CPATH_DIR=/opt/endpoint-dev/dev/sysroot/x86_64-linux-gnu/usr/include",
                         "MAKESYSPATH=/opt/endpoint-dev/dev/toolchain/share/mk"])
                     {
                         sh "./build_lib.sh"
                     }
 
-                    // TODO: use different stash names for files of different architectures
-                    stash includes: "build/test/**", name: "tests"
+                    // Stash the x64 tests
+                    stash includes: "build/test/**", name: "tests-x64"
+
+                    // Copy and archive the build dir
+                    sh "cp -r build build-x64"
+                    archiveArtifacts "./build-x64/**"
+
+                    // Clean the build
+                    sh "./clean.sh"
+
+                    /*
+                    // Build the aarch64 binaries
+                    withEnv(["PATH=/opt/endpoint-dev/dev/toolchain/bin:$PATH",
+                        "CPATH=/opt/endpoint-dev/dev/sysroot/aarch64-linux-gnu/usr/include",
+                        "MAKESYSPATH=/opt/endpoint-dev/dev/toolchain/share/mk"])
+                    {
+                        sh "./build_lib.sh"
+                    }
+
+                    // Stash the aarch64 tests
+                    stash includes: "build/test/**", name: "tests-aarch64"
+
+                    // Copy and archive the build dir
+                    sh "cp -r build build-aarch64"
+                    archiveArtifacts "./build-aarch64/**"
+                    */
                 }
             }
         }
