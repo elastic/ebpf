@@ -23,8 +23,8 @@
 
 static int
 ebpf_update_map(const char *map_path,
-                uint32_t key,
-                uint32_t val);
+                const void *key,
+                const void *val);
 
 static int
 ebpf_clear_map(const char *map_path);
@@ -35,7 +35,24 @@ ebpf_map_allowed_IPs_add(uint32_t IPaddr)
     uint32_t key = IPaddr;
     uint32_t val = 1;   // values are not used in the hash map
 
-    return ebpf_update_map(EBPF_ALLOWED_IPS_MAP_PATH, key, val);
+    return ebpf_update_map(EBPF_ALLOWED_IPS_MAP_PATH, &key, &val);
+}
+
+int
+ebpf_map_allowed_subnets_add(uint32_t IPaddr, uint32_t netmask)
+{
+    struct lpm_key
+    {
+        uint32_t prefix;
+        uint32_t IP;
+    } key =
+    {
+        .prefix = netmask,
+        .IP = IPaddr,
+    };
+    uint32_t val = 1;   // values are not used in the lpm trie map
+
+    return ebpf_update_map(EBPF_ALLOWED_SUBNETS_MAP_PATH, &key, &val);
 }
 
 int
@@ -44,7 +61,7 @@ ebpf_map_allowed_pids_add(uint32_t pid)
     uint32_t key = pid;
     uint32_t val = 1;   // values are not used in the hash map
 
-    return ebpf_update_map(EBPF_ALLOWED_PIDS_MAP_PATH, key, val);
+    return ebpf_update_map(EBPF_ALLOWED_PIDS_MAP_PATH, &key, &val);
 }
 
 int
@@ -60,7 +77,7 @@ ebpf_map_allowed_pids_clear()
 }
 
 static int
-ebpf_update_map(const char *map_path, uint32_t key, uint32_t val)
+ebpf_update_map(const char *map_path, const void *key, const void *val)
 {
     int rv = 0;
     int map_fd = -1;
@@ -80,7 +97,7 @@ ebpf_update_map(const char *map_path, uint32_t key, uint32_t val)
         goto cleanup;
     }
 
-    rv = bpf_map_update_elem(map_fd, &key, &val, 0);
+    rv = bpf_map_update_elem(map_fd, key, val, 0);
     if (rv)
     {
         ebpf_log("Error: failed to add entry to map: %s, errno=%d\n", map_path, errno);
