@@ -161,13 +161,14 @@ pipeline {
 
                     withEnv(["PATH=/opt/endpoint-dev/dev/toolchain/bin:$PATH",
                         "CPATH=/opt/endpoint-dev/dev/sysroot/x86_64-linux-gnu/usr/include",
+                        "CPATH_DIR=/opt/endpoint-dev/dev/sysroot/x86_64-linux-gnu/usr/include",
                         "MAKESYSPATH=/opt/endpoint-dev/dev/toolchain/share/mk"])
                     {
                         sh "./build_lib.sh"
                     }
 
                     // TODO: use different stash names for files of different architectures
-                    stash includes: "build/test/*Test", name: "tests"
+                    stash includes: "build/test/**", name: "tests"
                 }
             }
         }
