@@ -58,7 +58,6 @@ def generateTestClosure(arch, machine_name)
 
             try
             {
-
                 // Unstash the test files
                 unstash("tests-${arch}")
 
@@ -124,6 +123,39 @@ def getTestClosures()
     return test_closures
 }
 
+def buildAndStash(arch)
+{
+    def cpath = "/opt/endpoint-dev/dev/sysroot/x86_64-linux-gnu/usr/include"
+
+    if (arch == "aarch64")
+    {
+        cpath = "/opt/endpoint-dev/dev/sysroot/aarch64-linux-gnu/usr/include"
+    }
+
+    println "Building ebpf for arch ${arch}"
+
+    // Build the binaries
+    withEnv(["PATH=/opt/endpoint-dev/dev/toolchain/bin:$PATH",
+        "CPATH=${cpath}",
+        "MAKESYSPATH=/opt/endpoint-dev/dev/toolchain/share/mk"])
+    {
+        sh "./build_lib.sh"
+
+        // Copy the TcFilter.bpf.o file into the test dir
+        sh "cp build/TcFilter.bpf.o build/test"
+
+        // Stash the tests
+        stash includes: "build/test/**", name: "tests-${arch}"
+
+        // Copy and archive the build dir
+        sh "cp -r build build-${arch}"
+        archiveArtifacts "build-${arch}/**"
+
+        // Clean the build
+        sh "./clean.sh"
+    }
+}
+
 pipeline {
     agent { label 'linux-builder' }
 
@@ -159,25 +191,7 @@ pipeline {
             {
                 script
                 {
-                    println "Building x64 ebpf"
-
-                    // Build the x64 binaries
-                    withEnv(["PATH=/opt/endpoint-dev/dev/toolchain/bin:$PATH",
-                        "CPATH=/opt/endpoint-dev/dev/sysroot/x86_64-linux-gnu/usr/include",
-                        "MAKESYSPATH=/opt/endpoint-dev/dev/toolchain/share/mk"])
-                    {
-                        sh "./build_lib.sh"
-
-                        // Stash the x64 tests
-                        stash includes: "build/test/**", name: "tests-x64"
-
-                        // Copy and archive the build dir
-                        sh "cp -r build build-x64"
-                        archiveArtifacts "build-x64/**"
-
-                        // Clean the build
-                        sh "./clean.sh"
-                    }
+                    buildAndStash("x64")
 
                     /*
                     println "Building aarch64 ebpf"
@@ -188,6 +202,9 @@ pipeline {
                         "MAKESYSPATH=/opt/endpoint-dev/dev/toolchain/share/mk"])
                     {
                         sh "./build_lib.sh"
+
+                        // Copy the TcFilter.bpf.o file into the test dir
+                        sh "cp build/test/TcFilter.bpf.o build/test"
 
                         // Stash the aarch64 tests
                         stash includes: "build/test/**", name: "tests-aarch64"
