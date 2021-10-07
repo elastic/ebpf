@@ -67,18 +67,35 @@ def generateTestClosure(arch, machine_name)
                     {
                         println "Running test binary: ${test.name}"
 
+                        def return_val = -1
                         def test_result_file = "${test.name}-result.xml"
                         def test_output_file = "test-output-${machine_name}-${test.name}.txt"
+                        def run_script = "sudo ./${test.name} --gtest_output=xml:${test_result_file} > ${test_output_file} 2>&1"
 
                         // Run the test binary
-                        sh "sudo ./${test.name} --gtest_output=xml:${test_result_file} > ${test_output_file} 2>&1"
+                        return_val = sh returnStatus: true, script: run_script
 
-                        // Store the test results
-                        junit keepLongStdio: true, testResults: "${test_result_file}"
+                        if (0 != return_val)
+                        {
+                            // A return code of 1 means the gtest had failures, otherwise it's likely a crash
+                            if (1 == return_val)
+                            {
+                                println "Failed tests running ${test.name} for arch ${arch} on ${machine_name}"
+                            }
+                            else
+                            {
+                                // Try to archive the output
+                                archiveArtifacts allowEmptyArchive: true, artifacts: test_output_file
+                                // Throw an error
+                                error("Test file ${test.name} likely crashed on ${machine_name} with arch ${arch}")
+                            }
+                        }
 
                         // Archive the output
                         archiveArtifacts test_output_file
-                        archiveArtifacts test_result_file
+
+                        // Store the test results
+                        junit keepLongStdio: true, testResults: "${test_result_file}"
                     }
                 }
             }
