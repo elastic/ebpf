@@ -23,9 +23,6 @@ def cronString = getCronString()
 @Field def LINUX_TEST_NODES_X64 = [
     "amazon-x86_64",
     "centos-8",
-    "ubuntu-16.04",
-    "ubuntu-18.04",
-    "ubuntu-1804-desktop",
     "ubuntu-20.04",
     "ubuntu-20.04-secureboot",
     "rhel-8",
