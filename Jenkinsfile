@@ -22,7 +22,6 @@ def cronString = getCronString()
 ///
 @Field def LINUX_TEST_NODES_X64 = [
     "amazon-x86_64",
-    "centos-7",
     "centos-8",
     "ubuntu-16.04",
     "ubuntu-18.04",
@@ -61,8 +60,6 @@ def generateTestClosure(arch, machine_name)
 
                 def testBinaries = findFiles(glob: 'build/test/*Test')
 
-                sh "ls -alR"
-
                 dir("build/test")
                 {
                     sh "ls -al"
@@ -74,13 +71,14 @@ def generateTestClosure(arch, machine_name)
                         def test_output_file = "test-output-${machine_name}-${test.name}.txt"
 
                         // Run the test binary
-                        sh "sudo ./${test.name} --gtest_output=xml:${test_result_file} > ${test_output_file}"
+                        sh "sudo ./${test.name} --gtest_output=xml:${test_result_file} > ${test_output_file} 2>&1"
 
                         // Store the test results
                         junit keepLongStdio: true, testResults: "${test_result_file}"
 
                         // Archive the output
                         archiveArtifacts test_output_file
+                        archiveArtifacts test_result_file
                     }
                 }
             }
