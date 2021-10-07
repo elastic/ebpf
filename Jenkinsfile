@@ -68,7 +68,7 @@ def generateTestClosure(arch, machine_name)
                         println "Running test binary: ${test.name}"
 
                         def return_val = -1
-                        def test_result_file = "${test.name}-result.xml"
+                        def test_result_file = "${test.name}-${arch}-${machine_name}-result.xml"
                         def test_output_file = "test-output-${machine_name}-${test.name}.txt"
                         def run_script = "sudo ./${test.name} --gtest_output=xml:${test_result_file} > ${test_output_file} 2>&1"
 
