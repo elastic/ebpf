@@ -22,7 +22,6 @@ def cronString = getCronString()
 ///
 @Field def LINUX_TEST_NODES_X64 = [
     "amazon-x86_64",
-    "centos-6",
     "centos-7",
     "centos-8",
     "ubuntu-16.04",
@@ -30,7 +29,6 @@ def cronString = getCronString()
     "ubuntu-1804-desktop",
     "ubuntu-20.04",
     "ubuntu-20.04-secureboot",
-    "rhel-6",
     "rhel-7",
     "rhel-8",
 ]
@@ -142,7 +140,7 @@ def buildAndStash(arch)
         sh "./build_lib.sh"
 
         // Copy the TcFilter.bpf.o file into the test dir
-        sh "cp build/TcFilter.bpf.o build/test"
+        sh "cp build/ebpf/TcFilter.bpf.o build/test"
 
         // Stash the tests
         stash includes: "build/test/**", name: "tests-${arch}"
