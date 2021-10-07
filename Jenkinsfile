@@ -77,7 +77,7 @@ def generateTestClosure(arch, machine_name)
                         def test_output_file = "test-output-${machine_name}-${test.name}.txt"
 
                         // Run the test binary
-                        sh "sudo ./${test.name} --gtest_output=xml:${test_result_file} >& ${test_output_file}"
+                        sh "sudo ./${test.name} --gtest_output=xml:${test_result_file} > ${test_output_file}"
 
                         // Store the test results
                         junit keepLongStdio: true, testResults: "${test_result_file}"
