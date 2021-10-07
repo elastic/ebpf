@@ -13,10 +13,10 @@ set -euv
 
 ./contrib/build_libelf.sh
 make -C GPL/HostIsolation/TcFilter BUILD_STATIC_LIB=1
-make -C GPL/HostIsolation/TcFilter _testout/test
 make -C non-GPL/TcLoader BUILD_STATIC_LIB=1
 make -C non-GPL/HostIsolationMapsUtil BUILD_STATIC_LIB=1
 make -C non-GPL/HostIsolation/KprobeConnectHook BUILD_STATIC_LIB=1
+make -C GPL/HostIsolation/TcFilter _testout/test
 
 mkdir -p build
 mkdir -p temporary_obj_dir
