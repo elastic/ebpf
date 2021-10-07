@@ -63,11 +63,11 @@ def generateTestClosure(arch, machine_name)
                 // TODO: use different stash names for files of different architectures
                 unstash("tests-${arch}")
 
-                def testBinaries = findFiles(glob: './build/test/*Test')
+                def testBinaries = findFiles(glob: 'build/test/*Test')
 
                 sh "ls -alR"
 
-                dir("./build/test")
+                dir("build/test")
                 {
                     sh "ls -al"
                     for (test in testBinaries)
@@ -180,22 +180,23 @@ pipeline {
                         sh "./clean.sh"
                     }
 
-
                     /*
+                    println "Building aarch64 ebpf"
+
                     // Build the aarch64 binaries
                     withEnv(["PATH=/opt/endpoint-dev/dev/toolchain/bin:$PATH",
                         "CPATH=/opt/endpoint-dev/dev/sysroot/aarch64-linux-gnu/usr/include",
                         "MAKESYSPATH=/opt/endpoint-dev/dev/toolchain/share/mk"])
                     {
                         sh "./build_lib.sh"
+
+                        // Stash the aarch64 tests
+                        stash includes: "build/test/**", name: "tests-aarch64"
+
+                        // Copy and archive the build dir
+                        sh "cp -r build build-aarch64"
+                        archiveArtifacts "./build-aarch64/**"
                     }
-
-                    // Stash the aarch64 tests
-                    stash includes: "build/test/**", name: "tests-aarch64"
-
-                    // Copy and archive the build dir
-                    sh "cp -r build build-aarch64"
-                    archiveArtifacts "./build-aarch64/**"
                     */
                 }
             }
