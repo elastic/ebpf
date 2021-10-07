@@ -28,7 +28,6 @@ def cronString = getCronString()
     "ubuntu-1804-desktop",
     "ubuntu-20.04",
     "ubuntu-20.04-secureboot",
-    "rhel-7",
     "rhel-8",
 ]
 
@@ -148,6 +147,8 @@ def buildAndStash(arch)
     println "Building ebpf for arch ${arch}"
 
     // Build the binaries
+    // NOTE: There may be other env vars to set (or set differently)
+    // when the aarch64 compiling is added
     withEnv(["PATH=/opt/endpoint-dev/dev/toolchain/bin:$PATH",
         "CPATH=${cpath}",
         "MAKESYSPATH=/opt/endpoint-dev/dev/toolchain/share/mk"])
@@ -206,27 +207,8 @@ pipeline {
                 {
                     buildAndStash("x64")
 
-                    /*
-                    println "Building aarch64 ebpf"
-
-                    // Build the aarch64 binaries
-                    withEnv(["PATH=/opt/endpoint-dev/dev/toolchain/bin:$PATH",
-                        "CPATH=/opt/endpoint-dev/dev/sysroot/aarch64-linux-gnu/usr/include",
-                        "MAKESYSPATH=/opt/endpoint-dev/dev/toolchain/share/mk"])
-                    {
-                        sh "./build_lib.sh"
-
-                        // Copy the TcFilter.bpf.o file into the test dir
-                        sh "cp build/test/TcFilter.bpf.o build/test"
-
-                        // Stash the aarch64 tests
-                        stash includes: "build/test/**", name: "tests-aarch64"
-
-                        // Copy and archive the build dir
-                        sh "cp -r build build-aarch64"
-                        archiveArtifacts "./build-aarch64/**"
-                    }
-                    */
+                    // TODO: Get this compiling
+                    //buildAndStash("aarch64")
                 }
             }
         }
