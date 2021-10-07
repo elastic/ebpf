@@ -157,9 +157,11 @@ pipeline {
             {
                 script
                 {
-                    println "Build step"
+                    println "Building x64 ebpf"
 
-                    withEnv(["PATH=/opt/endpoint-dev/dev/toolchain/bin:$PATH"])
+                    withEnv(["PATH=/opt/endpoint-dev/dev/toolchain/bin:$PATH",
+                        "CPATH=/opt/endpoint-dev/dev/sysroot/x86_64-linux-gnu/usr/include",
+                        "MAKESYSPATH=/opt/endpoint-dev/dev/toolchain/share/mk"])
                     {
                         sh "./build_lib.sh"
                     }
