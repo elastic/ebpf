@@ -144,6 +144,8 @@ pipeline {
                 {
                     println "Build step"
 
+                    sh "sudo apt-get -y install bmake"
+
                     sh "./build_lib.sh"
 
                     // TODO: use different stash names for files of different architectures
