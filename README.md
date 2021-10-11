@@ -32,7 +32,7 @@ eBPF programs consist of:
 
 Tools and loaders consist of:
 
-    UpdateIPsDemo - Userspace tool for updating IP allowlist
+    UpdateIPsDemo - Userspace tool for updating IP and subnet allowlist
 
     UpdatePidsDemo - Userspace tool for updating PID allowlist
 
