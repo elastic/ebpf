@@ -70,24 +70,24 @@ allow_destination_IP(
         .data = ip->daddr,
     };
 
-    /* Check allowed subnets first */
-    elem = bpf_map_lookup_elem(&allowed_subnets, &lpm_key);
+    /* Check allowed IPs map first */
+    elem = bpf_map_lookup_elem(&allowed_IPs, &ip->daddr);
     if (elem)
     {
-        /* IP matches allowed subnet */
+        /* IP is allowed */
         return 1;
     }
 
-    /* Now check allowed IPs map */
-    elem = bpf_map_lookup_elem(&allowed_IPs, &ip->daddr);
+    /* Now check allowed subnets */
+    elem = bpf_map_lookup_elem(&allowed_subnets, &lpm_key);
     if (!elem)
     {
-        /* destination IP not in allowlist - reject */
+        /* destination IP not within any allowed subnets - reject */
         return 0;
     }
     else
     {
-        /* IP is allowed */
+        /* IP matches allowed subnet */
         return 1;
     }
 }
