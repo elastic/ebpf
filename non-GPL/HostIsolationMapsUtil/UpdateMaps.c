@@ -71,6 +71,12 @@ ebpf_map_allowed_IPs_clear()
 }
 
 int
+ebpf_map_allowed_subnets_clear()
+{
+    return ebpf_clear_map(EBPF_ALLOWED_SUBNETS_MAP_PATH);
+}
+
+int
 ebpf_map_allowed_pids_clear()
 {
     return ebpf_clear_map(EBPF_ALLOWED_PIDS_MAP_PATH);

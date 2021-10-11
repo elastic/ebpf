@@ -8,7 +8,7 @@
 
 
 //
-// Host Isolation - tool for updating map of allowed IPs and pids
+// Host Isolation - tool for updating maps of allowed IPs, subnets and pids
 //
 
 /**
@@ -46,6 +46,14 @@ ebpf_map_allowed_pids_add(uint32_t pid);
  */
 int
 ebpf_map_allowed_IPs_clear();
+
+/**
+ * @brief Clear IP subnet allowlist
+ *
+ * @return Error value (0 for success)
+ */
+int
+ebpf_map_allowed_subnets_clear();
 
 /**
  * @brief Clear pid allowlist
