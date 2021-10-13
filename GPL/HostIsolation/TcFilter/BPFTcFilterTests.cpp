@@ -58,7 +58,7 @@ struct packet_v6
     struct tcphdr tcp;
 } __packed;
 
-class TcFilterTest : public ::testing::Test
+class BPFTcFilterTests : public ::testing::Test
 {
 protected:
     struct bpf_object *m_obj = nullptr;
@@ -108,12 +108,12 @@ protected:
         rinf = {RLIM_INFINITY, RLIM_INFINITY};
         if (setrlimit(RLIMIT_MEMLOCK, &rinf) == -EPERM)
         {
-            FAIL() << "setrlimit failed, running the TCFilterTest suite requires root permissions";
+            FAIL() << "setrlimit failed, running the BPFTcFilterTests suite requires root permissions";
         }
     }
 };
 
-TEST_F(TcFilterTest, TestAllowArpPacket)
+TEST_F(BPFTcFilterTests, TestAllowArpPacket)
 {
     struct bpf_prog_test_run_attr tattr = {};
     struct ethhdr eth
@@ -152,7 +152,7 @@ TEST_F(TcFilterTest, TestAllowArpPacket)
     EXPECT_EQ(tattr.retval, (unsigned int)ALLOW_PACKET);
 }
 
-TEST_F(TcFilterTest, TestDropUnsupportedPackets)
+TEST_F(BPFTcFilterTests, TestDropUnsupportedPackets)
 {
     struct bpf_prog_test_run_attr tattr = {};
     struct ethhdr eth
@@ -191,7 +191,7 @@ TEST_F(TcFilterTest, TestDropUnsupportedPackets)
     EXPECT_EQ(tattr.retval, (unsigned int)DROP_PACKET);
 }
 
-TEST_F(TcFilterTest, TestDropIPV6Packets)
+TEST_F(BPFTcFilterTests, TestDropIPV6Packets)
 {
     struct bpf_prog_test_run_attr tattr = {};
     struct ethhdr eth
@@ -231,7 +231,7 @@ TEST_F(TcFilterTest, TestDropIPV6Packets)
     EXPECT_EQ(tattr.retval, (unsigned int)DROP_PACKET);
 }
 
-TEST_F(TcFilterTest, TestDropInvalidHeaderLength)
+TEST_F(BPFTcFilterTests, TestDropInvalidHeaderLength)
 {
     unsigned int retval;
     struct ethhdr eth
@@ -262,7 +262,7 @@ TEST_F(TcFilterTest, TestDropInvalidHeaderLength)
     EXPECT_EQ(retval, (unsigned int)DROP_PACKET);
 }
 
-TEST_F(TcFilterTest, TestDropFragmentedPacket)
+TEST_F(BPFTcFilterTests, TestDropFragmentedPacket)
 {
     unsigned int retval;
     struct ethhdr eth
@@ -294,7 +294,7 @@ TEST_F(TcFilterTest, TestDropFragmentedPacket)
     EXPECT_EQ(retval, (unsigned int)DROP_PACKET);
 }
 
-TEST_F(TcFilterTest, TestAllowUDPPacketDNSPortSource)
+TEST_F(BPFTcFilterTests, TestAllowUDPPacketDNSPortSource)
 {
     unsigned int retval;
     struct ethhdr eth
@@ -327,7 +327,7 @@ TEST_F(TcFilterTest, TestAllowUDPPacketDNSPortSource)
     EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
 }
 
-TEST_F(TcFilterTest, TestAllowUDPPacketDNSPortDest)
+TEST_F(BPFTcFilterTests, TestAllowUDPPacketDNSPortDest)
 {
     unsigned int retval;
     struct ethhdr eth
@@ -360,7 +360,7 @@ TEST_F(TcFilterTest, TestAllowUDPPacketDNSPortDest)
     EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
 }
 
-TEST_F(TcFilterTest, TestAllowUDPPacketDHCPClient)
+TEST_F(BPFTcFilterTests, TestAllowUDPPacketDHCPClient)
 {
     unsigned int retval;
     struct ethhdr eth
@@ -394,7 +394,7 @@ TEST_F(TcFilterTest, TestAllowUDPPacketDHCPClient)
     EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
 }
 
-TEST_F(TcFilterTest, TestAllowUDPPacketDHCPServer)
+TEST_F(BPFTcFilterTests, TestAllowUDPPacketDHCPServer)
 {
     unsigned int retval;
     struct ethhdr eth
@@ -428,7 +428,7 @@ TEST_F(TcFilterTest, TestAllowUDPPacketDHCPServer)
     EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
 }
 
-TEST_F(TcFilterTest, TestDropUnknownUDPPackets)
+TEST_F(BPFTcFilterTests, TestDropUnknownUDPPackets)
 {
     unsigned int retval;
     struct ethhdr eth
@@ -461,7 +461,7 @@ TEST_F(TcFilterTest, TestDropUnknownUDPPackets)
     EXPECT_EQ(retval, (unsigned int)DROP_PACKET);
 }
 
-TEST_F(TcFilterTest, TestDropUnknownTCPDestination)
+TEST_F(BPFTcFilterTests, TestDropUnknownTCPDestination)
 {
     unsigned int retval;
     struct ethhdr eth
@@ -493,7 +493,7 @@ TEST_F(TcFilterTest, TestDropUnknownTCPDestination)
     EXPECT_EQ(retval, (unsigned int)DROP_PACKET);
 }
 
-TEST_F(TcFilterTest, TestAllowTCPAddressInAllowedIPs)
+TEST_F(BPFTcFilterTests, TestAllowTCPAddressInAllowedIPs)
 {
     int allowed_ips_map_fd;
     unsigned int retval;
@@ -533,7 +533,7 @@ TEST_F(TcFilterTest, TestAllowTCPAddressInAllowedIPs)
     EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
 }
 
-TEST_F(TcFilterTest, TestDropUnknownICMPDestination)
+TEST_F(BPFTcFilterTests, TestDropUnknownICMPDestination)
 {
     unsigned int retval;
     struct ethhdr eth
@@ -565,7 +565,7 @@ TEST_F(TcFilterTest, TestDropUnknownICMPDestination)
     EXPECT_EQ(retval, (unsigned int)DROP_PACKET);
 }
 
-TEST_F(TcFilterTest, TestAllowICMPAddressInAllowedIPs)
+TEST_F(BPFTcFilterTests, TestAllowICMPAddressInAllowedIPs)
 {
     int allowed_ips_map_fd;
     unsigned int retval;
