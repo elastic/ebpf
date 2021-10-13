@@ -6,6 +6,8 @@
  * you may not use this file except in compliance with the Elastic License 2.0.
  */
 
+#ifndef EBPF_UPDATE_MAPS_H
+#define EBPF_UPDATE_MAPS_H
 
 //
 // Host Isolation - tool for updating maps of allowed IPs, subnets and pids
@@ -62,3 +64,4 @@ ebpf_map_allowed_subnets_clear();
  */
 int
 ebpf_map_allowed_pids_clear();
+#endif

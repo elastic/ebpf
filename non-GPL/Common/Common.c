@@ -16,6 +16,34 @@
 
 #include "Common.h"
 
+struct ebpf_maps_info ebpf_maps[EBPF_MAP_NUM] =
+{
+{
+    .type    = BPF_MAP_TYPE_HASH,
+    .name        = EBPF_ALLOWED_IPS_MAP_NAME,
+    .key_size    = sizeof(int),
+    .value_size  = sizeof(int),
+    .max_entries = 512,
+    .map_flags       = 0
+},
+{
+    .type    = BPF_MAP_TYPE_LPM_TRIE,
+    .name        = EBPF_ALLOWED_SUBNETS_MAP_NAME,
+    .key_size    = 8,
+    .value_size  = sizeof(int),
+    .max_entries = 256,
+    .map_flags       = BPF_F_NO_PREALLOC
+},
+{
+    .type    = BPF_MAP_TYPE_HASH,
+    .name        = EBPF_ALLOWED_PIDS_MAP_NAME,
+    .key_size    = sizeof(int),
+    .value_size  = sizeof(int),
+    .max_entries = 128,
+    .map_flags       = 0
+},
+};
+
 // common log function
 static libbpf_print_fn_t g_log_func = libbpf_print_fn;
 
