@@ -43,4 +43,4 @@ cp non-GPL/HostIsolation/KprobeConnectHook/build/KprobeConnectHook.bpf.o build/e
 cp GPL/HostIsolation/TcFilter/TcFilter.bpf.o build/ebpf
 
 mkdir -p build/test
-cp GPL/HostIsolation/TcFilter/_testout/test build/test/TcFilterTest
+cp GPL/HostIsolation/TcFilter/_testout/test build/test/BPFTcFilterTests
