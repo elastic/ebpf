@@ -27,8 +27,7 @@ ebpf_update_map(const char *map_path,
                 const void *key,
                 const void *val);
 static int
-ebpf_create_map(const char *map_path,
-                enum ebpf_hostisolation_map map_id,
+ebpf_create_map(enum ebpf_hostisolation_map map_id,
                 int *map_fd);
 static int
 ebpf_clear_map(const char *map_path,
@@ -88,8 +87,7 @@ ebpf_map_allowed_pids_clear()
 }
 
 static int
-ebpf_create_map(const char *map_path,
-                enum ebpf_hostisolation_map map_id,
+ebpf_create_map(enum ebpf_hostisolation_map map_id,
                 int *map_fd)
 {
     int rv = 0;
@@ -139,7 +137,7 @@ ebpf_update_map(const char *map_path, enum ebpf_hostisolation_map map_id, const 
     if (map_fd < 0)
     {
         // perhaps the map does not exist, try to create it and pin to bpf fs
-        rv = ebpf_create_map(map_path, map_id, &map_fd);
+        rv = ebpf_create_map(map_id, &map_fd);
         if (rv)
         {
             ebpf_log("Error updating map, make sure to run with sudo. Errno=%d\n", errno);
@@ -189,7 +187,7 @@ ebpf_clear_map(const char *map_path,
     if (map_fd < 0)
     {
         // perhaps the map does not exist, try to create it
-        rv = ebpf_create_map(map_path, map_id, &map_fd);
+        rv = ebpf_create_map(map_id, &map_fd);
         if (rv)
         {
             ebpf_log("Error clearing map, make sure to run with sudo. Errno=%d\n", errno);
