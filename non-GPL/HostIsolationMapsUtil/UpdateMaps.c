@@ -173,8 +173,8 @@ ebpf_clear_map(const char *map_path,
 {
     int rv = 0;
     int map_fd = -1;
-    uint32_t key = -1;
-    uint32_t next_key = -1;
+    uint8_t key_buf[64] = {0};
+    uint8_t next_key_buf[64] = {0};
 
     if (map_path == NULL)
     {
@@ -196,22 +196,22 @@ ebpf_clear_map(const char *map_path,
     }
 
     // get the first key
-    if (bpf_map_get_next_key(map_fd, NULL, &key) < 0)
+    if (bpf_map_get_next_key(map_fd, NULL, key_buf) < 0)
     {
         // map is already empty
         goto cleanup;
     }
 
     // iterate over map
-    while (0 == bpf_map_get_next_key(map_fd, &key, &next_key))
+    while (0 == bpf_map_get_next_key(map_fd, key_buf, next_key_buf))
     {
         // return value 0 means 'key' exists and 'next_key' has been set
-        (void)bpf_map_delete_elem(map_fd, &key);
-        key = next_key;
+        (void)bpf_map_delete_elem(map_fd, key_buf);
+	memcpy(key_buf, next_key_buf, sizeof(key_buf));
     }
 
     // -1 was returned so 'key' is the last element - delete it
-    (void)bpf_map_delete_elem(map_fd, &key);
+    (void)bpf_map_delete_elem(map_fd, key_buf);
 
 cleanup:
     if (map_fd >= 0)
