@@ -11,6 +11,8 @@ Directory layout:
 
     contrib/libbpf - copied repo: github.com/libbpf/libbpf @ 767d82ca
 
+    contrib/googletest - copied repo: github.com/google/googletest @ 955c7f83
+
     GPL - eBPF programs which are GPL licensed
 
     non-GPL - tools, utilities with Elastic non-GPL license
@@ -30,13 +32,17 @@ eBPF programs consist of:
 
 Tools and loaders consist of:
 
-    UpdateIPsDemo - Userspace tool for updating IP allowlist
+    UpdateIPsDemo - Userspace tool for updating IP and subnet allowlist
 
     UpdatePidsDemo - Userspace tool for updating PID allowlist
 
     KprobeConnectHookDemo - Loader for KprobeConnectHook eBPF program
 
     TcLoaderDemo - Loader for TcFilter eBPF program, attaches to ens33 interface by default
+
+Tests consist of:
+
+    BPFTcFilterTest - test suite for the TcFilter.bpf.o program using BPF_PROG_TEST_RUN
 
 ---------------------------------------------------------
 How to run Host Isolation demo:
@@ -59,3 +65,18 @@ How to run Host Isolation demo:
 
     9. quit KprobeConnectHook with Ctrl+C and run `sudo ./TcLoaderDemo unload` to detach both eBPF programs
 
+
+
+## Run Tests
+
+### BPFTcFilterTest
+
+```
+sudo make -C GPL/HostIsolation/TcFilter test
+```
+
+Or if you want to use a custom path for the eBPF object file.
+
+```
+sudo ELASTIC_EBPF_TC_FILTER_OBJ_PATH=/tmp/TcFilter.bpf.o  make -C GPL/HostIsolation/TcFilter  test
+```

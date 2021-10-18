@@ -61,8 +61,6 @@ typedef __u64 __be64;
 
 typedef __u32 __wsum;
 
-typedef u64 uint64_t;
-
 
 #ifdef __CHECKER__
 #define __bitwise__ __attribute__((bitwise))
@@ -264,6 +262,46 @@ struct iphdr {
 	/*The options start here. */
 };
 
+#define __UAPI_DEF_IN6_ADDR 1
+
+#if __UAPI_DEF_IN6_ADDR
+struct in6_addr {
+	union {
+		__u8		u6_addr8[16];
+#if __UAPI_DEF_IN6_ADDR_ALT
+		__be16		u6_addr16[8];
+		__be32		u6_addr32[4];
+#endif
+	} in6_u;
+#define s6_addr			in6_u.u6_addr8
+#if __UAPI_DEF_IN6_ADDR_ALT
+#define s6_addr16		in6_u.u6_addr16
+#define s6_addr32		in6_u.u6_addr32
+#endif
+};
+
+#endif /* __UAPI_DEF_IN6_ADDR */
+
+struct ipv6hdr {
+#if defined(__LITTLE_ENDIAN_BITFIELD)
+	__u8			priority:4,
+				version:4;
+#elif defined(__BIG_ENDIAN_BITFIELD)
+	__u8			version:4,
+				priority:4;
+#else
+#error	"Please fix <asm/byteorder.h>"
+#endif
+	__u8			flow_lbl[3];
+
+	__be16			payload_len;
+	__u8			nexthdr;
+	__u8			hop_limit;
+
+	struct	in6_addr	saddr;
+	struct	in6_addr	daddr;
+};
+
 struct udphdr {
         __be16  source;
         __be16  dest;
@@ -312,6 +350,10 @@ struct ethhdr {
 	__be16		h_proto;		/* packet type ID field	*/
 } __attribute__((packed));
 
+// This header might be included in userspace programs (e.g BPFTcFilterTests.cpp)
+// where we want to share some definitions with kernel space programs (TcFilter.bpf.c).
+// In this case, we need to gate some specific kernel definitions that are not needed in userspace.
+#ifdef __KERNEL__
 enum bpf_map_type {
 	BPF_MAP_TYPE_UNSPEC,
 	BPF_MAP_TYPE_HASH,
@@ -331,7 +373,6 @@ enum bpf_map_type {
 	BPF_MAP_TYPE_SOCKMAP,
 	BPF_MAP_TYPE_CPUMAP,
 };
-
 struct __sk_buff {
 	__u32 len;
 	__u32 pkt_type;
@@ -364,3 +405,7 @@ struct __sk_buff {
 	
 	// Note: there are more fields but we don't use them
 };
+#else
+#define __aligned_u64 __u64 __attribute__((aligned(8)))
+#endif // __KERNEL__
+

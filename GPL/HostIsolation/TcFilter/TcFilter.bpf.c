@@ -18,27 +18,27 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #include "Kerneldefs.h"
 #include "bpf_helpers.h"
 #include "bpf_endian.h"
+#include "TcFilterdefs.h"
 
 #ifndef __section
 # define __section(NAME)                  \
    __attribute__((section(NAME), used))
 #endif
 
-#define PCKT_FRAGMENTED 65343
 
 // you took NULL for granted didn't you :)
 #define NULL 0
 
-#define DROP_PACKET TC_ACT_SHOT
-#define ALLOW_PACKET TC_ACT_UNSPEC
+#define BPF_F_NO_PREALLOC	(1U << 0)
 
-#define DNS_PORT (53)
-#define DHCP_SERVER_PORT (67)
-#define DHCP_CLIENT_PORT (68)
+/* Key of an a BPF_MAP_TYPE_LPM_TRIE entry */
+struct bpf_lpm_trie_key {
+	__u32	prefixlen;	/* up to 32 for AF_INET, 128 for AF_INET6 */
+	__u32	data;	/* Arbitrary size */
+};
 
 struct
 {
@@ -49,22 +49,45 @@ struct
     __uint(pinning, LIBBPF_PIN_BY_NAME);
 } allowed_IPs __section(".maps");
 
+struct
+{
+    __uint(type, BPF_MAP_TYPE_LPM_TRIE);
+    __uint(key_size, 8);
+    __uint(value_size, sizeof(int));
+    __uint(max_entries, 256);
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} allowed_subnets __section(".maps");
+
 __attribute__((always_inline))
 static int
 allow_destination_IP(
     struct iphdr *ip)
 {
     __u32 *elem = NULL;
+    struct bpf_lpm_trie_key lpm_key = {
+        .prefixlen = 32,
+        .data = ip->daddr,
+    };
 
+    /* Check allowed IPs map first */
     elem = bpf_map_lookup_elem(&allowed_IPs, &ip->daddr);
+    if (elem)
+    {
+        /* IP is allowed */
+        return 1;
+    }
+
+    /* Now check allowed subnets */
+    elem = bpf_map_lookup_elem(&allowed_subnets, &lpm_key);
     if (!elem)
     {
-        /* destination IP not in allowlist - reject */
+        /* destination IP not within any allowed subnets - reject */
         return 0;
     }
     else
     {
-        /* IP is allowed */
+        /* IP matches allowed subnet */
         return 1;
     }
 }

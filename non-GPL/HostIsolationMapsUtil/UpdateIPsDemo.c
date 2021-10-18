@@ -8,10 +8,11 @@
 
 
 //
-// Host Isolation - tool for updating map of allowed IPs
+// Host Isolation - tool for updating maps of allowed IPs and subnets
 //
 #include <argp.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <time.h>
 #include <arpa/inet.h>
 
@@ -24,6 +25,10 @@ main(int argc,
 {
     int rv = 0;
     uint32_t IPaddr = 0;
+    char IP_str[64] = {0};
+    char *str_ptr = NULL;
+    char *str_end = NULL;
+    long netmask = 0;
 
     ebpf_set_log_func(ebpf_default_log_func());
 
@@ -34,18 +39,50 @@ main(int argc,
         goto cleanup;
     }
 
-
-    if (!inet_pton(AF_INET, argv[1], &IPaddr))
+    str_ptr = strstr(argv[1], "/");
+    if (str_ptr && (str_ptr[1] != '\0'))
     {
-        printf("Error: given IP is invalid\n");
-        rv = -1;
-        goto cleanup;
+        /* An IP with subnet mask was given - add to allowed subnets map */
+        memset(IP_str, 0, sizeof(IP_str));
+        memcpy(IP_str, argv[1], (str_ptr - argv[1]));
+        if (!inet_pton(AF_INET, IP_str, &IPaddr))
+        {
+            printf("Error: given IP is invalid\n");
+            rv = -1;
+            goto cleanup;
+        }
+
+        str_ptr++;
+        netmask = strtol(str_ptr, &str_end, 10);
+        if (str_end == str_ptr || netmask > 32 || netmask < 0)
+        {
+            printf("Error parsing subnet mask\n");
+            rv = -1;
+            goto cleanup;
+        }
+
+        rv = ebpf_map_allowed_subnets_add(IPaddr, netmask);
+        if (0 == rv)
+        {
+            printf("IP subnet %s added to " EBPF_ALLOWED_SUBNETS_MAP_NAME " BPF map!\n", argv[1]);
+        }
     }
+    else
+    {
+        if (!inet_pton(AF_INET, argv[1], &IPaddr))
+        {
+            printf("Error: given IP is invalid\n");
+            rv = -1;
+            goto cleanup;
+        }
 
-    rv = ebpf_map_allowed_IPs_add(IPaddr);
-
-    if (0 == rv)
-        printf("IP %s added to " EBPF_ALLOWED_IPS_MAP_NAME " BPF map!\n", argv[1]);
+        /* An IP with no subnet was given - add to allowed_IPs */
+        rv = ebpf_map_allowed_IPs_add(IPaddr);
+        if (0 == rv)
+        {
+            printf("IP %s added to " EBPF_ALLOWED_IPS_MAP_NAME " BPF map!\n", argv[1]);
+        }
+    }
 
 cleanup:
 

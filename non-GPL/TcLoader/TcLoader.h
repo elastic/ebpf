@@ -6,6 +6,8 @@
  * you may not use this file except in compliance with the Elastic License 2.0.
  */
 
+#ifndef EBPF_TCLOADER_H
+#define EBPF_TCLOADER_H
 
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
@@ -83,6 +85,4 @@ int
 netlink_filter_add_end(int fd,
                        struct netlink_ctx *ctx,
                        const char *ebpf_obj_filename);
-
-
-
+#endif
