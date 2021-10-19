@@ -50,6 +50,7 @@ TcFilter.bpf.o: TcFilter.bpf.c $(wildcard %.h) Kerneldefs.h
 		-Wno-gnu-variable-sized-type-not-at-end \
 		-Wno-address-of-packed-member \
 		-Wno-tautological-compare \
+		-fno-stack-protector \
 		-fno-asynchronous-unwind-tables \
 		-emit-llvm -c $< -o - | $(LLC) -march=bpf -mcpu=v2 -filetype=obj -o $@
 
