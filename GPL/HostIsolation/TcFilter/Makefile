@@ -37,7 +37,7 @@ TEST_FILES ?= $(wildcard *Tests.cpp)
 
 # We never want the stdinc flags in our BPF program, they can contain
 # things the eBPF program cannot compile or provide LLVM builtins that we can't use.
-NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)
+NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CLANG) -print-file-name=include)
 
 TcFilter.bpf.o: TcFilter.bpf.c $(wildcard %.h) Kerneldefs.h
 	$(CLANG) -g -O2 $(NOSTDINC_FLAGS) \
@@ -52,6 +52,7 @@ TcFilter.bpf.o: TcFilter.bpf.c $(wildcard %.h) Kerneldefs.h
 		-Wno-tautological-compare \
 		-fno-stack-protector \
 		-fno-asynchronous-unwind-tables \
+		-fno-stack-protector \
 		-emit-llvm -c $< -o - | $(LLC) -march=bpf -mcpu=v2 -filetype=obj -o $@
 
 .PHONY: clean
