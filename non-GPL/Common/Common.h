@@ -6,9 +6,41 @@
  * you may not use this file except in compliance with the Elastic License 2.0.
  */
 
+#ifndef EBPF_COMMON_H
+#define EBPF_COMMON_H
 
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
+
+#define EBPF_MAP_PARENT_DIRECTORY       "/sys/fs/bpf/elastic"
+#define EBPF_MAP_DIRECTORY              "/sys/fs/bpf/elastic/endpoint"
+#define EBPF_ALLOWED_IPS_MAP_NAME       "allowed_IPs"
+#define EBPF_ALLOWED_IPS_MAP_PATH       "/sys/fs/bpf/elastic/endpoint/allowed_IPs"
+#define EBPF_ALLOWED_SUBNETS_MAP_NAME   "allowed_subnets"
+#define EBPF_ALLOWED_SUBNETS_MAP_PATH   "/sys/fs/bpf/elastic/endpoint/allowed_subnets"
+#define EBPF_ALLOWED_PIDS_MAP_NAME      "allowed_pids"
+#define EBPF_ALLOWED_PIDS_MAP_PATH      "/sys/fs/bpf/elastic/endpoint/allowed_pids"
+
+struct ebpf_maps_info
+{
+    enum bpf_map_type type;
+    const char        *name;
+    int               key_size;
+    int               value_size;
+    int               max_entries;
+    uint32_t          map_flags;
+};
+
+enum ebpf_hostisolation_map
+{
+    EBPF_MAP_ALLOWED_IPS = 0,
+    EBPF_MAP_ALLOWED_SUBNETS,
+    EBPF_MAP_ALLOWED_PIDS,
+    EBPF_MAP_NUM
+};
+
+// ebpf map metadata
+extern struct ebpf_maps_info ebpf_maps[EBPF_MAP_NUM];
 
 /**
  * @brief Default libbpf log function
@@ -45,11 +77,4 @@ ebpf_default_log_func();
  */
 void
 ebpf_set_log_func(libbpf_print_fn_t fn);
-
-#define EBPF_MAP_PARENT_DIRECTORY "/sys/fs/bpf/elastic"
-#define EBPF_MAP_DIRECTORY "/sys/fs/bpf/elastic/endpoint"
-#define EBPF_ALLOWED_IPS_MAP_NAME "allowed_IPs"
-#define EBPF_ALLOWED_IPS_MAP_PATH "/sys/fs/bpf/elastic/endpoint/allowed_IPs"
-#define EBPF_ALLOWED_PIDS_MAP_NAME "allowed_pids"
-#define EBPF_ALLOWED_PIDS_MAP_PATH "/sys/fs/bpf/elastic/endpoint/allowed_pids"
-
+#endif

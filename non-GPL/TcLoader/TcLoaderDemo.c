@@ -45,8 +45,11 @@ main(int argc,
     struct bpf_program *p = NULL;
     struct bpf_object *obj = NULL;
     struct bpf_map *map = NULL;
+    const char *map_name = NULL;
+    char buf[256] = {0};
     int prog_fd_dupd = 0;
     int rv = -1;
+
 
     memset(&nl_ctx, 0, sizeof(nl_ctx));
 
@@ -130,7 +133,15 @@ main(int argc,
     bpf_object__for_each_map(map, obj)
     {
         bpf_map__set_ifindex(map, 0); //?
-        bpf_map__set_pin_path(map, EBPF_MAP_DIRECTORY "/" EBPF_ALLOWED_IPS_MAP_NAME);
+        map_name = bpf_map__name(map);
+        if (map_name)
+        {
+            rv = snprintf(buf, sizeof(buf), EBPF_MAP_DIRECTORY "/" "%s", map_name);
+            if (rv > 0)
+            {
+                bpf_map__set_pin_path(map, buf);
+            }
+        }
     }
 
     rv = bpf_object__load(obj);

@@ -350,7 +350,7 @@ struct ethhdr {
 	__be16		h_proto;		/* packet type ID field	*/
 } __attribute__((packed));
 
-// This header might be included in userspace programs (e.g TcFilterTest.cpp)
+// This header might be included in userspace programs (e.g BPFTcFilterTests.cpp)
 // where we want to share some definitions with kernel space programs (TcFilter.bpf.c).
 // In this case, we need to gate some specific kernel definitions that are not needed in userspace.
 #ifdef __KERNEL__

@@ -33,7 +33,7 @@ LDFLAGS := -lpthread -lz -L$(LIBBPF_BUILD) -lbpf -L$(LIBELF_BUILD) -lelf
 CXXFLAGS ?= -g -Wall -Wextra -pthread
 
 TEST_LIBS := 
-TEST_FILES ?= $(wildcard *Test.cpp)
+TEST_FILES ?= $(wildcard *Tests.cpp)
 
 # We never want the stdinc flags in our BPF program, they can contain
 # things the eBPF program cannot compile or provide LLVM builtins that we can't use.

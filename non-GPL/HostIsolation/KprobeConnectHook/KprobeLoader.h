@@ -6,6 +6,8 @@
  * you may not use this file except in compliance with the Elastic License 2.0.
  */
 
+#ifndef EBPF_KPROBELOADER_H
+#define EBPF_KPROBELOADER_H
 
 #include <Common.h>
 
@@ -65,4 +67,4 @@ ebpf_link_destroy(struct bpf_link *link);
  */
 void
 ebpf_object_close(struct bpf_object *obj);
-
+#endif
