@@ -43,8 +43,9 @@ add_custom_command(OUTPUT libeBPF.a
                   COMMAND ar x $<TARGET_FILE:KprobeLoader>
                   COMMAND ar x $<TARGET_FILE:TcLoader>
                   COMMAND ar x $<TARGET_FILE:Common>
-                  COMMAND ar cr ${LIBEBPF_LIB} *.o
+                  COMMAND ar cr libeBPF.a *.o
                   COMMENT "Assembling libeBPF.a"
                   DEPENDS libbpf libelf UpdateMaps KprobeLoader TcLoader Common)
 
-add_custom_target(libeBPF DEPENDS libeBPF.a)
+add_custom_target(libeBPF ALL DEPENDS libeBPF.a)
+install(FILES ${TARGET_TMP_DIR}/libeBPF.a DESTINATION ${TARGET_DIR})
