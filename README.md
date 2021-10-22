@@ -17,7 +17,9 @@ Collection of BPF programs for Linux.
 - **KprobeConnectHookDemo** Loader for KprobeConnectHook eBPF program
 - **TcLoaderDemo** Loader for TcFilter eBPF program, attaches to ens33 interface by default
 
-#### Run Demos
+<details>
+  <summary>Run the demos</summary>
+  
 
 1. Follow the build section to build the project so that you have the `build/` folder
 1. Run `cd GPL/HostIsolation/TcFilter`
@@ -30,6 +32,8 @@ Collection of BPF programs for Linux.
 1. Run `sudo non-GPL/HostIsolationMapsUtil/UpdatePidsDemo <firefox PID>`
 1. Verify that firefox connects to any page
 1. Quit KprobeConnectHook with Ctrl+C and run `sudo ./non-GPL/TcLoader/TcLoaderDemo unload` to detach both eBPF programs
+
+</details>
 
 ### Tests (BPF_PROG_TEST_RUN)
 
