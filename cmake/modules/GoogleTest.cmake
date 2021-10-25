@@ -11,6 +11,8 @@ set(GTEST_BUILD_DIR "${PROJECT_BINARY_DIR}/gtest-prefix/src/gtest-build")
 set(GTEST_LIB "${GTEST_BUILD_DIR}/gtest-all.o")
 message(STATUS "[contrib] gtest in '${GTEST_SRC}'")
 
+file(MAKE_DIRECTORY ${GTEST_BUILD_DIR})
+
 set(GTEST_CXXFLAGS -g -Wall -Wextra -pthread)
 ExternalProject_Add(
     gtest

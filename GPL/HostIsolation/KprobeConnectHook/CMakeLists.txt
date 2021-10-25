@@ -8,8 +8,18 @@
 include(BPFDefinitions)
 include(arch)
 
+set(KPROBECONNECTHOOK_CFLAGS
+                        -g -O2
+                        -target bpf
+                        -D__TARGET_ARCH_${ARCH_TRUNC}
+                        -D__${ARCH}__
+                        -I${LIBBPF_INCLUDE_DIR}
+                        -I${CMAKE_SOURCE_DIR}/non-GPL/Common/
+                        -I${CMAKE_SOURCE_DIR}/contrib/libbpf/include
+                        -I${CMAKE_SOURCE_DIR}/contrib/libbpf/include/uapi)
+
 add_custom_command(OUTPUT KprobeConnectHook.bpf.o
-                  COMMAND ${CLANG} -g -O2 -target bpf -D__TARGET_ARCH_${ARCH_TRUNC} -D__${ARCH}__ -I${LIBBPF_TARGET_DIR} -I${CMAKE_SOURCE_DIR}/non-GPL/Common/ -I${CMAKE_SOURCE_DIR}/contrib/libbpf/include -I${CMAKE_SOURCE_DIR}/contrib/libbpf/include/uapi -c ${CMAKE_CURRENT_SOURCE_DIR}/KprobeConnectHook.bpf.c -o KprobeConnectHook.bpf.o
+                  COMMAND ${CLANG} ${KPROBECONNECTHOOK_CFLAGS} -c ${CMAKE_CURRENT_SOURCE_DIR}/KprobeConnectHook.bpf.c -o KprobeConnectHook.bpf.o
                   COMMENT "Building KprobeConnectHook.bpf.o"
                   DEPENDS libbpf)
 

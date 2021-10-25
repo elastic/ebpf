@@ -1,4 +1,4 @@
-# ebpf
+# eBPF
 
 Collection of BPF programs for Linux.
 
@@ -58,9 +58,10 @@ sudo ELASTIC_EBPF_TC_FILTER_OBJ_PATH=build/GPL/HostIsolation/TcFilter/TcFilter.b
 
 Build dependencies
 
+```bash
+apt install clang llvm cmake bmake zlib1g-dev m4 gcc g++ libc6-dev-i386
 ```
-apt install clang llvm cmake bmake zlib1g-dev m4 gcc g++
-```
+
 
 The build is a pretty standard CMake project.
 
@@ -71,6 +72,11 @@ cmake ..
 make
 make install
 ```
+
+Besides the usual CMake variables, you can set the following variables which are specific to this project.
+
+| Variable     | Description                                   |
+| -DTARGET_DIR  | Directory to target with the install command |
 
 After doing `make install`, the final artifacts  will be installed in `build/target`.
 

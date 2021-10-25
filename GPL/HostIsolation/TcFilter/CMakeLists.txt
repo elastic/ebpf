@@ -35,11 +35,13 @@ include(GoogleTest)
 
 add_executable(BPFTcFilterTests BPFTcFilterTests.cpp ${GTEST_MAIN})
 target_include_directories(BPFTcFilterTests PRIVATE 
-    "${LIBBPF_TARGET_DIR}"
+    "${LIBBPF_UAPI_INCLUDE_DIR}"
+    "${LIBBPF_INCLUDE_DIR}"
     "${GTEST_INCLUDE}")
 
 add_dependencies(BPFTcFilterTests BPFTcFilter)
 
 target_link_libraries(BPFTcFilterTests ${LIBBPF_LIB} ${LIBELF_LIB} ${GTEST_LIB} -pthread -lz)
+add_dependencies(BPFTcFilterTests libbpf libelf gtest)
 
 install(TARGETS BPFTcFilterTests RUNTIME DESTINATION ${TARGET_TEST_DIR})
