@@ -11,11 +11,12 @@ project(ebpf)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O2 -Wall -fPIC")
-set(TARGET_DIR "${CMAKE_CURRENT_BINARY_DIR}/target")
+set(TARGET_DIR_DEFAULT "${CMAKE_CURRENT_BINARY_DIR}/target")
+set(TARGET_DIR "${TARGET_DIR_DEFAULT}" CACHE STRING "Custom target directory")
 set(TARGET_TMP_DIR "${CMAKE_CURRENT_BINARY_DIR}/target-tmp")
-set(TARGET_TEST_DIR "${CMAKE_CURRENT_BINARY_DIR}/target/test")
-set(TARGET_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/target/include")
-set(TARGET_EBPF_DIR "${CMAKE_CURRENT_BINARY_DIR}/target/ebpf")
+set(TARGET_TEST_DIR "${TARGET_DIR}/test")
+set(TARGET_INCLUDE_DIR "${TARGET_DIR}/include")
+set(TARGET_EBPF_DIR "${TARGET_DIR}/ebpf")
 set(LIBEBPF_LIB "${TARGET_DIR}/libeBPF.a")
 
 include(ExternalProject)
@@ -48,4 +49,5 @@ add_custom_command(OUTPUT libeBPF.a
                   DEPENDS libbpf libelf UpdateMaps KprobeLoader TcLoader Common)
 
 add_custom_target(libeBPF ALL DEPENDS libeBPF.a)
+add_dependencies(libeBPF TcLoader KprobeLoader UpdateMaps)
 install(FILES ${TARGET_TMP_DIR}/libeBPF.a DESTINATION ${TARGET_DIR})

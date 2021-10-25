@@ -7,18 +7,19 @@
 # Library
 add_library(TcLoader STATIC TcLoader.c)
 target_include_directories(TcLoader PRIVATE 
-    "${LIBBPF_TARGET_DIR}"
+    "${LIBBPF_INCLUDE_DIR}"
     "${PROJECT_SOURCE_DIR}/non-GPL/Common")
 
+add_dependencies(TcLoader libbpf libelf)
 target_link_libraries(TcLoader Common ${LIBBPF_LIB} ${LIBELF_LIB} -lz)
+add_dependencies(TcLoader Common libbpf libelf)
 
 install(FILES TcLoader.h DESTINATION ${TARGET_INCLUDE_DIR})
-
 
 # Demo using the library
 add_executable(TcLoaderDemo TcLoaderDemo.c)
 target_include_directories(TcLoaderDemo PRIVATE 
-    "${LIBBPF_TARGET_DIR}"
+    "${LIBBPF_INCLUDE_DIR}"
     "${PROJECT_SOURCE_DIR}/non-GPL/Common")
 
 target_link_libraries(TcLoaderDemo TcLoader)

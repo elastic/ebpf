@@ -8,11 +8,12 @@
 add_library(KprobeLoader STATIC KprobeLoader.c)
 
 target_include_directories(KprobeLoader PRIVATE
-"${LIBELF_SRC}/common" 
-    "${LIBBPF_TARGET_DIR}"
+    "${LIBELF_SRC}/common" 
+    "${LIBBPF_INCLUDE_DIR}"
     "${PROJECT_SOURCE_DIR}/non-GPL/Common")
 
 target_link_libraries(KprobeLoader Common ${LIBBPF_LIB} ${LIBELF_LIB} -lz)
+add_dependencies(KprobeLoader Common libbpf libelf)
 
 install(FILES KprobeLoader.h DESTINATION ${TARGET_INCLUDE_DIR})
 
@@ -20,7 +21,7 @@ install(FILES KprobeLoader.h DESTINATION ${TARGET_INCLUDE_DIR})
 # Demo using the library
 add_executable(KprobeConnectHookDemo KprobeConnectHookDemo.c)
 target_include_directories(KprobeConnectHookDemo PRIVATE
-    "${LIBBPF_TARGET_DIR}"
+    "${LIBBPF_INCLUDE_DIR}"
     "${PROJECT_SOURCE_DIR}/non-GPL/Common")
 
 target_link_libraries(KprobeConnectHookDemo KprobeLoader)
