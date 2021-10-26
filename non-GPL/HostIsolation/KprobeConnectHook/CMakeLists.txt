@@ -9,6 +9,8 @@ add_library(KprobeLoader STATIC KprobeLoader.c)
 
 target_include_directories(KprobeLoader PRIVATE
     "${LIBELF_SRC}/common" 
+    "${LIBBPF_TARGET_INCLUDE_DIR}"
+    "${LIBBPF_UAPI_INCLUDE_DIR}"
     "${LIBBPF_INCLUDE_DIR}"
     "${PROJECT_SOURCE_DIR}/non-GPL/Common")
 
@@ -21,6 +23,8 @@ install(FILES KprobeLoader.h DESTINATION ${TARGET_INCLUDE_DIR})
 # Demo using the library
 add_executable(KprobeConnectHookDemo KprobeConnectHookDemo.c)
 target_include_directories(KprobeConnectHookDemo PRIVATE
+    "${LIBBPF_TARGET_INCLUDE_DIR}"
+    "${LIBBPF_UAPI_INCLUDE_DIR}"
     "${LIBBPF_INCLUDE_DIR}"
     "${PROJECT_SOURCE_DIR}/non-GPL/Common")
 

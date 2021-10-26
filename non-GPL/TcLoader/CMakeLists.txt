@@ -7,6 +7,8 @@
 # Library
 add_library(TcLoader STATIC TcLoader.c)
 target_include_directories(TcLoader PRIVATE 
+    "${LIBBPF_TARGET_INCLUDE_DIR}"
+    "${LIBBPF_UAPI_INCLUDE_DIR}"
     "${LIBBPF_INCLUDE_DIR}"
     "${PROJECT_SOURCE_DIR}/non-GPL/Common")
 
@@ -19,6 +21,8 @@ install(FILES TcLoader.h DESTINATION ${TARGET_INCLUDE_DIR})
 # Demo using the library
 add_executable(TcLoaderDemo TcLoaderDemo.c)
 target_include_directories(TcLoaderDemo PRIVATE 
+    "${LIBBPF_TARGET_INCLUDE_DIR}"
+    "${LIBBPF_UAPI_INCLUDE_DIR}"
     "${LIBBPF_INCLUDE_DIR}"
     "${PROJECT_SOURCE_DIR}/non-GPL/Common")
 
