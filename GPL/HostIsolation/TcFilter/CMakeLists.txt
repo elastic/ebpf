@@ -9,7 +9,7 @@ include(BPFDefinitions)
 
 set(TCFILTER_CFLAGS 
                 -g -O2 -nostdinc -isystem ${NOSTDINC_INCLUDES}
-                -I${CMAKE_SOURCE_DIR}/contrib/kernel_hdrs
+                -I${PROJECT_SOURCE_DIR}/contrib/kernel_hdrs
                 -D__KERNEL__
                 -D__BPF_TRACING
                 -Wno-unused-value
@@ -35,6 +35,7 @@ include(GoogleTest)
 
 add_executable(BPFTcFilterTests BPFTcFilterTests.cpp ${GTEST_MAIN})
 target_include_directories(BPFTcFilterTests PRIVATE 
+    "${LIBBPF_TARGET_INCLUDE_DIR}"
     "${LIBBPF_UAPI_INCLUDE_DIR}"
     "${LIBBPF_INCLUDE_DIR}"
     "${GTEST_INCLUDE}")

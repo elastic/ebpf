@@ -7,6 +7,8 @@
 # Library
 add_library(UpdateMaps STATIC UpdateMaps.c)
 target_include_directories(UpdateMaps PRIVATE 
+    "${LIBBPF_TARGET_INCLUDE_DIR}"
+    "${LIBBPF_UAPI_INCLUDE_DIR}"
     "${LIBBPF_INCLUDE_DIR}"
     "${PROJECT_SOURCE_DIR}/non-GPL/Common")
 
@@ -18,7 +20,9 @@ install(FILES UpdateMaps.h DESTINATION ${TARGET_INCLUDE_DIR})
 # Demo using the library
 add_executable(UpdateIPsDemo UpdateIPsDemo.c)
 target_include_directories(UpdateIPsDemo PRIVATE 
-    "${LIBBPF_INCLUDE_DIR}"
+    "${LIBBPF_TARGET_INCLUDE_DIR}"
+    "${LIBBPF_UAPI_INCLUDE_DIR}"
+    "${LIBBPF_INCLUDE_DIR}" 
     "${PROJECT_SOURCE_DIR}/non-GPL/Common")
 
 target_link_libraries(UpdateIPsDemo UpdateMaps)
