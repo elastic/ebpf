@@ -32,11 +32,11 @@ set(KPROBECONNECTHOOK_CFLAGS
                         -I${LIBBPF_INCLUDE_DIR}
                         -I${CMAKE_SOURCE_DIR}/non-GPL/Common)
 
-add_custom_command(OUTPUT KprobeConnectHook.bpf.o
-                  COMMAND ${CLANG} ${KPROBECONNECTHOOK_CFLAGS} -c ${CMAKE_CURRENT_SOURCE_DIR}/KprobeConnectHook.bpf.c -o KprobeConnectHook.bpf.o
-                  COMMENT "Building KprobeConnectHook.bpf.o"
+set(KPROBECONNECTHOOK_BPF_OUTPUT ${TARGET_EBPF_DIR}/KprobeConnectHook.bpf.o)
+add_custom_command(OUTPUT ${KPROBECONNECTHOOK_BPF_OUTPUT}
+                  COMMAND ${CLANG} ${KPROBECONNECTHOOK_CFLAGS} -c ${CMAKE_CURRENT_SOURCE_DIR}/KprobeConnectHook.bpf.c -o ${KPROBECONNECTHOOK_BPF_OUTPUT}
+                  COMMENT "Building ${KPROBECONNECTHOOK_BPF_OUTPUT}"
                   DEPENDS libbpf)
 
-add_custom_target(BPFKprobeConnectHook ALL DEPENDS KprobeConnectHook.bpf.o)
+add_custom_target(BPFKprobeConnectHook ALL DEPENDS ${TARGET_EBPF_DIR}/KprobeConnectHook.bpf.o)
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/KprobeConnectHook.bpf.o DESTINATION ${TARGET_EBPF_DIR})

@@ -19,6 +19,13 @@ set(TARGET_INCLUDE_DIR "${TARGET_DIR}/include")
 set(TARGET_EBPF_DIR "${TARGET_DIR}/ebpf")
 set(LIBEBPF_LIB "${TARGET_DIR}/libeBPF.a")
 
+# target
+file(MAKE_DIRECTORY ${TARGET_DIR})
+file(MAKE_DIRECTORY ${TARGET_TMP_DIR})
+file(MAKE_DIRECTORY ${TARGET_INCLUDE_DIR})
+file(MAKE_DIRECTORY ${TARGET_EBPF_DIR})
+file(MAKE_DIRECTORY ${TARGET_TEST_DIR})
+
 include(ExternalProject)
 include(libelf)
 include(libbpf)
@@ -31,12 +38,8 @@ add_subdirectory(non-GPL/HostIsolation/KprobeConnectHook)
 add_subdirectory(non-GPL/HostIsolationMapsUtil)
 add_subdirectory(non-GPL/TcLoader)
 
-# target
-file(MAKE_DIRECTORY ${TARGET_DIR})
-file(MAKE_DIRECTORY ${TARGET_TMP_DIR})
-
 # libeBPF
-add_custom_command(OUTPUT libeBPF.a
+add_custom_command(OUTPUT ${LIBEBPF_LIB}
                   WORKING_DIRECTORY ${TARGET_TMP_DIR}
                   COMMAND ar x ${LIBBPF_LIB}
                   COMMAND ar x ${LIBELF_LIB}
@@ -44,10 +47,13 @@ add_custom_command(OUTPUT libeBPF.a
                   COMMAND ar x $<TARGET_FILE:KprobeLoader>
                   COMMAND ar x $<TARGET_FILE:TcLoader>
                   COMMAND ar x $<TARGET_FILE:Common>
-                  COMMAND ar cr libeBPF.a *.o
-                  COMMENT "Assembling libeBPF.a"
+                  COMMAND ar cr ${LIBEBPF_LIB} *.o
+                  COMMENT "Assembling ${LIBEBPF_LIB}"
                   DEPENDS libbpf libelf UpdateMaps KprobeLoader TcLoader Common)
 
-add_custom_target(libeBPF ALL DEPENDS libeBPF.a)
-add_dependencies(libeBPF TcLoader KprobeLoader UpdateMaps)
-install(FILES ${TARGET_TMP_DIR}/libeBPF.a DESTINATION ${TARGET_DIR})
+add_library(EbpfLib STATIC IMPORTED GLOBAL)
+set_property(TARGET EbpfLib PROPERTY
+    IMPORTED_LOCATION "${LIBEBPF_LIB}")
+add_dependencies(EbpfLib TcLoader KprobeLoader UpdateMaps)
+
+add_library(Ebpf ALIAS EbpfLib)

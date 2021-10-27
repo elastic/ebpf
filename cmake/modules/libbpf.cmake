@@ -11,6 +11,7 @@ set(LIBBPF_TARGET_INCLUDE_DIR "${PROJECT_BINARY_DIR}/libbpf-prefix/src/libbpf-ta
 set(LIBBPF_INCLUDE_DIR "${LIBBPF_CONTRIB}/include")
 set(LIBBPF_UAPI_INCLUDE_DIR "${LIBBPF_INCLUDE_DIR}/uapi")
 set(LIBBPF_LIB "${LIBBPF_BUILD_DIR}/libbpf.a")
+
 message(STATUS "[contrib] libbpf in '${LIBBPF_SRC}'")
 
 ExternalProject_Add(

@@ -10,4 +10,4 @@ add_dependencies(Common libbpf)
 
 set_target_properties(Common PROPERTIES PUBLIC_HEADER Common.h)
 
-install(FILES Common.h DESTINATION ${TARGET_INCLUDE_DIR})
+configure_file(Common.h ${TARGET_INCLUDE_DIR} COPYONLY)

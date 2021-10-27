@@ -15,7 +15,7 @@ target_include_directories(UpdateMaps PRIVATE
 target_link_libraries(UpdateMaps Common ${LIBBPF_LIB} ${LIBELF_LIB} -lz)
 add_dependencies(UpdateMaps Common libbpf libelf)
 
-install(FILES UpdateMaps.h DESTINATION ${TARGET_INCLUDE_DIR})
+configure_file(UpdateMaps.h ${TARGET_INCLUDE_DIR} COPYONLY)
 
 # Demo using the library
 add_executable(UpdateIPsDemo UpdateIPsDemo.c)

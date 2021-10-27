@@ -16,7 +16,7 @@ add_dependencies(TcLoader libbpf libelf)
 target_link_libraries(TcLoader Common ${LIBBPF_LIB} ${LIBELF_LIB} -lz)
 add_dependencies(TcLoader Common libbpf libelf)
 
-install(FILES TcLoader.h DESTINATION ${TARGET_INCLUDE_DIR})
+configure_file(TcLoader.h ${TARGET_INCLUDE_DIR} COPYONLY)
 
 # Demo using the library
 add_executable(TcLoaderDemo TcLoaderDemo.c)

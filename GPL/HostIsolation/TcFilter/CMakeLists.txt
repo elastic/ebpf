@@ -36,18 +36,18 @@ set(TCFILTER_CFLAGS
                 -fno-stack-protector)
 
 
-add_custom_command(OUTPUT TcFilter.bpf.o
-                  COMMAND ${CLANG} ${TCFILTER_CFLAGS} -emit-llvm -c ${CMAKE_CURRENT_SOURCE_DIR}/TcFilter.bpf.c -o - | ${LLC} -march=bpf -mcpu=v2 -filetype=obj -o TcFilter.bpf.o
-                  COMMENT "Building TcFilter.bpf.o")
+set(TCFILTER_BPF_OUTPUT ${TARGET_EBPF_DIR}/TcFilter.bpf.o)
+add_custom_command(OUTPUT ${TCFILTER_BPF_OUTPUT}
+                  COMMAND ${CLANG} ${TCFILTER_CFLAGS} -emit-llvm -c ${CMAKE_CURRENT_SOURCE_DIR}/TcFilter.bpf.c -o - | ${LLC} -march=bpf -mcpu=v2 -filetype=obj -o  ${TCFILTER_BPF_OUTPUT}
+                  COMMENT "Building  ${TCFILTER_BPF_OUTPUT}")
 
-add_custom_target(BPFTcFilter ALL DEPENDS TcFilter.bpf.o)
-
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/TcFilter.bpf.o DESTINATION ${TARGET_EBPF_DIR})
+add_custom_target(BPFTcFilter ALL DEPENDS  ${TCFILTER_BPF_OUTPUT})
 
 # BPF_PROG_TEST_RUN gtests
 include(GoogleTest)
 
 add_executable(BPFTcFilterTests BPFTcFilterTests.cpp ${GTEST_MAIN})
+set_target_properties(BPFTcFilterTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${TARGET_TEST_DIR})
 target_include_directories(BPFTcFilterTests PRIVATE 
     "${LIBBPF_TARGET_INCLUDE_DIR}"
     "${LIBBPF_UAPI_INCLUDE_DIR}"
@@ -59,4 +59,4 @@ add_dependencies(BPFTcFilterTests BPFTcFilter)
 target_link_libraries(BPFTcFilterTests ${LIBBPF_LIB} ${LIBELF_LIB} ${GTEST_LIB} -pthread -lz)
 add_dependencies(BPFTcFilterTests libbpf libelf gtest)
 
-install(TARGETS BPFTcFilterTests RUNTIME DESTINATION ${TARGET_TEST_DIR})
+#RENZONE configure_file(BPFTcFilterTests ${TARGET_TEST_DIR} COPYONLY)

@@ -17,8 +17,7 @@ target_include_directories(KprobeLoader PRIVATE
 target_link_libraries(KprobeLoader Common ${LIBBPF_LIB} ${LIBELF_LIB} -lz)
 add_dependencies(KprobeLoader Common libbpf libelf)
 
-install(FILES KprobeLoader.h DESTINATION ${TARGET_INCLUDE_DIR})
-
+configure_file(KprobeLoader.h ${TARGET_INCLUDE_DIR} COPYONLY)
 
 # Demo using the library
 add_executable(KprobeConnectHookDemo KprobeConnectHookDemo.c)
