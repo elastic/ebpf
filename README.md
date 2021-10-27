@@ -70,15 +70,12 @@ mkdir build
 cd build
 cmake ..
 make
-make install
 ```
 
 Besides the usual CMake variables, you can set the following variables which are specific to this project.
 
-| Variable     | Description                                   |
-| -DTARGET_DIR  | Directory to target with the install command |
-
-After doing `make install`, the final artifacts  will be installed in `build/target`.
+| Variable      | Description                                      |
+| -DTARGET_DIR  | Directory to use to store the compiled targets  |
 
 ```
 target
