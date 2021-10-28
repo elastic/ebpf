@@ -14,6 +14,7 @@ def getCronString()
     }
 }
 
+
 // Get the cron string for the triggers section
 def cronString = getCronString()
 
@@ -21,7 +22,7 @@ def cronString = getCronString()
 /// Linux x64 node labels
 ///
 @Field def LINUX_TEST_NODES_X64 = [
-    "amazon-x86_64",
+//    "amazon-x86_64",
     "centos-8",
     "ubuntu-20.04",
     "ubuntu-20.04-secureboot",
@@ -46,7 +47,7 @@ def generateTestClosure(arch, machine_name)
         node(machine_name)
         {
             // Everything within node() gets run on the target machine
-
+            sh 'uname -r'
             println "Running tests on ${machine_name} for arch ${arch}"
 
             try
@@ -54,11 +55,9 @@ def generateTestClosure(arch, machine_name)
                 // Unstash the test files
                 unstash("tests-${arch}")
 
-                def testBinaries = findFiles(glob: 'build/test/*Test')
-
-                dir("build/test")
+                def testBinaries = findFiles(glob: 'target/test/*Tests')
+                dir("target/test")
                 {
-                    sh "ls -al"
                     for (test in testBinaries)
                     {
                         println "Running test binary: ${test.name}"
@@ -135,10 +134,14 @@ def getTestClosures()
 def buildAndStash(arch)
 {
     def cpath = "/opt/endpoint-dev/dev/sysroot/x86_64-linux-gnu/usr/include"
+    def arpath = "/opt/endpoint-dev/dev/toolchain/bin/ar"
+    def path  = "/opt/endpoint-dev/dev/toolchain/bin"
 
     if (arch == "aarch64")
     {
         cpath = "/opt/endpoint-dev/dev/sysroot/aarch64-linux-gnu/usr/include"
+        arpath = "/opt/endpoint-dev/dev/toolchain/aarch64-linux-gnu/bin/ar"
+        path = "/opt/endpoint-dev/dev/toolchain/aarch64-linux-gnu/bin"
     }
 
     println "Building ebpf for arch ${arch}"
@@ -146,24 +149,28 @@ def buildAndStash(arch)
     // Build the binaries
     // NOTE: There may be other env vars to set (or set differently)
     // when the aarch64 compiling is added
-    withEnv(["PATH=/opt/endpoint-dev/dev/toolchain/bin:$PATH",
+    withEnv(["PATH=${path}:$PATH",
+        "AR=${arpath}",
         "CPATH=${cpath}",
         "MAKESYSPATH=/opt/endpoint-dev/dev/toolchain/share/mk"])
     {
-        sh "./build_lib.sh"
+        dir("build") {
+            sh "cmake .."
+            sh "make"
+            
+            sh "cp target/ebpf/*.bpf.o target/test"
 
-        // Copy the TcFilter.bpf.o file into the test dir
-        sh "cp build/ebpf/TcFilter.bpf.o build/test"
+            // Stash the tests
+            stash includes: "target/test/**", name: "tests-${arch}"
+            
+            // Copy and archive the build dir
+            sh "cp -r target build-${arch}"
+            archiveArtifacts "build-${arch}/**"
+        }
 
-        // Stash the tests
-        stash includes: "build/test/**", name: "tests-${arch}"
-
-        // Copy and archive the build dir
-        sh "cp -r build build-${arch}"
-        archiveArtifacts "build-${arch}/**"
 
         // Clean the build
-        sh "./clean.sh"
+        sh "rm -Rf build/"
     }
 }
 
