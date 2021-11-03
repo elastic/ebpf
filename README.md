@@ -19,19 +19,16 @@ Collection of BPF programs for Linux.
 
 <details>
   <summary>Run the demos</summary>
-  
 
 1. Follow the build section to build the project so that you have the `build/` folder
-1. Run `cd GPL/HostIsolation/TcFilter`
-1. Run `sudo ../../../non-GPL/TcLoader/TcLoaderDemo` - packet filter is now attached to ens33
-1. Run `cd ../../../GPL/HostIsolation/KprobeConnectHook`
-1. Run `sudo ../../../non-GPL/HostIsolation/KprobeConnectHook/KprobeConnectHookDemo` - connect hook is attached
+1. Run `cd build/target/ebpf`
+1. Run `sudo ../../non-GPL/TcLoader/TcLoaderDemo` - packet filter is now attached to ens33
+1. Run `sudo ../../non-GPL/HostIsolation/KprobeConnectHook/KprobeConnectHookDemo` - connect hook is attached
 1. Run `firefox` in another tab - verify that all internet access is blocked
 1. Run `pgrep firefox` to get the PID of the browser
-1. Run `cd ../../../`
-1. Run `sudo non-GPL/HostIsolationMapsUtil/UpdatePidsDemo <firefox PID>`
+1. Run `sudo ../../non-GPL/HostIsolationMapsUtil/UpdatePidsDemo <firefox PID>`
 1. Verify that firefox connects to any page
-1. Quit KprobeConnectHook with Ctrl+C and run `sudo ./non-GPL/TcLoader/TcLoaderDemo unload` to detach both eBPF programs
+1. Quit KprobeConnectHook with Ctrl+C and run `sudo ../../non-GPL/TcLoader/TcLoaderDemo unload` to detach both eBPF programs
 
 </details>
 
@@ -75,7 +72,7 @@ make
 Besides the usual CMake variables, you can set the following variables which are specific to this project.
 
 | Variable      | Description                                      |
-| -DTARGET_DIR  | Directory to use to store the compiled targets  |
+| -DTARGET_DIR  | Directory to use to store the compiled targets   |
 
 ```
 target
@@ -91,6 +88,7 @@ target
 └── test
     └── BPFTcFilterTests
 ```
+
 ## Directory layout:
 
 - `contrib/` external dependencies, libraries
