@@ -22,7 +22,7 @@ def cronString = getCronString()
 /// Linux x64 node labels
 ///
 @Field def LINUX_TEST_NODES_X64 = [
-//    "amazon-x86_64",
+//    "amazon-x86_64", TODO: fix the tests on al2, see https://github.com/elastic/ebpf/issues/34
     "centos-8",
     "ubuntu-20.04",
     "ubuntu-20.04-secureboot",
@@ -33,7 +33,7 @@ def cronString = getCronString()
 /// Linux AARCH64 (ARM) node labels
 ///
 @Field def LINUX_TEST_NODES_AARCH64 = [
-    "amazon-arm",
+//    "amazon-arm", TODO: fix the tests on al2, see https://github.com/elastic/ebpf/issues/34
     "centos-8-arm",
     "ubuntu-1804-arm",
 ]
@@ -47,8 +47,11 @@ def generateTestClosure(arch, machine_name)
         node(machine_name)
         {
             // Everything within node() gets run on the target machine
-            sh 'uname -r'
-            println "Running tests on ${machine_name} for arch ${arch}"
+            def kernel_version = sh(script: 'uname -r', returnStdout: true)
+            println "Running tests on ${machine_name} for arch ${arch} and kernel ${kernel_version}"
+
+            // Make sure the BPF filesystem is mounted
+            sh "sudo mount bpffs /sys/fs/bpf -t bpf || true"
 
             try
             {
@@ -64,7 +67,7 @@ def generateTestClosure(arch, machine_name)
 
                         def return_val = -1
                         def test_result_file = "${test.name}-${arch}-${machine_name}-result.xml"
-                        def test_output_file = "test-output-${machine_name}-${test.name}.txt"
+                        def test_output_file = "test-output-${arch}-${machine_name}-${test.name}.txt"
                         def run_script = "sudo ./${test.name} --gtest_output=xml:${test_result_file} > ${test_output_file} 2>&1"
 
                         // Run the test binary
@@ -112,10 +115,7 @@ def getTestClosures()
     def linux_machines = ["x64": [:], "aarch64": [:]]
 
     linux_machines["x64"]     = LINUX_TEST_NODES_X64.clone()
-
-    // TODO: Uncomment once aarch64 files are built and
-    // stashed separately from x64
-    //linux_machines["aarch64"] = LINUX_TEST_NODES_AARCH64.clone()
+    linux_machines["aarch64"] = LINUX_TEST_NODES_AARCH64.clone()
 
     linux_machines.each { arch, machines ->
         machines.each { machine_name ->
@@ -141,36 +141,34 @@ def buildAndStash(arch)
     {
         cpath = "/opt/endpoint-dev/dev/sysroot/aarch64-linux-gnu/usr/include"
         arpath = "/opt/endpoint-dev/dev/toolchain/aarch64-linux-gnu/bin/ar"
-        path = "/opt/endpoint-dev/dev/toolchain/aarch64-linux-gnu/bin"
+        path = "/opt/endpoint-dev/dev/toolchain/aarch64-linux-gnu/bin:/opt/endpoint-dev/dev/toolchain/bin"
     }
 
     println "Building ebpf for arch ${arch}"
 
     // Build the binaries
-    // NOTE: There may be other env vars to set (or set differently)
-    // when the aarch64 compiling is added
     withEnv(["PATH=${path}:$PATH",
         "AR=${arpath}",
         "CPATH=${cpath}",
         "MAKESYSPATH=/opt/endpoint-dev/dev/toolchain/share/mk"])
     {
-        dir("build") {
-            sh "cmake .."
+        dir("build-${arch}") {
+            sh "cmake -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ .."
             sh "make"
-            
             sh "cp target/ebpf/*.bpf.o target/test"
 
             // Stash the tests
             stash includes: "target/test/**", name: "tests-${arch}"
-            
+
             // Copy and archive the build dir
-            sh "cp -r target build-${arch}"
-            archiveArtifacts "build-${arch}/**"
+            sh "mkdir -p target-archive/${arch}"
+            sh "cp -r target target-archive/${arch}"
+            archiveArtifacts "target-archive/**"
         }
 
 
         // Clean the build
-        sh "rm -Rf build/"
+        sh "rm -Rf build-${arch}"
     }
 }
 
@@ -210,9 +208,7 @@ pipeline {
                 script
                 {
                     buildAndStash("x64")
-
-                    // TODO: Get this compiling
-                    //buildAndStash("aarch64")
+                    buildAndStash("aarch64")
                 }
             }
         }
