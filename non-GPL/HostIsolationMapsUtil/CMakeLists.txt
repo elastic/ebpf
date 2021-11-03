@@ -17,7 +17,7 @@ add_dependencies(UpdateMaps Common libbpf libelf)
 
 configure_file(UpdateMaps.h ${TARGET_INCLUDE_DIR} COPYONLY)
 
-# Demo using the library
+# UpdateIPsDemo using the library
 add_executable(UpdateIPsDemo UpdateIPsDemo.c)
 target_include_directories(UpdateIPsDemo PRIVATE 
     "${LIBBPF_TARGET_INCLUDE_DIR}"
@@ -26,3 +26,13 @@ target_include_directories(UpdateIPsDemo PRIVATE
     "${PROJECT_SOURCE_DIR}/non-GPL/Common")
 
 target_link_libraries(UpdateIPsDemo UpdateMaps)
+
+# UpdatePidsDemo using the library
+add_executable(UpdatePidsDemo UpdatePidsDemo.c)
+target_include_directories(UpdatePidsDemo PRIVATE 
+    "${LIBBPF_TARGET_INCLUDE_DIR}"
+    "${LIBBPF_UAPI_INCLUDE_DIR}"
+    "${LIBBPF_INCLUDE_DIR}" 
+    "${PROJECT_SOURCE_DIR}/non-GPL/Common")
+
+target_link_libraries(UpdatePidsDemo UpdateMaps)
