@@ -100,12 +100,11 @@ ebpf_create_map(enum ebpf_hostisolation_map map_id,
         goto cleanup;
     }
 
-    fd = bpf_create_map_name(ebpf_maps[map_id].type,
-                             ebpf_maps[map_id].name,
-                             ebpf_maps[map_id].key_size,
-                             ebpf_maps[map_id].value_size,
-                             ebpf_maps[map_id].max_entries,
-                             ebpf_maps[map_id].map_flags);
+    fd = bpf_create_map(ebpf_maps[map_id].type,
+                        ebpf_maps[map_id].key_size,
+                        ebpf_maps[map_id].value_size,
+                        ebpf_maps[map_id].max_entries,
+                        ebpf_maps[map_id].map_flags);
 
     if (fd < 0)
     {
