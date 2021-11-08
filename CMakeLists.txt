@@ -51,6 +51,7 @@ add_custom_command(OUTPUT ${LIBEBPF_LIB}
                   COMMENT "Assembling ${LIBEBPF_LIB}"
                   DEPENDS libbpf libelf UpdateMaps KprobeLoader TcLoader Common)
 
+add_custom_target(libeBPF ALL DEPENDS ${LIBEBPF_LIB})
 add_library(EbpfLib STATIC IMPORTED GLOBAL)
 set_property(TARGET EbpfLib PROPERTY
     IMPORTED_LOCATION "${LIBEBPF_LIB}")
