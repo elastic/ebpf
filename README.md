@@ -41,14 +41,14 @@ Collection of BPF programs for Linux.
 **Usage**
 
 ```bash
-cd build/GPL/HostIsolation/TcFilter
-sudo ../TcFilter/BPFTcFilterTests
+cd build/target/ebpf
+sudo ../test/BPFTcFilterTests
 ```
 
 Or if you want to use a custom path for the eBPF object file.
 
 ```bash
-sudo ELASTIC_EBPF_TC_FILTER_OBJ_PATH=build/GPL/HostIsolation/TcFilter/TcFilter.bpf.o  build/GPL/HostIsolation/TcFilter/BPFTcFilterTest
+sudo ELASTIC_EBPF_TC_FILTER_OBJ_PATH=build/target/ebpf/TcFilter.bpf.o  build/target/test/BPFTcFilterTests
 ```
 
 ## Build
@@ -72,7 +72,9 @@ make
 Besides the usual CMake variables, you can set the following variables which are specific to this project.
 
 | Variable      | Description                                      |
+| ------------- | ------------------------------------------------ |
 | -DTARGET_DIR  | Directory to use to store the compiled targets   |
+
 
 ```
 target
