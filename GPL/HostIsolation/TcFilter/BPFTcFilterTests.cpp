@@ -95,12 +95,20 @@ protected:
 
         m_prog_fd = bpf_program__fd(prog);
     }
+
     virtual void
     TearDown() override
     {
+        struct bpf_map *allowed_ips_map = bpf_object__find_map_by_name(m_obj, "allowed_IPs");
+        bpf_map__unpin(allowed_ips_map, bpf_map__get_pin_path(allowed_ips_map));
+
+        struct bpf_map *allowed_subnets_map = bpf_object__find_map_by_name(m_obj, "allowed_subnets");
+        bpf_map__unpin(allowed_subnets_map, bpf_map__get_pin_path(allowed_subnets_map));
+
         bpf_object__close(m_obj);
         m_prog_fd = -1;
     }
+
     static void
     SetUpTestSuite()
     {
