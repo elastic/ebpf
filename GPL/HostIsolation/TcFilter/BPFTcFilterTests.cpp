@@ -99,11 +99,30 @@ protected:
     virtual void
     TearDown() override
     {
+        int err = 0;
         struct bpf_map *allowed_ips_map = bpf_object__find_map_by_name(m_obj, "allowed_IPs");
-        bpf_map__unpin(allowed_ips_map, bpf_map__get_pin_path(allowed_ips_map));
+        if(!allowed_ips_map)
+        {
+            FAIL() << "Could not find the allowed_IPs map";
+            return;
+        }
+        err = bpf_map__unpin(allowed_ips_map, bpf_map__get_pin_path(allowed_ips_map));
+        if (err != 0) {
+            FAIL() << "Could not unpin the allowed_IPs map";
+            return;
+        }
 
         struct bpf_map *allowed_subnets_map = bpf_object__find_map_by_name(m_obj, "allowed_subnets");
-        bpf_map__unpin(allowed_subnets_map, bpf_map__get_pin_path(allowed_subnets_map));
+        if (!allowed_subnets_map)
+        {
+            FAIL() << "Could not find the allowed_subnets map";
+            return;
+        }
+        err = bpf_map__unpin(allowed_subnets_map, bpf_map__get_pin_path(allowed_subnets_map));
+        if (err != 0) {
+            FAIL() << "Could not unpin the allowed_subnets map";
+            return;
+        }
 
         bpf_object__close(m_obj);
         m_prog_fd = -1;
