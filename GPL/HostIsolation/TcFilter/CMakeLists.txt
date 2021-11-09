@@ -38,7 +38,7 @@ set(TCFILTER_CFLAGS
 
 set(TCFILTER_BPF_OUTPUT ${TARGET_EBPF_DIR}/TcFilter.bpf.o)
 add_custom_command(OUTPUT ${TCFILTER_BPF_OUTPUT}
-                  COMMAND ${CLANG} ${TCFILTER_CFLAGS} -emit-llvm -c ${CMAKE_CURRENT_SOURCE_DIR}/TcFilter.bpf.c -o - | ${LLC} -march=bpf -mcpu=v2 -filetype=obj -o  ${TCFILTER_BPF_OUTPUT}
+                  COMMAND ${EBPF_EXTERNAL_ENV_FLAGS} ${CLANG} ${TCFILTER_CFLAGS} -emit-llvm -c ${CMAKE_CURRENT_SOURCE_DIR}/TcFilter.bpf.c -o - | ${LLC} -march=bpf -mcpu=v2 -filetype=obj -o  ${TCFILTER_BPF_OUTPUT}
                   COMMENT "Building  ${TCFILTER_BPF_OUTPUT}"
                   IMPLICIT_DEPENDS C ${CMAKE_CURRENT_SOURCE_DIR}/TcFilter.bpf.c)
 
