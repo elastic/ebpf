@@ -95,7 +95,7 @@ Then we could simply include such C header and use it in our programs.
 
 ***Pros***:
 
-- It is a the approach more common used in eBPF land (as of today at least)
+- It is the approach more commonly used in eBPF land (as of today at least)
 
 ### Runtime
 
@@ -114,10 +114,11 @@ bool has_helper_for_prog(string helper, u32 prog_type, bool unprivileged, u32 if
 Such an API would be called like so (pseudo-code):
 
 ```c
-has_map(BPF_MAP_TYPE_LPM_TRIE, false);
-has_prog(BPF_PROG_TYPE_LSM, false);
-has_prog(BPF_PROG_SOCKET_FILTER, true);
-has_helper_for_prog("bpf_get_stackid", BPF_PROG_TYPE_TRACING, false);
+has_map(BPF_MAP_TYPE_LPM_TRIE, false, 0);
+has_prog(BPF_PROG_TYPE_LSM, false, 0);
+has_prog(BPF_PROG_TYPE_SCHED_CLS, false, 2/*eth0*/);
+has_prog(BPF_PROG_SOCKET_FILTER, true, 0);
+has_helper_for_prog("bpf_get_stackid", BPF_PROG_TYPE_TRACING, false, 0);
 ```
 
 Some observations.
@@ -126,7 +127,7 @@ Some observations.
 
 This API has 2 targets: **kernel** or **device**.
 
-The `if_idx` argument is only relevant when greather than 0, pointing to a device interface (device target).
+The `if_idx` argument is only relevant when greater than 0, pointing to a device interface (device target, eg. 1 being `lo` iface, 2, etc.).
 Otherwise, and by default, the API probes the kernel (kernel target).
 
 **Usage observations**:
