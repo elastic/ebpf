@@ -71,7 +71,7 @@ ebpf_cap_set ebpf_event__detect_capabilities(
 /* Combination of events user is interested in. Mapping of events
  * to probe that provides that event is stored internally. User
  * does not need to know which probes to load */
-typedef uint32_t ebpf_event_set;
+typedef uint64_t ebpf_event_set;
 
 /* allocates a new context based on requested events and capabilities.
  *
