@@ -61,7 +61,7 @@ typedef struct ebpf_event_ctx;
 
 typedef int (*event_handler_fn)(struct ebpf_event *event, size_t);
 
-typedef uint32_t ebpf_cap_set;
+typedef uint64_t ebpf_cap_set;
 
 /* result will be ((ACTUAL AND INTERESTED) OR FORCED) */
 ebpf_cap_set ebpf_event__detect_capabilities(
