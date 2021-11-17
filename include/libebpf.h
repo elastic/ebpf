@@ -59,7 +59,7 @@ struct ebpf_event {
  * of the mapping in the context */
 typedef struct ebpf_event_ctx;
 
-typedef int (*event_handler_fn)(struct ebpf_event *event, size_t);
+typedef int (*ebf_event_handler_fn)(struct ebpf_event *event, size_t);
 
 typedef uint64_t ebpf_cap_set;
 
