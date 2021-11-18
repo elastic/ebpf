@@ -19,8 +19,6 @@
 #
 
 # BPF program
-include(BPFDefinitions)
-include(arch)
 
 set(FILEEVENTS_CFLAGS
                 -g -O2
@@ -33,6 +31,7 @@ set(FILEEVENTS_CFLAGS
 set(FILEEVENTS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/FileEvents.bpf.c)
 
 set(FILEEVENTS_BPF_OUTPUT ${TARGET_EBPF_DIR}/FileEvents.bpf.o)
+set(FILEEVENTS_BPF_INCLUDE ${TARGET_INCLUDE_DIR}/FileEvents.skel.h)
 add_custom_command(OUTPUT ${FILEEVENTS_BPF_OUTPUT}
                   COMMAND ${EBPF_EXTERNAL_ENV_FLAGS} ${CLANG} ${FILEEVENTS_CFLAGS} -c ${FILEEVENTS_SOURCES} -o ${FILEEVENTS_BPF_OUTPUT}
                   DEPENDS libbpf
@@ -40,3 +39,20 @@ add_custom_command(OUTPUT ${FILEEVENTS_BPF_OUTPUT}
                   COMMENT "[bpf] building ${FILEEVENTS_BPF_OUTPUT}")
 
 add_custom_target(BPFFileEvents ALL DEPENDS ${TARGET_EBPF_DIR}/FileEvents.bpf.o)
+
+# BPF_PROG_TEST_RUN gtests
+add_executable(BPFFileEventsTests BPFFileEventsTests.cpp ${GTEST_MAIN})
+set_target_properties(BPFFileEventsTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${TARGET_TEST_DIR})
+target_include_directories(BPFFileEventsTests PRIVATE 
+    "${LIBBPF_TARGET_INCLUDE_DIR}"
+    "${LIBBPF_UAPI_INCLUDE_DIR}"
+    "${LIBBPF_INCLUDE_DIR}"
+    "${TARGET_INCLUDE_DIR}"
+    "${GTEST_INCLUDE}")
+
+add_dependencies(BPFFileEventsTests BPFFileEvents)
+
+target_link_libraries(BPFFileEventsTests ${LIBBPF_LIB} ${LIBELF_LIB} ${GTEST_LIB} -pthread -lz)
+add_dependencies(BPFFileEventsTests libbpf libelf gtest)
+
+generate_skeleton(${FILEEVENTS_BPF_OUTPUT} ${FILEEVENTS_BPF_INCLUDE})
