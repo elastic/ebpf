@@ -19,7 +19,6 @@
 #
 
 # BPF program
-include(BPFDefinitions)
 
 set(TCFILTER_CFLAGS 
                 -g -O2 -nostdinc -isystem ${NOSTDINC_INCLUDES}
@@ -45,8 +44,6 @@ add_custom_command(OUTPUT ${TCFILTER_BPF_OUTPUT}
 add_custom_target(BPFTcFilter ALL DEPENDS  ${TCFILTER_BPF_OUTPUT})
 
 # BPF_PROG_TEST_RUN gtests
-include(GoogleTest)
-
 add_executable(BPFTcFilterTests BPFTcFilterTests.cpp ${GTEST_MAIN})
 set_target_properties(BPFTcFilterTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${TARGET_TEST_DIR})
 target_include_directories(BPFTcFilterTests PRIVATE 

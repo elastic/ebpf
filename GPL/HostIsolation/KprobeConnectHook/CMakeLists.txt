@@ -19,9 +19,6 @@
 #
 
 # BPF program
-include(BPFDefinitions)
-include(arch)
-
 set(KPROBECONNECTHOOK_CFLAGS
                         -g -O2
                         -target bpf
