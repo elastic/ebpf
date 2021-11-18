@@ -29,9 +29,11 @@ file(MAKE_DIRECTORY ${TARGET_TEST_DIR})
 include(ExternalProject)
 include(libelf)
 include(libbpf)
+include(GenerateVmlinux)
 
 add_subdirectory(GPL/HostIsolation/KprobeConnectHook)
 add_subdirectory(GPL/HostIsolation/TcFilter)
+add_subdirectory(GPL/Events)
 
 add_subdirectory(non-GPL/Common)
 add_subdirectory(non-GPL/HostIsolation/KprobeConnectHook)
