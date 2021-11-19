@@ -44,15 +44,14 @@ add_custom_target(BPFFileEvents ALL DEPENDS ${TARGET_EBPF_DIR}/FileEvents.bpf.o)
 add_executable(BPFFileEventsTests BPFFileEventsTests.cpp ${GTEST_MAIN})
 set_target_properties(BPFFileEventsTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${TARGET_TEST_DIR})
 target_include_directories(BPFFileEventsTests PRIVATE 
-    "${LIBBPF_TARGET_INCLUDE_DIR}"
     "${LIBBPF_UAPI_INCLUDE_DIR}"
-    "${LIBBPF_INCLUDE_DIR}"
     "${TARGET_INCLUDE_DIR}"
     "${GTEST_INCLUDE}")
 
 add_dependencies(BPFFileEventsTests BPFFileEvents)
 
-target_link_libraries(BPFFileEventsTests ${LIBBPF_LIB} ${LIBELF_LIB} ${GTEST_LIB} -pthread -lz)
-add_dependencies(BPFFileEventsTests libbpf libelf gtest)
+bpf_skeleton(FileEvents)
+add_dependencies(FileEvents_skeleton BPFFileEvents)
 
-generate_skeleton(${FILEEVENTS_BPF_OUTPUT} ${FILEEVENTS_BPF_INCLUDE})
+target_link_libraries(BPFFileEventsTests ${LIBBPF_LIB} ${LIBELF_LIB} ${GTEST_LIB} -pthread -lz)
+add_dependencies(BPFFileEventsTests FileEvents_skeleton libbpf libelf gtest)

@@ -18,14 +18,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <bpf/bpf.h>
-#include <bpf/bpf_endian.h>
-#include <bpf/libbpf.h>
-
-#include <gtest/gtest.h>
-
-#include <sched.h>
 #include <sys/resource.h>
+#include <gtest/gtest.h>
 
 #include "FileEvents.skel.h"
 

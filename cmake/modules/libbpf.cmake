@@ -4,7 +4,9 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-set(LIBBPF_CONTRIB "${PROJECT_SOURCE_DIR}/contrib/libbpf")
+set(LIBBPF_CONTRIB_DEFAULT "${PROJECT_SOURCE_DIR}/contrib/libbpf")
+option(LIBBPF_CONTRIB "Folder containing libbpf" ${LIBBPF_CONTRIB_DEFAULT})
+
 set(LIBBPF_SRC "${LIBBPF_CONTRIB}/src")
 set(LIBBPF_BUILD_DIR "${PROJECT_BINARY_DIR}/libbpf-prefix/src/libbpf-build")
 set(LIBBPF_TARGET_INCLUDE_DIR "${PROJECT_BINARY_DIR}/libbpf-prefix/src/libbpf-target")
