@@ -25,7 +25,7 @@ enum ebpf_kernel_features {
 int ebpf_kernel__detect_features();
 
 /* Events fetching and manipulation */
-typedef enum ebpf_event_type {
+enum ebpf_event_type {
     EBPF_EVENT_PROCESS_FORK = (1 << 1),
     EBPF_EVENT_PROCESS_EXEC = (1 << 2),
     EBPF_EVENT_PROCESS_EXIT = (1 << 3),
@@ -39,11 +39,11 @@ typedef enum ebpf_event_type {
     EBPF_EVENT_INTERNAL_FILE_CLOSE = (1 << 11),
     EBPF_EVENT_INTERNAL_FILE_CHDIR = (1 << 12),
     EBPF_EVENT_INTERNAL_FILE_DUP = (1 << 13),
-} ebpf_event_type;
+};
 
 struct ebpf_event {
     uint64_t ts;
-    ebpf_event_type type;
+    uint64_t type;
     void *data;
 };
 
@@ -57,7 +57,7 @@ typedef struct ebpf_event_ctx;
 
 typedef int (*ebpf_event_handler_fn)(struct ebpf_event *event, size_t);
 
-typedef ebpf_event_type ebpf_cap_set;
+typedef uint64_t ebpf_cap_set;
 
 /* result will be ((ACTUAL AND INTERESTED) OR FORCED) */
 ebpf_cap_set ebpf_event__detect_capabilities(
