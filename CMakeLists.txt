@@ -42,6 +42,15 @@ add_subdirectory(non-GPL/HostIsolation/KprobeConnectHook)
 add_subdirectory(non-GPL/HostIsolationMapsUtil)
 add_subdirectory(non-GPL/TcLoader)
 
+# EventsTrace
+# This contains a CLI tool named EventsTrace that can be
+# used to read Events using the GPL/Events BPF code
+# This also includes an implementation of the libebpf.h
+# header being discussed in https://github.com/elastic/ebpf/pull/38
+# The implementation's purpose is to allow us to keep working with a mock implementation while
+# the header is being finalized.
+add_subdirectory(non-GPL/EventsTrace)
+
 # libeBPF
 add_custom_command(OUTPUT ${LIBEBPF_LIB}
                   WORKING_DIRECTORY ${TARGET_TMP_DIR}

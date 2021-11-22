@@ -20,22 +20,29 @@
 
 # BPF program
 
+set(FILEEVENTS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(FILEEVENTS_DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/FileEvents.bpf.d)
 set(FILEEVENTS_CFLAGS
                 -g -O2
                 -target bpf
+                -MD -MF ${FILEEVENTS_DEPFILE}
+                -D__KERNEL__
                 -D__TARGET_ARCH_${ARCH_TRUNC}
                 -D__${ARCH}__
                 -I${LIBBPF_UAPI_INCLUDE_DIR}
-                -I${VMLINUX_INCLUDE_DIR})
+                -I${VMLINUX_INCLUDE_DIR}
+                -I${FILEEVENTS_SOURCE_DIR}
+                -I${CMAKE_SOURCE_DIR}/include)
 
-set(FILEEVENTS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/FileEvents.bpf.c)
+set(FILEEVENTS_SOURCES ${FILEEVENTS_SOURCE_DIR}/FileEvents.bpf.c)
+file(GLOB FILEEVENTS_INCLUDES "${FILEEVENTS_SOURCE_DIR}/*.h")
+message(STATUS "Including: ${FILEEVENTS_INCLUDES}")
 
 set(FILEEVENTS_BPF_OUTPUT ${TARGET_EBPF_DIR}/FileEvents.bpf.o)
-set(FILEEVENTS_BPF_INCLUDE ${TARGET_INCLUDE_DIR}/FileEvents.skel.h)
 add_custom_command(OUTPUT ${FILEEVENTS_BPF_OUTPUT}
                   COMMAND ${EBPF_EXTERNAL_ENV_FLAGS} ${CLANG} ${FILEEVENTS_CFLAGS} -c ${FILEEVENTS_SOURCES} -o ${FILEEVENTS_BPF_OUTPUT}
                   DEPENDS libbpf
-                  IMPLICIT_DEPENDS C ${FILEEVENTS_SOURCES}
+                  DEPFILE ${FILEEVENTS_DEPFILE}
                   COMMENT "[bpf] building ${FILEEVENTS_BPF_OUTPUT}")
 
 add_custom_target(BPFFileEvents ALL DEPENDS ${TARGET_EBPF_DIR}/FileEvents.bpf.o)

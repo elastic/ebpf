@@ -21,8 +21,11 @@
 #include <sys/resource.h>
 #include <gtest/gtest.h>
 
-#include "FileEvents.skel.h"
+#include <bpf/bpf.h>
+#include <bpf/bpf_endian.h>
+#include <bpf/libbpf.h>
 
+#include "FileEvents.skel.h"
 
 class BPFFileEventsTests : public ::testing::Test
 {
@@ -57,12 +60,9 @@ protected:
     }
 };
 
-TEST_F(BPFFileEventsTests, TestEDoUnlinkAt)
+TEST_F(BPFFileEventsTests, DISABLED_TestDoUnlinkAt)
 {
-
-}
-
-TEST_F(BPFFileEventsTests, TestXDoUnlinkAt)
-{
-
+    // tests are disabled because at the moment of writing the kernel
+    // does not support BPF_PROG_TEST_RUN against fentry/fexit programs.
+    // Keeping the structure around for future reference/usage.
 }
