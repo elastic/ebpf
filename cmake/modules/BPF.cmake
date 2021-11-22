@@ -32,7 +32,7 @@ if(NOT ${BPFTOOL_VMLINUX_RESULT} EQUAL 0)
     message(FATAL_ERROR "Failed to dump vmlinux.h with bpftool: ${BPFTOOL_VMLINUX_ERROR}")
 endif()
 
-# Skeleton generatio
+# Skeleton generation
 macro(bpf_skeleton name)
     set(_object_file_path ${TARGET_EBPF_DIR}/${name}.bpf.o)
     set(_skeleton_file_path ${TARGET_INCLUDE_DIR}/${name}.skel.h)
