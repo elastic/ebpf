@@ -53,7 +53,7 @@ struct ebpf_event {
  * we need a way to map from capability/event sets to probe sets,
  * and we could store the cap/event sets directly or cache the result
  * of the mapping in the context */
-typedef struct ebpf_event_ctx;
+struct ebpf_event_ctx;
 
 typedef int (*ebpf_event_handler_fn)(struct ebpf_event *event, size_t);
 
@@ -76,7 +76,7 @@ typedef uint64_t ebpf_event_set;
  * sets errno on failure
  */
 int ebpf_event__buffer_new(
-        ebpf_event_ctx **ctx,
+        struct ebpf_event_ctx **ctx,
         ebpf_cap_set,
         ebpf_event_set);
 
@@ -93,10 +93,10 @@ int ebpf_event__buffer_new(
  * errno to -EAGAIN if the context is in a nonblocking
  * state but no data is available. */
 int ebpf_event__next(
-        ebpf_event_ctx *ctx,
-        event_handler_fn *handler_func);
+        struct ebpf_event_ctx *ctx,
+        ebpf_event_handler_fn *handler_func);
 
 void ebpf_event__cleanup(
-        ebpf_event_ctx *ctx);
+        struct ebpf_event_ctx *ctx);
 
 #endif // LIBEBPF_H_
