@@ -26,23 +26,19 @@ int ebpf_kernel__detect_features();
 
 /* Events fetching and manipulation */
 typedef enum ebpf_event_type {
-    EBPF_EVENT_TYPE_UNSPEC = 0,
-    EBPF_EVENT_TYPE_NETWORK_UPDATE = 1,
-    EVENT_NETWORK_IPV4_CONNECTION_ATTEMPTED = 2,
-    EVENT_NETWORK_IPV4_DISCONNECT_RECEIVED  = 3,
-    EVENT_NETWORK_IPV4_CONNECTION_ACCEPTED  = 4,
-    EVENT_NETWORK_IPV4_RECONNECT_ATTEMPTED  = 5,
-    EVENT_NETWORK_IPV4_HTTP_REQUEST         = 6,
-    EVENT_NETWORK_IPV6_CONNECTION_ATTEMPTED = 7,
-    EVENT_NETWORK_IPV6_DISCONNECT_RECEIVED  = 8,
-    EVENT_NETWORK_IPV6_CONNECTION_ACCEPTED  = 9,
-    EVENT_NETWORK_IPV6_RECONNECT_ATTEMPTED  = 10,
-    EVENT_NETWORK_IPV6_HTTP_REQUEST         = 11,
-    EVENT_PROCESS_FORK,
-    EVENT_PROCESS_EXEC,
-    EVENT_PROCESS_EXIT,
-    EVENT_PROCESS_TTY_OUTPUT,
-    EBPF_EVENT_MAX
+    EBPF_EVENT_PROCESS_FORK = (1 << 1),
+    EBPF_EVENT_PROCESS_EXEC = (1 << 2),
+    EBPF_EVENT_PROCESS_EXIT = (1 << 3),
+    EBPF_EVENT_PROCESS_TTY_OUTPUT = (1 << 4),
+    EBPF_EVENT_FILE_CREATE = (1 << 5),
+    EBPF_EVENT_FILE_DELETE = (1 << 6),
+    EBPF_EVENT_FILE_RENAME  = (1 << 7),
+    EBPF_EVENT_FILE_OPEN = (1 << 8),
+    EBPF_EVENT_FILE_EXCHANGE = (1 << 9),
+    EBPF_EVENT_INTERNAL_FILE_OPEN = (1 << 10),
+    EBPF_EVENT_INTERNAL_FILE_CLOSE = (1 << 11),
+    EBPF_EVENT_INTERNAL_FILE_CHDIR = (1 << 12),
+    EBPF_EVENT_INTERNAL_FILE_DUP = (1 << 13),
 } ebpf_event_type;
 
 struct ebpf_event {
@@ -61,12 +57,12 @@ typedef struct ebpf_event_ctx;
 
 typedef int (*ebpf_event_handler_fn)(struct ebpf_event *event, size_t);
 
-typedef uint64_t ebpf_cap_set;
+typedef ebpf_event_type ebpf_cap_set;
 
 /* result will be ((ACTUAL AND INTERESTED) OR FORCED) */
 ebpf_cap_set ebpf_event__detect_capabilities(
         ebpf_cap_set interested,
-        ebpf_cap_set forced)
+        ebpf_cap_set forced);
 
 /* Combination of events user is interested in. Mapping of events
  * to probe that provides that event is stored internally. User
