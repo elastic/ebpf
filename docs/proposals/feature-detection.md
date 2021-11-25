@@ -54,7 +54,7 @@ I envision the following **categories** of checks:
 
 ## Targets
 
-Finally, it is imporant noticing that the third and last aspect to consider is the **target** we are probing.
+Finally, it is important to notice that the third and last aspect to consider is the **target** we are probing.
 
 It's important to distinguish whether these checks have to run against a device.
 
@@ -101,7 +101,7 @@ Then we could simply include such C header and use it in our programs.
 
 #### Stateless lower-level API
 
-We may build a API like the following (in pseudo-code):
+We may build an API like the following (in pseudo-code):
 
 ```c
 bool can_bpf(bool unprivileged, u32 if_idx);
@@ -135,8 +135,8 @@ Otherwise, and by default, the API probes the kernel (kernel target).
 Notice such an API is meant to be called from the loader of an eBPF program, not from within an eBPF program.
 
 Turns out,
-this means we may ending up writing different eBPF programs for the same feature with different implementation (eg., perf buffer vs ring buffer)
-and load one or the other depeding on the feature existence we detect before loading.
+this means we may end up writing different eBPF programs for the same feature with different implementations (eg., perf buffer vs ring buffer)
+and load one or the other depending on the feature existence we detect before loading.
 
 I personally consider this a +1 because I do believe it would force us to write more self-contained eBPF programs without `ifdefs` or `if` chain hells.
 
@@ -148,16 +148,16 @@ By following these steps:
 3. write the eBPF program to react to those `const` variables at runtime
 
 This way we may write a single eBPF program that, depending on the conditions on those variables, uses one feature or the other.
-Notice that global data sections for eBPF programs requires kernel 5.2. But the same overall behavior can be achieved with plain eBPF maps.
+Notice that global data sections for eBPF programs require kernel 5.2. But the same overall behavior can be achieved with plain eBPF maps.
 
 **Unprivileged probing**:
 
-If the API user wants to explicitly probe feature existence for unprivileged use case while it has the full privileges,
-the API should in that case lower the privileges is using. Then, proceed as normal.
+If the API user wants to explicitly probe feature existence for unprivileged use cases while it has the full privileges,
+the API should in that case lower the privileges it's using. Then, proceed as normal.
 
 Also the reverse can happen. An API user with low privileges that wants to probe eBPF features requiring more privileges.
 
-In such case, I advice to just return `false` for the specific feature being probed even if we can't really know if it would be available with more privileges or not.
+In such cases, I advise to just return `false` for the specific feature being probed even if we can't really know if it would be available with more privileges or not.
 
 **System configs**:
 
@@ -167,11 +167,11 @@ This step needs procfs to parse the sysctl knobs that govern some eBPF features.
 
 Also, it needs to parse the kernel config.
 
-To avoid writing a parser for the Kernel config, a easier/cleaner approach
+To avoid writing a parser for the Kernel config, an easier/cleaner approach
 would be to write an eBPF program that uses **Kconfig externs** to probe the Kernel configs and then stores such values in a pinned map.
 By loading this probe at the start of our future programs pipeline, we can avoid parsing multiple times the Kernel config (read below).
 
-But such approach requires anyways the Kernel config (eg., `/proc/config.gz`).
+But such approaches require the Kernel config (eg., `/proc/config.gz`).
 
 Anyways, for the sake of completeness, this is how **Kconfig externs** are used:
 
@@ -200,7 +200,7 @@ An initialization step that grabs (and stores/caches) the kernel config values t
 There are cases in which it can be pretty useful to have all the needed values in place.
 In fact, it is also very common that a Kernel config depends on other Kernel configs (see `config BPF_LSM` for example, [link](https://github.com/torvalds/linux/blob/5d6ab0bb408ffdaac585982faa9ec8c7d5cc349f/kernel/bpf/Kconfig#L77)).
 
-So, we can define DAGs (or FSMs) to declaratively express feature detection at **an higher granularity level**.
+So, we can define DAGs (or FSMs) to declaratively express feature detection at **a higher granularity level**.
 
 And expose those DAGs via a public API (eg. `has_bpf_lsm()`) that compose all the necessary checks on the various values, whether they are at system configuration level or at another level.
 
@@ -227,7 +227,7 @@ if (bpf_core_enum_value_exists(enum bpf_func_id, BPF_FUNC_ringbuf_reserve)) {
 }
 ```
 
-Ipothetically, a top layer API, rather than issuing a call instruction to test the availability of a given helper,
+Hypothetically, a top layer API, rather than issuing a call instruction to test the availability of a given helper,
 may simply use BTF knowing it's available.
 
 Fallbacking to the one based on instructions when BTF is not there.
