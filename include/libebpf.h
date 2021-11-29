@@ -44,7 +44,7 @@ enum ebpf_event_type {
 struct ebpf_event {
     uint64_t ts;
     uint64_t type;
-    void *data;
+    char data[];
 };
 
 /* opaque context, will contain union with struct perf_buffer,
