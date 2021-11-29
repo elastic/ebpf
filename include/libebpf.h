@@ -12,8 +12,10 @@
 #ifndef LIBEBPF_H_
 #define LIBEBPF_H_
 
+#if !defined(__KERNEL__) && !defined(__VMLINUX__)
 #include <stdint.h>
 #include <sys/types.h>
+#endif // !defined(__KERNEL__) && !defined(__VMLINUX__)
 
 /* Kernel Features */
 enum ebpf_kernel_features {
@@ -21,8 +23,6 @@ enum ebpf_kernel_features {
     EBPF_KERNEL_CAPABLE_RINGBUF = (1 << 1),
     EBPF_KERNEL_CAPABLE_BTF = (1 << 2),
 };
-
-int ebpf_kernel__detect_features();
 
 /* Events fetching and manipulation */
 enum ebpf_event_type {
@@ -46,6 +46,10 @@ struct ebpf_event {
     uint64_t type;
     char data[];
 };
+
+#ifndef __KERNEL__
+
+int ebpf_kernel__detect_features();
 
 /* opaque context, will contain union with struct perf_buffer,
  * struct ring_buffer,
@@ -99,4 +103,5 @@ int ebpf_event__next(
 void ebpf_event__cleanup(
         struct ebpf_event_ctx *ctx);
 
+#endif // ifndef __KERNEL__
 #endif // LIBEBPF_H_
