@@ -49,8 +49,6 @@ struct ebpf_event {
 
 #ifndef __KERNEL__
 
-int ebpf_kernel__detect_features();
-
 /* opaque context, will contain union with struct perf_buffer,
  * struct ring_buffer,
  *
@@ -63,10 +61,8 @@ typedef int (*ebpf_event_handler_fn)(struct ebpf_event *event, size_t);
 
 typedef uint64_t ebpf_cap_set;
 
-/* result will be ((ACTUAL AND INTERESTED) OR FORCED) */
-ebpf_cap_set ebpf_event__detect_capabilities(
-        ebpf_cap_set interested,
-        ebpf_cap_set forced);
+/* result will be ACTUAL | FORCED) */
+ebpf_cap_set ebpf_event__detect_capabilities(ebpf_cap_set forced);
 
 /* Combination of events user is interested in. Mapping of events
  * to probe that provides that event is stored internally. User
