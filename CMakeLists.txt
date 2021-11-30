@@ -55,6 +55,6 @@ add_custom_target(libeBPF ALL DEPENDS ${LIBEBPF_LIB})
 add_library(EbpfLib STATIC IMPORTED GLOBAL)
 set_property(TARGET EbpfLib PROPERTY
     IMPORTED_LOCATION "${LIBEBPF_LIB}")
-add_dependencies(EbpfLib TcLoader KprobeLoader UpdateMaps)
+add_dependencies(EbpfLib TcLoader KprobeLoader UpdateMaps libeBPF)
 
 add_library(Ebpf ALIAS EbpfLib)
