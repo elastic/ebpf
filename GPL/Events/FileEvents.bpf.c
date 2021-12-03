@@ -21,6 +21,7 @@
 #include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
+#include <bpf/bpf_core_read.h>
 #include "libebpf.h"
 #include "FileEvents.h"
 #include "Maps.h"
@@ -28,25 +29,33 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
-// todo(fntlnz): this does not support unlink with a file descriptor.
-// we probably want to switch to a security fexit and traverse the dentry
-SEC("fexit/do_unlinkat")
-int BPF_PROG(do_unlinkat_exit, int dfd, struct filename *name, long ret)
+
+SEC("fexit/security_path_unlink")
+int BPF_PROG(security_path_unlink_exit, const struct path *dir, struct dentry *dentry, long ret)
 {
+    struct ebpf_event *event = NULL;
+    struct ebpf_event_file_delete_data *edata = NULL;
+    struct task_struct *task = NULL;
+
     if (ret != 0)
         goto out;
 
-    struct ebpf_event *event = ebpf_event__new(&elastic_ebpf_events_buffer, EBPF_EVENT_FILE_DELETE);
+
+    event = ebpf_event__new(&elastic_ebpf_events_buffer, EBPF_EVENT_FILE_DELETE);
     if (!event)
     {
         // todo(fntlnz): fentry cannot return anything but zero, handle error here
         goto out;
     }
 
-    struct ebpf_event_file_delete_data *edata = (struct ebpf_event_file_delete_data *)event->data;
+    edata = (struct ebpf_event_file_delete_data *)event->data;
     ebpf_event_file_delete_data__set_pid(edata, bpf_get_current_pid_tgid() >> 32);
-    ebpf_event_file_delete_data__set_dfd(edata, dfd);
-    ebpf_event_file_delete_data__set_name(edata, name);
+
+    size_t len = ebpf_event_file_path__from_dentry(&edata->path, dentry);
+    // todo(fntlnz): handle error here
+
+    // todo(fntlnz): how to get the file descriptor?
+
     bpf_ringbuf_submit(event, 0);
 
 out:
