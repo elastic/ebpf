@@ -25,14 +25,22 @@
 #include <bpf/bpf_core_read.h>
 #endif
 
-// todo(fntlnz): anywhere we can take this from?
-#define PATH_MAX 4096
+#define MAX_PATH_DEPTH 32
+#define MAX_PATH 256
+#define MAX_FILEPATH_LENGTH (MAX_PATH_DEPTH * MAX_PATH)
+
+struct ebpf_event_file_path
+{
+    char path_array[MAX_PATH_DEPTH][MAX_PATH];
+    int patharray_len;
+    char filename[MAX_PATH];
+};
 
 struct ebpf_event_file_delete_data
 {
     __u32 pid;
     int dfd;
-    char name[PATH_MAX];
+    struct ebpf_event_file_path path;
 };
 
 #ifdef __KERNEL__
@@ -47,9 +55,65 @@ static __always_inline void ebpf_event_file_delete_data__set_dfd(struct ebpf_eve
     event->dfd = dfd;
 }
 
-static __always_inline void ebpf_event_file_delete_data__set_name(struct ebpf_event_file_delete_data *event, struct filename *name)
+// todo(fntlnz): this probably does not work with non-file dentries. Need to check that.
+static __always_inline int ebpf_event_file_path__from_dentry(struct ebpf_event_file_path *dst, struct dentry* src)
 {
-    bpf_core_read_str(event->name, PATH_MAX, name->name);
+    size_t filepart_length;
+    struct dentry* parent_dentry = NULL;
+    struct dentry* current_dentry = NULL;
+
+    int elements[MAX_PATH_DEPTH] = {0};
+    size_t dentries_len = 0;
+
+    struct dentry* dentries[MAX_PATH_DEPTH] = {};
+
+    dentries[0] = src;
+
+    for (int i = 0; i < MAX_PATH_DEPTH; i++)
+    {
+        if (i == 0)
+        {
+            parent_dentry = BPF_CORE_READ(src, d_parent);
+            current_dentry = parent_dentry;
+        }
+        else
+        {
+            current_dentry = BPF_CORE_READ(parent_dentry, d_parent); 
+            if(current_dentry == parent_dentry) 
+            {
+                break;
+            }
+            parent_dentry = current_dentry;
+        }
+        
+        if (i + 1 < MAX_PATH_DEPTH)
+        {
+            dentries[i + 1] = current_dentry;
+        }
+        dentries_len += 1;
+    }
+
+    int j = 0;
+    for (int i = dentries_len; i != 0; i--)
+    {
+        filepart_length = bpf_probe_read_str(dst->filename, MAX_PATH, BPF_CORE_READ(dentries[i - 1], d_name.name));
+        if (filepart_length  - 1 > MAX_PATH)
+        {
+            break;
+        }
+        
+        if (i >= MAX_PATH_DEPTH)
+        {
+            continue;
+        }
+
+        bpf_probe_read_str(dst->path_array[j], MAX_PATH, dst->filename);
+        j = j + 1;
+        unsigned long fn_idx = (unsigned long) dst->filename;
+        fn_idx += filepart_length - 1;
+    }
+    dst->patharray_len = j;
+    return j;
 }
 
 #endif // ifdef __KERNEL__

@@ -33,7 +33,18 @@ static int buf_process_sample(void *ctx, void *data, size_t len) {
     {
         case EBPF_EVENT_FILE_DELETE:
             struct ebpf_event_file_delete_data *evt_data = (struct ebpf_event_file_delete_data *)evt->data;
-            printf("[EBPF_EVENT_FILE_DELETE]: (%d) [%d] %s\n", evt_data->pid, evt_data->dfd, evt_data->name);
+            // todo(fntlnz): to extract this into a function and add tests for it.
+            char pathbuf[MAX_FILEPATH_LENGTH] = "/";
+            for (int i = 0; i < evt_data->path.patharray_len; i++)
+            {   
+                strcat(pathbuf, evt_data->path.path_array[i]);
+
+                if (i != evt_data->path.patharray_len - 1)
+                {
+                    strcat(pathbuf, "/");
+                }
+            }
+            printf("[EBPF_EVENT_FILE_DELETE]: (%d) [%d] %s\n", evt_data->pid, evt_data->dfd, pathbuf);
             break;
     }
 
