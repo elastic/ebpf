@@ -91,7 +91,7 @@ int main(int argc, char const *argv[])
     }
 
 cleanup:
-    if (!probe)
+    if (probe)
     {
         FileEvents_bpf__destroy(probe);
     }
