@@ -21,7 +21,22 @@ static void sig_int(int signo)
     fprintf(stdout, "Received SIGINT, Exiting...\n");
 }
 
-static int buf_process_sample(void *ctx, void *data, size_t len) {
+static void ebpf_file_event_path__tostring(struct ebpf_event_file_path path, char *pathbuf)
+{
+    strcpy(pathbuf, "/");
+    for (int i = 0; i < path.patharray_len; i++)
+    {
+        strcat(pathbuf, path.path_array[i]);
+
+        if (i != path.patharray_len - 1)
+        {
+            strcat(pathbuf, "/");
+        }
+    }
+}
+
+static int buf_process_sample(void *ctx, void *data, size_t len)
+{
     struct ebpf_event *evt = (struct ebpf_event *)data;
 
     if (evt->data == NULL)
@@ -33,18 +48,9 @@ static int buf_process_sample(void *ctx, void *data, size_t len) {
     {
         case EBPF_EVENT_FILE_DELETE:
             struct ebpf_event_file_delete_data *evt_data = (struct ebpf_event_file_delete_data *)evt->data;
-            // todo(fntlnz): to extract this into a function and add tests for it.
-            char pathbuf[MAX_FILEPATH_LENGTH] = "/";
-            for (int i = 0; i < evt_data->path.patharray_len; i++)
-            {   
-                strcat(pathbuf, evt_data->path.path_array[i]);
-
-                if (i != evt_data->path.patharray_len - 1)
-                {
-                    strcat(pathbuf, "/");
-                }
-            }
-            printf("[EBPF_EVENT_FILE_DELETE]: (%d) [%d] %s\n", evt_data->pid, evt_data->dfd, pathbuf);
+            char pathbuf[MAX_FILEPATH_LENGTH];
+            ebpf_file_event_path__tostring(evt_data->path, pathbuf);
+            printf("[EBPF_EVENT_FILE_DELETE]: (%d) %s\n", evt_data->pid, pathbuf);
             break;
     }
 
