@@ -33,7 +33,6 @@ struct ebpf_event_file_path
 {
     char path_array[MAX_PATH_DEPTH][MAX_PATH];
     int patharray_len;
-    char filename[MAX_PATH];
 };
 
 struct ebpf_event_file_delete_data
@@ -56,6 +55,7 @@ static __always_inline void ebpf_event_file_delete_data__set_dfd(struct ebpf_eve
 }
 
 // todo(fntlnz): this probably does not work with non-file dentries. Need to check that.
+// todo(fntlnz): make sure this supports mount namespaces and cgroups
 static __always_inline int ebpf_event_file_path__from_dentry(struct ebpf_event_file_path *dst, struct dentry* src)
 {
     size_t filepart_length;
@@ -95,21 +95,8 @@ static __always_inline int ebpf_event_file_path__from_dentry(struct ebpf_event_f
     int j = 0;
     for (int i = dentries_len; i != 0; i--)
     {
-        filepart_length = bpf_probe_read_str(dst->filename, MAX_PATH, BPF_CORE_READ(dentries[i - 1], d_name.name));
-        if (filepart_length  - 1 > MAX_PATH)
-        {
-            break;
-        }
-        
-        if (i >= MAX_PATH_DEPTH)
-        {
-            continue;
-        }
-
-        bpf_probe_read_str(dst->path_array[j], MAX_PATH, dst->filename);
+        filepart_length = bpf_probe_read_kernel_str(dst->path_array[j], MAX_PATH, BPF_CORE_READ(dentries[i - 1], d_name.name));
         j = j + 1;
-        unsigned long fn_idx = (unsigned long) dst->filename;
-        fn_idx += filepart_length - 1;
     }
     dst->patharray_len = j;
     return j;

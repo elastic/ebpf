@@ -48,13 +48,11 @@ int BPF_PROG(security_path_unlink_exit, const struct path *dir, struct dentry *d
         goto out;
     }
 
+    
     edata = (struct ebpf_event_file_delete_data *)event->data;
     ebpf_event_file_delete_data__set_pid(edata, bpf_get_current_pid_tgid() >> 32);
 
     size_t len = ebpf_event_file_path__from_dentry(&edata->path, dentry);
-    // todo(fntlnz): handle error here
-
-    // todo(fntlnz): how to get the file descriptor?
 
     bpf_ringbuf_submit(event, 0);
 
