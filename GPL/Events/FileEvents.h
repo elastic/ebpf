@@ -59,10 +59,9 @@ static __always_inline void ebpf_event_file_delete_data__set_dfd(struct ebpf_eve
 static __always_inline int ebpf_event_file_path__from_dentry(struct ebpf_event_file_path *dst, struct dentry* src)
 {
     size_t filepart_length;
-    struct dentry* parent_dentry = NULL;
-    struct dentry* current_dentry = NULL;
+    struct dentry *parent_dentry = NULL;
+    struct dentry *current_dentry = NULL;
 
-    int elements[MAX_PATH_DEPTH] = {0};
     size_t dentries_len = 0;
 
     struct dentry* dentries[MAX_PATH_DEPTH] = {};
