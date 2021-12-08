@@ -7,11 +7,12 @@
  */
 
 #include <stdio.h>
+#include <errno.h>
+#include <string.h>
 #include <signal.h>
 
-#include <libebpf.h>
-#include "FileEvents.skel.h"
-#include "FileEvents.h"
+#define __aligned_u64 __u64 __attribute__((aligned(8)))
+#include <LibEbpfEvents.h>
 
 static volatile sig_atomic_t exiting = 0;
 
@@ -35,22 +36,39 @@ static void ebpf_file_event_path__tostring(struct ebpf_event_file_path path, cha
     }
 }
 
-static int buf_process_sample(void *ctx, void *data, size_t len)
+static int event_ctx_callback(struct ebpf_event *evt, size_t size)
 {
-    struct ebpf_event *evt = (struct ebpf_event *)data;
-
     if (evt->data == NULL)
     {
         printf("[SKIP] Event with no data\n");
         return 0;
     }
+
     switch(evt->type)
     {
-        case EBPF_EVENT_FILE_DELETE: {
-            struct ebpf_event_file_delete_data *evt_data = (struct ebpf_event_file_delete_data *)evt->data;
+        case EBPF_EVENT_FILE_DELETE:
+        {
+            struct ebpf_event_file_delete_data *evt_data =
+                (struct ebpf_event_file_delete_data *)evt->data;
             char pathbuf[MAX_FILEPATH_LENGTH];
             ebpf_file_event_path__tostring(evt_data->path, pathbuf);
-            printf("[EBPF_EVENT_FILE_DELETE]: (%d) %s\n", evt_data->pid, pathbuf);
+            printf("[EBPF_EVENT_FILE_DELETE]: pid: %d path: %s\n", evt_data->pid, pathbuf);
+        }
+
+        case EBPF_EVENT_PROCESS_FORK:
+        {
+            struct ebpf_event_process_fork_data *evt_data =
+                (struct ebpf_event_process_fork_data *)evt->data;
+            printf("[EBPF_EVENT_PROCESS_FORK]: parent_pid: %d child_pid: %d\n",
+                    evt_data->parent_pid, evt_data->child_pid);
+            break;
+        }
+
+        case EBPF_EVENT_PROCESS_EXEC:
+        {
+            struct ebpf_event_process_exec_data *evt_data =
+                (struct ebpf_event_process_exec_data *)evt->data;
+            printf("[EBPF_EVENT_PROCESS_EXEC]: pid: %d\n", evt_data->pid);
             break;
         }
     }
@@ -58,7 +76,6 @@ static int buf_process_sample(void *ctx, void *data, size_t len)
     return 0;
 }
 
-// TODO: change this to use the libebpf.h header, once we have an implementation for it
 int main(int argc, char const *argv[])
 {
     int err = 0;
@@ -70,29 +87,17 @@ int main(int argc, char const *argv[])
         goto cleanup;
     }
 
-    probe = FileEvents_bpf__open_and_load();
-    err = FileEvents_bpf__attach(probe);
-    if (err < 0)
-    {
-        fprintf(stderr, "Failed to attach probe\n");
-        goto cleanup;
-    }
+    struct ebpf_event_ctx *ctx;
+    uint64_t features = EBPF_KERNEL_FEATURE_BPF;
+    uint64_t events = EBPF_EVENT_FILE_DELETE;
+    ebpf_event_ctx__new(&ctx, event_ctx_callback, features, events);
 
-    // todo(fntlnz): this is temporary, until I use the libebpf code here
-    struct ring_buffer *ring_buffer;
-    ring_buffer = ring_buffer__new(bpf_map__fd(probe->maps.elastic_ebpf_events_buffer), buf_process_sample, NULL, NULL);
-
-    while(!exiting)
+    while (!exiting)
     {
-        err = ring_buffer__poll(ring_buffer, 100);
-        if (err == -EINTR)
-        {
-            err = 0;
-            break;
-        }
+        err = ebpf_event_ctx__next(ctx);
         if (err < 0)
         {
-            fprintf(stderr, "Failed to poll ring buffer\n");
+            fprintf(stderr, "Failed to poll event context\n");
             break;
         }
     }
@@ -100,7 +105,7 @@ int main(int argc, char const *argv[])
 cleanup:
     if (probe)
     {
-        FileEvents_bpf__destroy(probe);
+        ebpf_event_ctx__destroy(ctx);
     }
     return err != 0;
 }

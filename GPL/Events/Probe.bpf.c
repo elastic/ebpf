@@ -17,13 +17,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#define NULL 0
 
 #include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 #include <bpf/bpf_core_read.h>
-#include "libebpf.h"
-#include "FileEvents.h"
 #include "Maps.h"
 #include "Helpers.h"
 
@@ -35,24 +34,65 @@ int BPF_PROG(security_path_unlink_exit, const struct path *dir, struct dentry *d
 {
     struct ebpf_event *event = NULL;
     struct ebpf_event_file_delete_data *edata = NULL;
-    struct task_struct *task = NULL;
 
     if (ret != 0)
         goto out;
 
-
-    event = ebpf_event__new(&elastic_ebpf_events_buffer, EBPF_EVENT_FILE_DELETE);
+    event = ebpf_event__new(&ringbuf, EBPF_EVENT_FILE_DELETE);
     if (!event)
     {
         // todo(fntlnz): fentry cannot return anything but zero, handle error here
         goto out;
     }
 
-    
     edata = (struct ebpf_event_file_delete_data *)event->data;
-    ebpf_event_file_delete_data__set_pid(edata, bpf_get_current_pid_tgid() >> 32);
+    edata->pid = bpf_get_current_pid_tgid() >> 32;
 
     size_t len = ebpf_event_file_path__from_dentry(&edata->path, dentry);
+
+    bpf_ringbuf_submit(event, 0);
+
+out:
+    return 0;
+}
+
+SEC("tp_btf/sched_process_fork")
+int BPF_PROG(sched_process_fork,
+        const struct task_struct *parent,
+        const struct task_struct *child)
+{
+    struct ebpf_event *event = NULL;
+    struct ebpf_event_process_fork_data *edata = NULL;
+
+    event = ebpf_event__new(&ringbuf, EBPF_EVENT_PROCESS_FORK);
+    if (!event)
+        goto out;
+
+    edata = (struct ebpf_event_process_fork_data *)event->data;
+    edata->parent_pid = parent->pid;
+    edata->child_pid = child->pid;
+
+    bpf_ringbuf_submit(event, 0);
+
+out:
+    return 0;
+}
+
+SEC("tp_btf/sched_process_exec")
+int BPF_PROG(sched_process_exec,
+        const struct task_struct *task,
+        pid_t old_pid,
+        const struct linux_binprm *binprm)
+{
+    struct ebpf_event *event = NULL;
+    struct ebpf_event_process_exec_data *edata = NULL;
+
+    event = ebpf_event__new(&ringbuf, EBPF_EVENT_PROCESS_EXEC);
+    if (!event)
+        goto out;
+
+    edata = (struct ebpf_event_process_exec_data *)event->data;
+    edata->pid = task->pid;
 
     bpf_ringbuf_submit(event, 0);
 
