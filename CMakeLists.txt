@@ -37,6 +37,7 @@ add_subdirectory(GPL/HostIsolation/KprobeConnectHook)
 add_subdirectory(GPL/HostIsolation/TcFilter)
 add_subdirectory(GPL/Events)
 
+add_subdirectory(non-GPL/LibEbpfEvents)
 add_subdirectory(non-GPL/Common)
 add_subdirectory(non-GPL/HostIsolation/KprobeConnectHook)
 add_subdirectory(non-GPL/HostIsolationMapsUtil)
