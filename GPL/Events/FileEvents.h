@@ -38,7 +38,6 @@ struct ebpf_event_file_path
 struct ebpf_event_file_delete_data
 {
     __u32 pid;
-    int dfd;
     struct ebpf_event_file_path path;
 };
 
@@ -47,11 +46,6 @@ struct ebpf_event_file_delete_data
 static __always_inline void ebpf_event_file_delete_data__set_pid(struct ebpf_event_file_delete_data *event, __u32 pid)
 {
     event->pid = pid;
-}
-
-static __always_inline void ebpf_event_file_delete_data__set_dfd(struct ebpf_event_file_delete_data *event, int dfd)
-{
-    event->dfd = dfd;
 }
 
 // todo(fntlnz): this probably does not work with non-file dentries. Need to check that.
