@@ -5,7 +5,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 set(LIBBPF_CONTRIB_DEFAULT "${PROJECT_SOURCE_DIR}/contrib/libbpf")
-option(LIBBPF_CONTRIB "Folder containing libbpf" ${LIBBPF_CONTRIB_DEFAULT})
+set(LIBBPF_CONTRIB "${LIBBPF_CONTRIB_DEFAULT}" CACHE STRING "Custom libbpf source directory")
 
 set(LIBBPF_SRC "${LIBBPF_CONTRIB}/src")
 set(LIBBPF_BUILD_DIR "${PROJECT_BINARY_DIR}/libbpf-prefix/src/libbpf-build")
@@ -14,7 +14,7 @@ set(LIBBPF_INCLUDE_DIR "${LIBBPF_CONTRIB}/include")
 set(LIBBPF_UAPI_INCLUDE_DIR "${LIBBPF_INCLUDE_DIR}/uapi")
 set(LIBBPF_LIB "${LIBBPF_BUILD_DIR}/libbpf.a")
 
-message(STATUS "[contrib] libbpf in '${LIBBPF_SRC}'")
+message(STATUS "[contrib] libbpf in '${LIBBPF_CONTRIB}'")
 
 ExternalProject_Add(
     libbpf

@@ -71,10 +71,10 @@ make
 
 Besides the usual CMake variables, you can set the following variables which are specific to this project.
 
-| Variable      | Description                                      |
-| ------------- | ------------------------------------------------ |
-| -DTARGET_DIR  | Directory to use to store the compiled targets   |
-
+| Variable         | Description                                                                |
+| ---------------- | -------------------------------------------------------------------------- |
+| -DTARGET_DIR     | Directory to use to store the compiled targets                             |
+| -DLIBBPF_CONTRIB | Alternative directory to use for libbpf sources instead of the bundled one |
 
 ```
 target
