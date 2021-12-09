@@ -7,7 +7,7 @@
  */
 
 #include <stdio.h>
-#include<signal.h>
+#include <signal.h>
 
 #include <libebpf.h>
 #include "FileEvents.skel.h"
