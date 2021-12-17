@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0 OR LicenseRef-Elastic-License-2.0
 
+/*
+ * This file is dual-licensed under the GNU General Public License version 2
+ * and the Elastic License 2.0. You may choose either one of them if you use
+ * this file.
+ */
+
 #ifndef EBPF_EVENTS_EBPFEVENTPROTO_H
 #define EBPF_EVENTS_EBPFEVENTPROTO_H
 
