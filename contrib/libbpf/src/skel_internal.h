@@ -7,6 +7,14 @@
 #include <sys/syscall.h>
 #include <sys/mman.h>
 
+#if defined(__x86_64__)
+#define __NR_bpf 321
+#elif defined(__aarch64__)
+#define __NR_bpf 280
+#else
+#error __NR_bpf not defined - unsupported arch
+#endif
+
 #ifndef __NR_bpf
 # if defined(__mips__) && defined(_ABIO32)
 #  define __NR_bpf 4355
