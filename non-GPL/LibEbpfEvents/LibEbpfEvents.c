@@ -80,9 +80,9 @@ out_destroy_probe:
 }
 
 int ebpf_event_ctx__next(
-        struct ebpf_event_ctx *ctx)
+        struct ebpf_event_ctx *ctx, int timeout)
 {
-    int consumed = ring_buffer__poll(ctx->ringbuf, 0);
+    int consumed = ring_buffer__poll(ctx->ringbuf, timeout);
     return consumed > 0 ? 0 : consumed;
 }
 

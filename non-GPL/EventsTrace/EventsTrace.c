@@ -94,7 +94,7 @@ int main(int argc, char const *argv[])
 
     while (!exiting)
     {
-        err = ebpf_event_ctx__next(ctx);
+        err = ebpf_event_ctx__next(ctx, 10);
         if (err < 0)
         {
             fprintf(stderr, "Failed to poll event context\n");
