@@ -34,8 +34,7 @@ set(EVENTS_PROBE_CFLAGS
                 -I${LIBBPF_UAPI_INCLUDE_DIR}
                 -I${LIBBPF_INCLUDE_DIR}
                 -I${VMLINUX_INCLUDE_DIR}
-                -I${EVENTS_PROBE_SOURCE_DIR}
-                -I${PROJECT_SOURCE_DIR}/include)
+                -I${EVENTS_PROBE_SOURCE_DIR})
 
 configure_file(EbpfEventProto.h ${TARGET_INCLUDE_DIR} COPYONLY)
 set(EVENTS_PROBE_SOURCES ${EVENTS_PROBE_SOURCE_DIR}/EventProbe.bpf.c)
