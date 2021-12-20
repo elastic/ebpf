@@ -21,7 +21,6 @@
 #include <sys/resource.h>
 #include <gtest/gtest.h>
 
-#define __aligned_u64 __u64 __attribute__((aligned(8)))
 #include <bpf/libbpf.h>
 #include <bpf/bpf.h>
 #include <bpf/bpf_endian.h>
