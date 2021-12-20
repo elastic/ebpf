@@ -35,7 +35,7 @@ include(GoogleTest)
 
 add_subdirectory(GPL/HostIsolation/KprobeConnectHook)
 add_subdirectory(GPL/HostIsolation/TcFilter)
-add_subdirectory(GPL/Events)
+add_subdirectory(GPL/EventProbe)
 
 add_subdirectory(non-GPL/LibEbpfEvents)
 add_subdirectory(non-GPL/Common)

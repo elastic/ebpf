@@ -25,17 +25,17 @@
 #include <bpf/bpf.h>
 #include <bpf/bpf_endian.h>
 
-#include "Probe.skel.h"
+#include "EventProbe.skel.h"
 
 class BPFFileEventsTests : public ::testing::Test
 {
 protected:
-    struct Probe_bpf *m_skel;
+    struct EventProbe_bpf *m_skel;
 
     virtual void
     SetUp() override
     {
-        m_skel = Probe_bpf__open_and_load();
+        m_skel = EventProbe_bpf__open_and_load();
         if (!m_skel)
         {
             FAIL() << "Failed to open and load BPF program";
@@ -45,7 +45,7 @@ protected:
     virtual void
     TearDown() override
     {
-        Probe_bpf__destroy(m_skel);
+        EventProbe_bpf__destroy(m_skel);
     }
 
     static void
