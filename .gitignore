@@ -5,7 +5,3 @@
 /non-GPL/HostIsolation/KprobeConnectHook/build/
 /non-GPL/HostIsolationMapsUtil/build/
 /non-GPL/TcLoader/build/
-
-# Vim swapfiles
-[._]*.s[a-w][a-z]
-[._]s[a-w][a-z]
