@@ -51,7 +51,9 @@ add_custom_target(BPFFileEvents ALL DEPENDS ${TARGET_EBPF_DIR}/FileEvents.bpf.o)
 add_executable(BPFFileEventsTests BPFFileEventsTests.cpp ${GTEST_MAIN})
 set_target_properties(BPFFileEventsTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${TARGET_TEST_DIR})
 target_include_directories(BPFFileEventsTests PRIVATE 
+    "${LIBBPF_TARGET_INCLUDE_DIR}"
     "${LIBBPF_UAPI_INCLUDE_DIR}"
+    "${LIBBPF_INCLUDE_DIR}"
     "${TARGET_INCLUDE_DIR}"
     "${GTEST_INCLUDE}")
 
