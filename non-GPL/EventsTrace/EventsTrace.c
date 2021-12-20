@@ -46,12 +46,13 @@ static int buf_process_sample(void *ctx, void *data, size_t len)
     }
     switch(evt->type)
     {
-        case EBPF_EVENT_FILE_DELETE:
+        case EBPF_EVENT_FILE_DELETE: {
             struct ebpf_event_file_delete_data *evt_data = (struct ebpf_event_file_delete_data *)evt->data;
             char pathbuf[MAX_FILEPATH_LENGTH];
             ebpf_file_event_path__tostring(evt_data->path, pathbuf);
             printf("[EBPF_EVENT_FILE_DELETE]: (%d) %s\n", evt_data->pid, pathbuf);
             break;
+        }
     }
 
     return 0;
