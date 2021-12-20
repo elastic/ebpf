@@ -12,7 +12,6 @@ target_include_directories(EventsTrace PRIVATE
     "${LIBBPF_TARGET_INCLUDE_DIR}"
     "${LIBBPF_UAPI_INCLUDE_DIR}"
     "${LIBBPF_INCLUDE_DIR}"
-    "${CMAKE_SOURCE_DIR}/include/"
     "${CMAKE_SOURCE_DIR}/GPL/Events"
     "${TARGET_INCLUDE_DIR}"
     "${LIBBPF_TARGET_INCLUDE_DIR}"
