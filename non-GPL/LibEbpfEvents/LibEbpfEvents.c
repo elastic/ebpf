@@ -8,14 +8,14 @@
 
 #define __aligned_u64 __u64 __attribute__((aligned(8)))
 #include "LibEbpfEvents.h"
-#include "Probe.skel.h"
+#include "EventProbe.skel.h"
 #include <bpf/libbpf.h>
 #include <errno.h>
 #include <stdio.h>
 
 struct ebpf_event_ctx {
     struct ring_buffer *ringbuf;
-    struct Probe_bpf *probe;
+    struct EventProbe_bpf *probe;
 };
 
 /* This is just a thin wrapper that calls the event context's saved callback */
@@ -40,21 +40,21 @@ int ebpf_event_ctx__new(
     if (ctx == NULL)
         return -ENOMEM;
 
-    (*ctx)->probe = Probe_bpf__open();
+    (*ctx)->probe = EventProbe_bpf__open();
     if ((*ctx)->probe == NULL) {
         free(*ctx);
 
-        /* Probe_bpf__open doesn't report errors, hard to find something that
+        /* EventProbe_bpf__open doesn't report errors, hard to find something that
          * fits perfect here
          */
         return -ENOENT;
     }
 
-    err = Probe_bpf__load((*ctx)->probe);
+    err = EventProbe_bpf__load((*ctx)->probe);
     if (err != 0)
         goto out_destroy_probe;
 
-    err = Probe_bpf__attach((*ctx)->probe);
+    err = EventProbe_bpf__attach((*ctx)->probe);
     if (err != 0)
         goto out_destroy_probe;
 
@@ -74,7 +74,7 @@ int ebpf_event_ctx__new(
     return ring_buffer__epoll_fd((*ctx)->ringbuf);
 
 out_destroy_probe:
-    Probe_bpf__destroy((*ctx)->probe);
+    EventProbe_bpf__destroy((*ctx)->probe);
     free(*ctx);
     return err;
 }
@@ -88,5 +88,5 @@ int ebpf_event_ctx__next(
 
 void ebpf_event_ctx__destroy(struct ebpf_event_ctx *ctx) {
     ring_buffer__free(ctx->ringbuf);
-    Probe_bpf__destroy(ctx->probe);
+    EventProbe_bpf__destroy(ctx->probe);
 }

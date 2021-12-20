@@ -21,7 +21,7 @@
 # BPF program
 
 set(EVENTS_PROBE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-set(EVENTS_PROBE_DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/Probe.bpf.d)
+set(EVENTS_PROBE_DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/EventProbe.bpf.d)
 set(EVENTS_PROBE_CFLAGS
                 -g -O2
                 -target bpf
@@ -38,18 +38,18 @@ set(EVENTS_PROBE_CFLAGS
                 -I${PROJECT_SOURCE_DIR}/include)
 
 configure_file(EbpfEventProto.h ${TARGET_INCLUDE_DIR} COPYONLY)
-set(EVENTS_PROBE_SOURCES ${EVENTS_PROBE_SOURCE_DIR}/Probe.bpf.c)
+set(EVENTS_PROBE_SOURCES ${EVENTS_PROBE_SOURCE_DIR}/EventProbe.bpf.c)
 file(GLOB EVENTS_PROBE_INCLUDES "${EVENTS_PROBE_SOURCE_DIR}/*.h")
 message(STATUS "Including: ${EVENTS_PROBE_INCLUDES}")
 
-set(EVENTS_PROBE_BPF_OUTPUT ${TARGET_EBPF_DIR}/Probe.bpf.o)
+set(EVENTS_PROBE_BPF_OUTPUT ${TARGET_EBPF_DIR}/EventProbe.bpf.o)
 add_custom_command(OUTPUT ${EVENTS_PROBE_BPF_OUTPUT}
                   COMMAND ${EBPF_EXTERNAL_ENV_FLAGS} ${CLANG} ${EVENTS_PROBE_CFLAGS} -c ${EVENTS_PROBE_SOURCES} -o ${EVENTS_PROBE_BPF_OUTPUT}
                   DEPENDS libbpf
                   DEPFILE ${EVENTS_PROBE_DEPFILE}
                   COMMENT "[bpf] building ${EVENTS_PROBE_BPF_OUTPUT}")
 
-add_custom_target(BPFEventProbe ALL DEPENDS ${TARGET_EBPF_DIR}/Probe.bpf.o)
+add_custom_target(BPFEventProbe ALL DEPENDS ${TARGET_EBPF_DIR}/EventProbe.bpf.o)
 
 # BPF_PROG_TEST_RUN gtests
 add_executable(BPFEventsTests BPFEventsTests.cpp ${GTEST_MAIN})
@@ -63,8 +63,8 @@ target_include_directories(BPFEventsTests PRIVATE
 
 add_dependencies(BPFEventsTests BPFEventProbe)
 
-bpf_skeleton(Probe)
-add_dependencies(Probe_skeleton BPFEventProbe)
+bpf_skeleton(EventProbe)
+add_dependencies(EventProbe_skeleton BPFEventProbe)
 
 target_link_libraries(BPFEventsTests ${LIBBPF_LIB} ${LIBELF_LIB} ${GTEST_LIB} -pthread -lz)
-add_dependencies(BPFEventsTests Probe_skeleton libbpf libelf gtest)
+add_dependencies(BPFEventsTests EventProbe_skeleton libbpf libelf gtest)
