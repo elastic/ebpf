@@ -262,7 +262,10 @@ ebpf_load_and_attach_kprobe(struct bpf_object *obj,
     if (kernel_version != 0)
     {
         ebpf_log("got kernel_version=%d according to method=%d\n", kernel_version, load_method);
-        bpf_object__set_kversion(obj, kernel_version);
+        if (bpf_object__set_kversion(obj, kernel_version) != 0)
+        {
+            ebpf_log("failed to set kversion\n");
+        }
     }
 
     prog_fd = bpf_object__load(obj);
