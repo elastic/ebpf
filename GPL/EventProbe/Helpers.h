@@ -18,8 +18,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef EBPF_EVENTS_HELPERS_H
-#define EBPF_EVENTS_HELPERS_H
+#ifndef EBPF_EVENTPROBE_HELPERS_H
+#define EBPF_EVENTPROBE_HELPERS_H
 
 #include "FileEvents.h"
 #include "EbpfEventProto.h"
@@ -57,4 +57,4 @@ out:
     return event;
 }
 
-#endif // EBPF_EVENTS_HELPERS_H
+#endif // EBPF_EVENTPROBE_HELPERS_H

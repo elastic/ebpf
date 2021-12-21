@@ -1,5 +1,5 @@
-#ifndef EBPF_EVENTS_MAPS_H
-#define EBPF_EVENTS_MAPS_H
+#ifndef EBPF_EVENTPROBE_MAPS_H
+#define EBPF_EVENTPROBE_MAPS_H
 
 // todo(fntlnz): another buffer will probably need
 // to be used instead of this one as the common parts evolve
@@ -9,4 +9,4 @@ struct bpf_map_def SEC("maps") ringbuf = {
     .max_entries = 4096 * 64, // todo: Need to verify if 256 kb is what we want
 };
 
-#endif // EBPF_EVENTS_MAPS_H
+#endif // EBPF_EVENTPROBE_MAPS_H
