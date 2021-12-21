@@ -6,8 +6,8 @@
  * this file.
  */
 
-#ifndef EBPF_EVENTS_EBPFEVENTPROTO_H
-#define EBPF_EVENTS_EBPFEVENTPROTO_H
+#ifndef EBPF_EVENTPROBE_EBPFEVENTPROTO_H
+#define EBPF_EVENTPROBE_EBPFEVENTPROTO_H
 
 #define MAX_PATH_DEPTH 32
 #define MAX_PATH 256
@@ -50,4 +50,4 @@ struct ebpf_event_process_exec_data {
     uint32_t pid;
 } __attribute__((packed));
 
-#endif // EBPF_EVENTS_EBPFEVENTPROTO_H
+#endif // EBPF_EVENTPROBE_EBPFEVENTPROTO_H
