@@ -25,8 +25,8 @@ static int ring_buf_cb(
         size_t size)
 {
     ebpf_event_handler_fn cb = ctx;
-    struct ebpf_event *evt = data;
-    return cb(evt, size);
+    struct ebpf_event_header *evt = data;
+    return cb(evt);
 }
 
 int ebpf_event_ctx__new(

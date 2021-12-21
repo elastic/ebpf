@@ -23,7 +23,7 @@
 
 #include "EbpfEventProto.h"
 
-static __always_inline int ebpf_event_file_path__from_dentry(struct ebpf_event_file_path *dst, struct dentry* src)
+static int ebpf_file_path__from_dentry(struct ebpf_file_path *dst, struct dentry* src)
 {
     size_t filepart_length;
     struct dentry *parent_dentry = NULL;

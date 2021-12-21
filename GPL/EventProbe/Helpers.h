@@ -24,37 +24,51 @@
 #include "FileEvents.h"
 #include "EbpfEventProto.h"
 
-static __always_inline u64 ebpf_event__type_size(uint64_t event_type)
+#define MINORBITS 20
+#define MINORMASK ((1U << MINORBITS) - 1)
+
+#define MAJOR(dev) ((unsigned int) ((dev) >> MINORBITS))
+#define MINOR(dev) ((unsigned int) ((dev) & MINORMASK))
+
+#include <bpf/bpf_core_read.h>
+#include "EbpfEventProto.h"
+
+static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct *task)
 {
-    switch (event_type)
-    {
-        case EBPF_EVENT_FILE_DELETE:
-            return sizeof(struct ebpf_event_file_delete_data);
-        case EBPF_EVENT_PROCESS_FORK:
-            return sizeof(struct ebpf_event_process_fork_data);
-        case EBPF_EVENT_PROCESS_EXEC:
-            return sizeof(struct ebpf_event_process_exec_data);
-        default:
-            return 0;
-    }
+    unsigned long start, end, size;
+
+    start = task->mm->arg_start;
+    end = task->mm->arg_end;
+
+    size = end - start;
+    size = size > buf_size ? buf_size : size;
+
+    bpf_probe_read_user(buf, size, (void *) start);
+    buf[buf_size - 1] = '\0';
 }
 
-static __always_inline void *ebpf_event__new(void *ringbuf, uint64_t event_type)
+static void ebpf_ctty__fill(struct ebpf_tty_dev *ctty, const struct task_struct *task)
 {
-    u64 specialized_event_size = ebpf_event__type_size(event_type);
-    struct ebpf_event *event = NULL;
+    ctty->major = task->signal->tty->driver->major;
+    ctty->minor = task->signal->tty->driver->minor_start;
+    ctty->minor += task->signal->tty->index;
+}
 
-    event = bpf_ringbuf_reserve(ringbuf, sizeof(struct ebpf_event) + specialized_event_size, 0);
-    if (!event)
-    {
-        goto out;
-    }
+static void ebpf_pid_info__fill(struct ebpf_pid_info *pi, const struct task_struct *task)
+{
+    pi->tgid = task->tgid;
+    pi->sid = task->group_leader->signal->pids[PIDTYPE_SID]->numbers[0].nr;
+}
 
-    event->type = event_type;
-    event->ts = bpf_ktime_get_ns();
+static bool is_kernel_thread(const struct task_struct *task)
+{
+    // Session ID is 0 for all kernel threads
+    return task->group_leader->signal->pids[PIDTYPE_SID]->numbers[0].nr == 0;
+}
 
-out:
-    return event;
+static bool is_thread_group_leader(const struct task_struct *task)
+{
+    return task->pid == task->tgid;
 }
 
 #endif // EBPF_EVENTPROBE_HELPERS_H

@@ -22,7 +22,7 @@ enum ebpf_kernel_features {
 /* Opaque context */
 struct ebpf_event_ctx;
 
-typedef int (*ebpf_event_handler_fn)(struct ebpf_event *, size_t);
+typedef int (*ebpf_event_handler_fn)(struct ebpf_event_header *);
 
 /* Allocates a new context based on requested events and capabilities.
  *

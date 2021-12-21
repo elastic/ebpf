@@ -26,27 +26,22 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
-
 SEC("fexit/security_path_unlink")
 int BPF_PROG(security_path_unlink_exit, const struct path *dir, struct dentry *dentry, long ret)
 {
-    struct ebpf_event *event = NULL;
-    struct ebpf_event_file_delete_data *edata = NULL;
+    struct task_struct *task = bpf_get_current_task_btf();
+    if (is_kernel_thread(task) || !is_thread_group_leader(task))
+        return 0;
 
-    if (ret != 0)
-        goto out;
-
-    event = ebpf_event__new(&ringbuf, EBPF_EVENT_FILE_DELETE);
+    struct ebpf_file_delete_event *event =
+        bpf_ringbuf_reserve(&ringbuf, sizeof(struct ebpf_file_delete_event), 0);
     if (!event)
-    {
-        // todo(fntlnz): fentry cannot return anything but zero, handle error here
         goto out;
-    }
 
-    edata = (struct ebpf_event_file_delete_data *)event->data;
-    edata->pid = bpf_get_current_pid_tgid() >> 32;
-
-    size_t len = ebpf_event_file_path__from_dentry(&edata->path, dentry);
+    event->hdr.type = EBPF_EVENT_FILE_DELETE;
+    event->hdr.ts = bpf_ktime_get_ns();
+    ebpf_pid_info__fill(&event->pids, task);
+    ebpf_file_path__from_dentry(&event->path, dentry);
 
     bpf_ringbuf_submit(event, 0);
 
@@ -59,16 +54,18 @@ int BPF_PROG(sched_process_fork,
         const struct task_struct *parent,
         const struct task_struct *child)
 {
-    struct ebpf_event *event = NULL;
-    struct ebpf_event_process_fork_data *edata = NULL;
+    if (is_kernel_thread(child) || !is_thread_group_leader(child))
+        return 0;
 
-    event = ebpf_event__new(&ringbuf, EBPF_EVENT_PROCESS_FORK);
+    struct ebpf_process_fork_event *event =
+        bpf_ringbuf_reserve(&ringbuf, sizeof(struct ebpf_process_fork_event), 0);
     if (!event)
         goto out;
 
-    edata = (struct ebpf_event_process_fork_data *)event->data;
-    edata->parent_pid = parent->pid;
-    edata->child_pid = child->pid;
+    event->hdr.type = EBPF_EVENT_PROCESS_FORK;
+    event->hdr.ts = bpf_ktime_get_ns();
+    ebpf_pid_info__fill(&event->parent_pids, parent);
+    ebpf_pid_info__fill(&event->child_pids, child);
 
     bpf_ringbuf_submit(event, 0);
 
@@ -82,15 +79,21 @@ int BPF_PROG(sched_process_exec,
         pid_t old_pid,
         const struct linux_binprm *binprm)
 {
-    struct ebpf_event *event = NULL;
-    struct ebpf_event_process_exec_data *edata = NULL;
+    if (is_kernel_thread(task) || !is_thread_group_leader(task))
+        return 0;
 
-    event = ebpf_event__new(&ringbuf, EBPF_EVENT_PROCESS_EXEC);
+    struct ebpf_process_exec_event *event =
+    bpf_ringbuf_reserve(&ringbuf, sizeof(struct ebpf_process_exec_event), 0);
     if (!event)
         goto out;
 
-    edata = (struct ebpf_event_process_exec_data *)event->data;
-    edata->pid = task->pid;
+    event->hdr.type = EBPF_EVENT_PROCESS_EXEC;
+    event->hdr.ts = bpf_ktime_get_ns();
+
+    ebpf_pid_info__fill(&event->pids, task);
+    ebpf_ctty__fill(&event->ctty, task);
+    ebpf_argv__fill(event->argv, sizeof(event->argv), task);
+    bpf_probe_read_kernel_str(event->filename, sizeof(event->filename), binprm->filename);
 
     bpf_ringbuf_submit(event, 0);
 
