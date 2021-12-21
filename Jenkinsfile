@@ -1,5 +1,97 @@
 import groovy.transform.Field;
 
+// todo: remove once toolchain is updated in build vm
+def authGoogleCloud()
+{
+    def isDone = false
+    // Try to auth right away to avoid repeatedly running vault, etc
+    try
+    {
+        // For the macos builders
+        withEnv(["PATH=$PATH:~/google-cloud-sdk/bin"])
+        {
+            sh "gcloud auth activate-service-account --key-file /tmp/service_account.json"
+        }
+        isDone = true
+    }
+    catch(Exception e)
+    {
+        // Looks like we need to go through the full process
+    }
+
+    if (isDone)
+    {
+        return
+    }
+
+    // Make sure we have the python bits we need
+    try
+    {
+        sh "python2.7 -m pip install google_compute_engine"
+    }
+    catch (Exception err)
+    {
+        printLog "Failed to install google_compute_engine [ $err ]"
+    }
+
+    retry(5)
+    {
+        // Auth the service account
+        sh "sudo rm -f /tmp/service_account.json"
+        retVal = sh returnStatus: true, script: "vault read -field=value secret/gce/elastic-security-dev/service-account/endgame-ci > /tmp/service_account.json 2> /dev/null"
+        if (0 != retVal)
+        {
+            // If there's an error, the token likely expired, so get a new one
+            NEW_VAULT_TOKEN = sh(script: 'vault write -address=$VAULT_ADDR -field=token auth/approle/login role_id=$VAULT_ROLE_ID secret_id=$VAULT_SECRET_ID', returnStdout: true)
+            // Need to override the original VAULT_TOKEN.
+            // Setting VAULT_TOKEN or env.VAULT_TOKEN doesn't override the original
+            withEnv(["VAULT_TOKEN=${NEW_VAULT_TOKEN}"])
+            {
+                sh 'vault read -field=value secret/gce/elastic-security-dev/service-account/endgame-ci > /tmp/service_account.json'
+            }
+        }
+
+        sh "chmod 400 /tmp/service_account.json"
+
+        // For the macos builders
+        withEnv(["PATH=$PATH:~/google-cloud-sdk/bin"])
+        {
+            def gRet = sh returnStatus: true, script: "gcloud auth activate-service-account --key-file /tmp/service_account.json"
+
+            if (0 != gRet)
+            {
+                // Use the alternate way in case gcloud isn't installed (Amazon ARM, etc)
+
+                // Best effort install if python3 isn't there
+                def pyRet = sh returnStatus: true, script: "python3 --version"
+                if (0 != pyRet)
+                {
+                    def pyIn = sh returnStatus: true, script: "sudo yum -y install python3"
+                    if (0 != pyIn)
+                    {
+                        sh returnStatus: true, script: "sudo apt-get -y install python3"
+                    }
+                }
+
+                sh "sudo python3 -m pip install --upgrade pip"
+                sh "sudo python3 -m pip install gsutil"
+
+                // Create answers to all the questions
+                sh "touch /tmp/answers.txt && chmod 600 /tmp/answers.txt"
+                sh "echo /tmp/service_account.json > /tmp/answers.txt"
+                sh "echo elastic-security-dev >> /tmp/answers.txt"
+                sh "chmod 400 /tmp/answers.txt"
+
+                // Remove any boto backup file since it will cause an error
+                sh "rm -f /var/lib/jenkins/.boto.bak"
+
+                // Authenticate
+                sh "cat /tmp/answers.txt | gsutil config -e"
+            }
+        }
+    }
+}
+
 // Run the job at various times for various important branches
 def getCronString()
 {
@@ -143,6 +235,12 @@ def buildAndStash(arch)
         arpath = "/opt/endpoint-dev/dev/toolchain/aarch64-linux-gnu/bin/ar"
         path = "/opt/endpoint-dev/dev/toolchain/aarch64-linux-gnu/bin:/opt/endpoint-dev/dev/toolchain/bin"
     }
+
+    // TODO: Remove once linux build VM is updated
+    authGoogleCloud()
+    sh "gsutil cp gs://endpoint-dev-artifacts/endpoint-toolchain/20210916-2227/install-opt-endpoint-dev-dev-20211210-1318.sh ."
+    sh "chmod +x install-opt-endpoint-dev-dev-20211210-1318.sh"
+    sh "yes yes | sudo ./install-opt-endpoint-dev-dev-20211210-1318.sh"
 
     println "Building ebpf for arch ${arch}"
 
