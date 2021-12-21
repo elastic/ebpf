@@ -5,7 +5,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 add_library(LibEbpfEvents LibEbpfEvents.c)
-add_dependencies(LibEbpfEvents libbpf BPFEventProbe)
+add_dependencies(LibEbpfEvents EventProbe_skeleton libbpf BPFEventProbe)
 target_include_directories(LibEbpfEvents PRIVATE
     "${TARGET_INCLUDE_DIR}"
     "${LIBBPF_TARGET_INCLUDE_DIR}"
