@@ -21,6 +21,7 @@
 #ifndef EBPF_EVENTS_HELPERS_H
 #define EBPF_EVENTS_HELPERS_H
 
+#include "FileEvents.h"
 #include "EbpfEventProto.h"
 
 static __always_inline u64 ebpf_event__type_size(uint64_t event_type)
@@ -54,52 +55,6 @@ static __always_inline void *ebpf_event__new(void *ringbuf, uint64_t event_type)
 
 out:
     return event;
-}
-
-static __always_inline int ebpf_event_file_path__from_dentry(struct ebpf_event_file_path *dst, struct dentry* src)
-{
-    size_t filepart_length;
-    struct dentry *parent_dentry = NULL;
-    struct dentry *current_dentry = NULL;
-
-    size_t dentries_len = 0;
-
-    struct dentry* dentries[MAX_PATH_DEPTH] = {};
-
-    dentries[0] = src;
-
-    for (int i = 0; i < MAX_PATH_DEPTH; i++)
-    {
-        if (i == 0)
-        {
-            parent_dentry = BPF_CORE_READ(src, d_parent);
-            current_dentry = parent_dentry;
-        }
-        else
-        {
-            current_dentry = BPF_CORE_READ(parent_dentry, d_parent);
-            if (current_dentry == parent_dentry)
-            {
-                break;
-            }
-            parent_dentry = current_dentry;
-        }
-
-        if (i + 1 < MAX_PATH_DEPTH)
-        {
-            dentries[i + 1] = current_dentry;
-        }
-        dentries_len += 1;
-    }
-
-    int j = 0;
-    for (int i = dentries_len; i != 0; i--)
-    {
-        filepart_length = bpf_probe_read_kernel_str(dst->path_array[j], MAX_PATH, BPF_CORE_READ(dentries[i - 1], d_name.name));
-        j = j + 1;
-    }
-    dst->patharray_len = j;
-    return j;
 }
 
 #endif // EBPF_EVENTS_HELPERS_H
