@@ -235,7 +235,12 @@ def buildAndStash(arch)
     sh "chmod +x install-opt-endpoint-dev-dev-20211210-1318.sh"
     sh "yes yes | sudo ./install-opt-endpoint-dev-dev-20211210-1318.sh"
 
-    println "Building ebpf for arch ${arch}"
+    // Make sure the BPF filesystem is mounted
+    // This is needed for the vmlinux.h generation step
+    sh "sudo mount bpffs /sys/fs/bpf -t bpf || true"
+
+    def kernel_version = sh(script: 'uname -r', returnStdout: true)
+    println "Building ebpf for arch ${arch} - kernel ${kernel_version}"
 
     // Build the binaries
     withEnv(["PATH=${path}:$PATH",
