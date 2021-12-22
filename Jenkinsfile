@@ -7,11 +7,7 @@ def authGoogleCloud()
     // Try to auth right away to avoid repeatedly running vault, etc
     try
     {
-        // For the macos builders
-        withEnv(["PATH=$PATH:~/google-cloud-sdk/bin"])
-        {
-            sh "gcloud auth activate-service-account --key-file /tmp/service_account.json"
-        }
+        sh "gcloud auth activate-service-account --key-file /tmp/service_account.json"
         isDone = true
     }
     catch(Exception e)
@@ -53,41 +49,38 @@ def authGoogleCloud()
 
         sh "chmod 400 /tmp/service_account.json"
 
-        // For the macos builders
-        withEnv(["PATH=$PATH:~/google-cloud-sdk/bin"])
+
+        def gRet = sh returnStatus: true, script: "gcloud auth activate-service-account --key-file /tmp/service_account.json"
+
+        if (0 != gRet)
         {
-            def gRet = sh returnStatus: true, script: "gcloud auth activate-service-account --key-file /tmp/service_account.json"
+            // Use the alternate way in case gcloud isn't installed (Amazon ARM, etc)
 
-            if (0 != gRet)
+            // Best effort install if python3 isn't there
+            def pyRet = sh returnStatus: true, script: "python3 --version"
+            if (0 != pyRet)
             {
-                // Use the alternate way in case gcloud isn't installed (Amazon ARM, etc)
-
-                // Best effort install if python3 isn't there
-                def pyRet = sh returnStatus: true, script: "python3 --version"
-                if (0 != pyRet)
+                def pyIn = sh returnStatus: true, script: "sudo yum -y install python3"
+                if (0 != pyIn)
                 {
-                    def pyIn = sh returnStatus: true, script: "sudo yum -y install python3"
-                    if (0 != pyIn)
-                    {
-                        sh returnStatus: true, script: "sudo apt-get -y install python3"
-                    }
+                    sh returnStatus: true, script: "sudo apt-get -y install python3"
                 }
-
-                sh "sudo python3 -m pip install --upgrade pip"
-                sh "sudo python3 -m pip install gsutil"
-
-                // Create answers to all the questions
-                sh "touch /tmp/answers.txt && chmod 600 /tmp/answers.txt"
-                sh "echo /tmp/service_account.json > /tmp/answers.txt"
-                sh "echo elastic-security-dev >> /tmp/answers.txt"
-                sh "chmod 400 /tmp/answers.txt"
-
-                // Remove any boto backup file since it will cause an error
-                sh "rm -f /var/lib/jenkins/.boto.bak"
-
-                // Authenticate
-                sh "cat /tmp/answers.txt | gsutil config -e"
             }
+
+            sh "sudo python3 -m pip install --upgrade pip"
+            sh "sudo python3 -m pip install gsutil"
+
+            // Create answers to all the questions
+            sh "touch /tmp/answers.txt && chmod 600 /tmp/answers.txt"
+            sh "echo /tmp/service_account.json > /tmp/answers.txt"
+            sh "echo elastic-security-dev >> /tmp/answers.txt"
+            sh "chmod 400 /tmp/answers.txt"
+
+            // Remove any boto backup file since it will cause an error
+            sh "rm -f /var/lib/jenkins/.boto.bak"
+
+            // Authenticate
+            sh "cat /tmp/answers.txt | gsutil config -e"
         }
     }
 }
@@ -238,7 +231,7 @@ def buildAndStash(arch)
 
     // TODO: Remove once linux build VM is updated
     authGoogleCloud()
-    sh "gsutil cp gs://endpoint-dev-artifacts/endpoint-toolchain/20210916-2227/install-opt-endpoint-dev-dev-20211210-1318.sh ."
+    sh "gsutil cp gs://endpoint-dev-artifacts/endpoint-toolchain/20211210-1318/install-opt-endpoint-dev-dev-20211210-1318.sh ."
     sh "chmod +x install-opt-endpoint-dev-dev-20211210-1318.sh"
     sh "yes yes | sudo ./install-opt-endpoint-dev-dev-20211210-1318.sh"
 
@@ -272,6 +265,15 @@ def buildAndStash(arch)
 
 pipeline {
     agent { label 'linux-builder' }
+
+    environment
+    {
+        // TODO: Remove once linux build VM is updated
+        // these are used to download the toolchain
+        VAULT_ROLE_ID = credentials('vault-role-id')
+        VAULT_ADDR = credentials('vault-addr')
+        VAULT_SECRET_ID = credentials('vault-secret-id')
+    }
 
     options
     {
