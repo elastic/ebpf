@@ -29,7 +29,9 @@ set(FILEEVENTS_CFLAGS
                 -D__KERNEL__
                 -D__TARGET_ARCH_${ARCH_TRUNC}
                 -D__${ARCH}__
+                -I${LIBBPF_TARGET_INCLUDE_DIR}
                 -I${LIBBPF_UAPI_INCLUDE_DIR}
+                -I${LIBBPF_INCLUDE_DIR}
                 -I${VMLINUX_INCLUDE_DIR}
                 -I${FILEEVENTS_SOURCE_DIR}
                 -I${CMAKE_SOURCE_DIR}/include)

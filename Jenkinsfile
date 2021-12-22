@@ -235,10 +235,6 @@ def buildAndStash(arch)
     sh "chmod +x install-opt-endpoint-dev-dev-20211210-1318.sh"
     sh "yes yes | sudo ./install-opt-endpoint-dev-dev-20211210-1318.sh"
 
-    // Make sure the BPF filesystem is mounted
-    // This is needed for the vmlinux.h generation step
-    sh "sudo mount bpffs /sys/fs/bpf -t bpf || true"
-
     def kernel_version = sh(script: 'uname -r', returnStdout: true)
     println "Building ebpf for arch ${arch} - kernel ${kernel_version}"
 
@@ -249,7 +245,7 @@ def buildAndStash(arch)
         "MAKESYSPATH=/opt/endpoint-dev/dev/toolchain/share/mk"])
     {
         dir("build-${arch}") {
-            sh "cmake -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ .."
+            sh "cmake -DUSE_BUILTIN_VMLINUX=True -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ .."
             sh "make"
             sh "cp target/ebpf/*.bpf.o target/test"
 
