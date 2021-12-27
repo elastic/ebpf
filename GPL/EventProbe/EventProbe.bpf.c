@@ -29,12 +29,53 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
-SEC("fexit/security_path_unlink")
-int BPF_PROG(security_path_unlink_exit, const struct path *dir, struct dentry *dentry, long ret)
+// todo(fntlnz): this is a temporary workaround, the userspace program should do this
+// just for reference.
+// 2 is on 5.14 on arch
+// 1 is on 5.10 on al2
+// 1 is on 5.10.68 on COS
+const int fentry__vfs_unlink__dentry_parm = 2;
+
+SEC("fentry/do_unlinkat")
+int BPF_PROG(fexit__do_unlinkat)
+{
+    struct ebpf_fileevents_tid_state state;
+    __builtin_memset(&state, 0, sizeof(struct ebpf_fileevents_tid_state));
+    state.state_id = EBPF_FILEEVENTS_TID_STATE_UNLINK;
+    ebpf_fileevents_write_state__set(&state);
+
+    return 0;
+}
+
+SEC("fentry/mnt_want_write")
+int BPF_PROG(fexit__mnt_want_write)
+{
+    struct ebpf_fileevents_tid_state *state = ebpf_fileevents_write_state__get();
+    if (state == NULL) {
+        return 0;
+    }
+
+    struct vfsmount *mnt = (struct vfsmount *)ctx[0];
+    struct ebpf_fileevents_unlink_state unlink_state;
+    unlink_state.mnt    = mnt;
+    state->state.unlink = unlink_state;
+    return 0;
+}
+
+SEC("fexit/vfs_unlink")
+int BPF_PROG(fexit__vfs_unlink)
 {
     struct task_struct *task = bpf_get_current_task_btf();
     if (is_kernel_thread(task))
         goto out;
+
+    struct ebpf_fileevents_tid_state *state = ebpf_fileevents_write_state__get();
+    if (state == NULL) {
+        bpf_printk("vfs_unlink: no state\n");
+        return 0;
+    }
+
+    struct dentry *de = NULL;
 
     struct ebpf_file_delete_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
@@ -43,8 +84,11 @@ int BPF_PROG(security_path_unlink_exit, const struct path *dir, struct dentry *d
     event->hdr.type = EBPF_EVENT_FILE_DELETE;
     event->hdr.ts   = bpf_ktime_get_ns();
     ebpf_pid_info__fill(&event->pids, task);
-    ebpf_file_path__from_dentry(&event->path, dentry);
 
+    de = (struct dentry *)ctx[fentry__vfs_unlink__dentry_parm];
+
+    struct vfsmount *mnt = state->state.unlink.mnt;
+    ebpf_event_file_path__from_dentry(&event->path, mnt, de);
     bpf_ringbuf_submit(event, 0);
 
 out:
