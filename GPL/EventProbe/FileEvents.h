@@ -23,42 +23,74 @@
 
 #include "EbpfEventProto.h"
 
-static int ebpf_file_path__from_dentry(struct ebpf_file_path *dst, struct dentry *src)
+typedef struct dentry* dentries[MAX_PATH_DEPTH];
+
+static __always_inline int ebpf_event_file__dentry_walk(dentries des, struct vfsmount *vfsmnt, struct dentry* src)
 {
-    size_t filepart_length;
-    struct dentry *parent_dentry  = NULL;
+    struct dentry *parent_dentry = NULL;
     struct dentry *current_dentry = NULL;
+    struct vfsmount *current_vfsmount = vfsmnt;
+    struct mount *mnt = NULL;
+    struct mount *parent_mnt = NULL;
 
-    size_t dentries_len = 0;
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    struct fs_struct *filesystem = BPF_CORE_READ(task, fs);
+    struct path root_path = BPF_CORE_READ(filesystem, root);
 
-    struct dentry *dentries[MAX_PATH_DEPTH] = {};
+    size_t des_len = 0;
 
-    dentries[0] = src;
+    des[0] = src;
 
-    for (int i = 0; i < MAX_PATH_DEPTH; i++) {
-        if (i == 0) {
-            parent_dentry  = BPF_CORE_READ(src, d_parent);
+    for (int i = 0; i < MAX_PATH_DEPTH; i++)
+    {
+        if(root_path.dentry == current_dentry)
+        {
+            break;
+        }
+        if (i == 0)
+        {
+            parent_dentry = BPF_CORE_READ(src, d_parent);
             current_dentry = parent_dentry;
-        } else {
-            current_dentry = BPF_CORE_READ(parent_dentry, d_parent);
-            if (current_dentry == parent_dentry) {
-                break;
+        }
+        else
+        {
+            current_dentry = BPF_CORE_READ(parent_dentry, d_parent); 
+            if(current_dentry == parent_dentry || current_dentry == BPF_CORE_READ(current_vfsmount, mnt_root))
+            {
+                mnt = container_of(current_vfsmount, struct mount, mnt);
+                current_dentry = BPF_CORE_READ(mnt, mnt_mountpoint);
+                parent_mnt = BPF_CORE_READ(mnt, mnt_parent);
+                if (parent_mnt == mnt)
+                {
+                    break;
+                }
+                mnt = parent_mnt;
+                current_vfsmount = &mnt->mnt;
             }
             parent_dentry = current_dentry;
         }
 
-        if (i + 1 < MAX_PATH_DEPTH) {
-            dentries[i + 1] = current_dentry;
+        if (i + 1 < MAX_PATH_DEPTH)
+        {
+            des[i + 1] = current_dentry;
         }
-        dentries_len += 1;
+        des_len += 1;
     }
+    return des_len;
+}
+
+static __always_inline int ebpf_event_file_path__from_dentry(struct ebpf_file_path *dst, struct vfsmount *mnt, struct dentry* src)
+{
+    dentries des = {};
+    int des_len = ebpf_event_file__dentry_walk(des, mnt, src);
 
     int j = 0;
-    for (int i = dentries_len; i != 0; i--) {
-        filepart_length = bpf_probe_read_kernel_str(dst->path_array[j], MAX_PATH,
-                                                    BPF_CORE_READ(dentries[i - 1], d_name.name));
-        j               = j + 1;
+    for (int i = des_len; i != 0; i--)
+    {
+        bpf_probe_read_kernel_str(dst->path_array[j], MAX_PATH, BPF_CORE_READ(des[i - 1], d_name.name));
+        j = j + 1;
     }
+
     dst->patharray_len = j;
     return j;
 }
