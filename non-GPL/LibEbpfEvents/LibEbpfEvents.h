@@ -11,6 +11,7 @@
 #define EBPF_EVENTS_H_
 
 #include <stddef.h>
+
 #include "EbpfEventProto.h"
 
 enum ebpf_kernel_features {
@@ -29,19 +30,16 @@ typedef int (*ebpf_event_handler_fn)(struct ebpf_event_header *);
  * returns a positive int that represents an fd, which can be used with epoll
  * on success. returns an error on failure.
  */
-int ebpf_event_ctx__new(
-        struct ebpf_event_ctx **ctx,
-        ebpf_event_handler_fn cb,
-        uint64_t features,
-        uint64_t events);
+int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
+                        ebpf_event_handler_fn cb,
+                        uint64_t features,
+                        uint64_t events);
 
 /* Consumes as many events as possible from the event context and returns the
  * number consumed.
  */
-int ebpf_event_ctx__next(
-        struct ebpf_event_ctx *ctx, int timeout);
+int ebpf_event_ctx__next(struct ebpf_event_ctx *ctx, int timeout);
 
-void ebpf_event_ctx__destroy(
-        struct ebpf_event_ctx *ctx);
+void ebpf_event_ctx__destroy(struct ebpf_event_ctx *ctx);
 
 #endif // EBPF_EVENTS_H_

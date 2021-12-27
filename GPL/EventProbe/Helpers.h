@@ -21,15 +21,15 @@
 #ifndef EBPF_EVENTPROBE_HELPERS_H
 #define EBPF_EVENTPROBE_HELPERS_H
 
-#include "FileEvents.h"
 #include "EbpfEventProto.h"
+#include "FileEvents.h"
 
-static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct *task)
+ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct *task)
 {
     unsigned long start, end, size;
 
     start = task->mm->arg_start;
-    end = task->mm->arg_end;
+    end   = task->mm->arg_end;
 
     size = end - start;
     size = size > buf_size ? buf_size : size;
@@ -40,17 +40,19 @@ static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct
     buf[buf_size - 1] = '\0';
 }
 
-static void ebpf_ctty__fill(struct ebpf_tty_dev *ctty, const struct task_struct *task)
+static void ebpf_ctty__fill(struct ebpf_tty_dev *ctty,
+                            const struct task_struct *task)
 {
     ctty->major = task->signal->tty->driver->major;
     ctty->minor = task->signal->tty->driver->minor_start;
     ctty->minor += task->signal->tty->index;
 }
 
-static void ebpf_pid_info__fill(struct ebpf_pid_info *pi, const struct task_struct *task)
+static void ebpf_pid_info__fill(struct ebpf_pid_info *pi,
+                                const struct task_struct *task)
 {
     pi->tgid = task->tgid;
-    pi->sid = task->group_leader->signal->pids[PIDTYPE_SID]->numbers[0].nr;
+    pi->sid  = task->group_leader->signal->pids[PIDTYPE_SID]->numbers[0].nr;
 }
 
 static bool is_kernel_thread(const struct task_struct *task)

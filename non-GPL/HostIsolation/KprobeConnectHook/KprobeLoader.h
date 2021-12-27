@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: LicenseRef-Elastic-License-2.0
 
 /*
- * Copyright 2021 Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
- * or more contributor license agreements. Licensed under the Elastic License 2.0;
- * you may not use this file except in compliance with the Elastic License 2.0.
+ * Copyright 2021 Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under
+ * one or more contributor license agreements. Licensed under the Elastic
+ * License 2.0; you may not use this file except in compliance with the Elastic
+ * License 2.0.
  */
 
 #ifndef EBPF_KPROBELOADER_H
@@ -11,8 +12,7 @@
 
 #include <Common.h>
 
-enum ebpf_load_method
-{
+enum ebpf_load_method {
     EBPF_METHOD_NO_OVERRIDE = 0,
     EBPF_METHOD_VDSO,
     EBPF_METHOD_VERSION_H,
@@ -25,8 +25,7 @@ enum ebpf_load_method
  * @param[in] file_path Path to the eBPF object file
  * @returns eBPF object handle to be passed to other functions
  */
-struct bpf_object *
-ebpf_open_object_file(const char *file_path);
+struct bpf_object *ebpf_open_object_file(const char *file_path);
 
 /**
  * @brief Pin eBPF map by name and path
@@ -36,10 +35,9 @@ ebpf_open_object_file(const char *file_path);
  * @param[in] map_path Path to the eBPF map in the bpf filesystem
  * @return Error value (0 for success)
  */
-int
-ebpf_map_set_pin_path(struct bpf_object *obj,
-                      const char *map_name,
-                      const char *map_path);
+int ebpf_map_set_pin_path(struct bpf_object *obj,
+                          const char *map_name,
+                          const char *map_path);
 /**
  * @brief Load and attach eBPF program to a kprobe
  *
@@ -47,24 +45,21 @@ ebpf_map_set_pin_path(struct bpf_object *obj,
  * @param[in] program_sec_name eBPF program name (section name in ELF)
  * @returns eBPF link handle to be passed to other functions
  */
-struct bpf_link *
-ebpf_load_and_attach_kprobe(struct bpf_object *obj,
-                            const char *program_sec_name,
-                            enum ebpf_load_method load_method);
+struct bpf_link *ebpf_load_and_attach_kprobe(struct bpf_object *obj,
+                                             const char *program_sec_name,
+                                             enum ebpf_load_method load_method);
 
 /**
  * @brief Destroy link and cleanup resources
  *
  * @param[in] link eBPF link handle
  */
-void
-ebpf_link_destroy(struct bpf_link *link);
+void ebpf_link_destroy(struct bpf_link *link);
 
 /**
  * @brief Close eBPF object and cleanup resources
  *
  * @param[in] obj eBPF object handle
  */
-void
-ebpf_object_close(struct bpf_object *obj);
+void ebpf_object_close(struct bpf_object *obj);
 #endif
