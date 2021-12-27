@@ -14,6 +14,7 @@
 #include <linux/rtnetlink.h>
 #include <net/if.h>
 #include <netinet/in.h>
+#include <stdio.h>
 
 /* maximum netlink message size */
 #define MAX_MSG 16384

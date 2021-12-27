@@ -10,6 +10,8 @@
 #ifndef EBPF_UPDATE_MAPS_H
 #define EBPF_UPDATE_MAPS_H
 
+#include <stdint.h>
+
 //
 // Host Isolation - tool for updating maps of allowed IPs, subnets and pids
 //
