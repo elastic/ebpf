@@ -1,2 +1,6 @@
 ---
-DisableFormat: true
+BasedOnStyle: LLVM
+IndentWidth: 4
+BreakBeforeBraces: Linux
+BinPackParameters: false
+AlignConsecutiveAssignments: true
