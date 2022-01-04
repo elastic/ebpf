@@ -35,9 +35,7 @@ struct bpf_object *ebpf_open_object_file(const char *file_path);
  * @param[in] map_path Path to the eBPF map in the bpf filesystem
  * @return Error value (0 for success)
  */
-int ebpf_map_set_pin_path(struct bpf_object *obj,
-                          const char *map_name,
-                          const char *map_path);
+int ebpf_map_set_pin_path(struct bpf_object *obj, const char *map_name, const char *map_path);
 /**
  * @brief Load and attach eBPF program to a kprobe
  *

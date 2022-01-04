@@ -29,17 +29,13 @@
 char LICENSE[] SEC("license") = "GPL";
 
 SEC("fexit/security_path_unlink")
-int BPF_PROG(security_path_unlink_exit,
-             const struct path *dir,
-             struct dentry *dentry,
-             long ret)
+int BPF_PROG(security_path_unlink_exit, const struct path *dir, struct dentry *dentry, long ret)
 {
     struct task_struct *task = bpf_get_current_task_btf();
     if (is_kernel_thread(task))
         goto out;
 
-    struct ebpf_file_delete_event *event =
-        bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    struct ebpf_file_delete_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;
 
@@ -55,15 +51,12 @@ out:
 }
 
 SEC("tp_btf/sched_process_fork")
-int BPF_PROG(sched_process_fork,
-             const struct task_struct *parent,
-             const struct task_struct *child)
+int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct task_struct *child)
 {
     if (is_kernel_thread(child))
         goto out;
 
-    struct ebpf_process_fork_event *event =
-        bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    struct ebpf_process_fork_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;
 
@@ -87,8 +80,7 @@ int BPF_PROG(sched_process_exec,
     if (is_kernel_thread(task))
         goto out;
 
-    struct ebpf_process_exec_event *event =
-    bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    struct ebpf_process_exec_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;
 
@@ -98,8 +90,7 @@ int BPF_PROG(sched_process_exec,
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_ctty__fill(&event->ctty, task);
     ebpf_argv__fill(event->argv, sizeof(event->argv), task);
-    bpf_probe_read_kernel_str(event->filename, sizeof(event->filename),
-                              binprm->filename);
+    bpf_probe_read_kernel_str(event->filename, sizeof(event->filename), binprm->filename);
 
     bpf_ringbuf_submit(event, 0);
 

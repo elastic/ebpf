@@ -4,3 +4,9 @@ IndentWidth: 4
 BreakBeforeBraces: Linux
 BinPackParameters: false
 AlignConsecutiveAssignments: true
+DerivePointerAlignment: false
+PointerAlignment: Right
+SpaceBeforeParens: ControlStatements
+SpacesBeforeTrailingComments: 1
+UseTab: Never
+ColumnLimit: 100

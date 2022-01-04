@@ -23,8 +23,7 @@ static void sig_int(int signo)
     fprintf(stdout, "Received SIGINT, Exiting...\n");
 }
 
-static void ebpf_file_event_path__tostring(struct ebpf_file_path path,
-                                           char *pathbuf)
+static void ebpf_file_event_path__tostring(struct ebpf_file_path path, char *pathbuf)
 {
     strcpy(pathbuf, "/");
     for (int i = 0; i < path.patharray_len; i++) {
@@ -44,15 +43,9 @@ static void out_object_start() { printf("{"); }
 
 static void out_object_end() { printf("}"); }
 
-static void out_event_type(const char *type)
-{
-    printf("\"event_type\":\"%s\"", type);
-}
+static void out_event_type(const char *type) { printf("\"event_type\":\"%s\"", type); }
 
-static void out_int(const char *name, const int value)
-{
-    printf("\"%s\":%d", name, value);
-}
+static void out_int(const char *name, const int value) { printf("\"%s\":%d", name, value); }
 
 static void out_string(const char *name, const char *value)
 {
@@ -189,10 +182,9 @@ int main(int argc, char const *argv[])
     struct ebpf_event_ctx *ctx;
     uint64_t features = EBPF_KERNEL_FEATURE_BPF;
     uint64_t events   = EBPF_EVENT_FILE_DELETE;
-    err = ebpf_event_ctx__new(&ctx, event_ctx_callback, features, events);
+    err               = ebpf_event_ctx__new(&ctx, event_ctx_callback, features, events);
     if (err < 0) {
-        fprintf(stderr, "Could not create event context: %d %s\n", err,
-                strerror(-err));
+        fprintf(stderr, "Could not create event context: %d %s\n", err, strerror(-err));
         goto cleanup;
     }
 

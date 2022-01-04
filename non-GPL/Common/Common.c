@@ -40,9 +40,7 @@ struct ebpf_maps_info ebpf_maps[EBPF_MAP_NUM] = {
 // common log function
 static libbpf_print_fn_t g_log_func = libbpf_print_fn;
 
-int libbpf_print_fn(enum libbpf_print_level level,
-                    const char *format,
-                    va_list args)
+int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args)
 {
     return vfprintf(stderr, format, args);
 }

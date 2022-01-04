@@ -50,8 +50,7 @@ static unsigned int find_version_note(unsigned long base)
     ehdr = (ElfW(Ehdr) *)base;
 
     for (i = 0; i < ehdr->e_shnum; i++) {
-        ElfW(Shdr) *shdr =
-            (ElfW(Shdr) *)(base + ehdr->e_shoff + (i * ehdr->e_shentsize));
+        ElfW(Shdr) *shdr = (ElfW(Shdr) *)(base + ehdr->e_shoff + (i * ehdr->e_shentsize));
 
         if (shdr->sh_type == SHT_NOTE) {
             const char *ptr = (const char *)(base + shdr->sh_offset);
@@ -62,15 +61,13 @@ static unsigned int find_version_note(unsigned long base)
                 ptr += sizeof(*nhdr);
 
                 const char *name = ptr;
-                ptr += (nhdr->n_namesz + sizeof(ElfW(Word)) - 1) &
-                       -sizeof(ElfW(Word));
+                ptr += (nhdr->n_namesz + sizeof(ElfW(Word)) - 1) & -sizeof(ElfW(Word));
 
                 const char *desc = ptr;
-                ptr += (nhdr->n_descsz + sizeof(ElfW(Word)) - 1) &
-                       -sizeof(ElfW(Word));
+                ptr += (nhdr->n_descsz + sizeof(ElfW(Word)) - 1) & -sizeof(ElfW(Word));
 
-                if ((nhdr->n_namesz > 5 && !memcmp(name, "Linux", 5)) &&
-                    nhdr->n_descsz == 4 && !nhdr->n_type) {
+                if ((nhdr->n_namesz > 5 && !memcmp(name, "Linux", 5)) && nhdr->n_descsz == 4 &&
+                    !nhdr->n_type) {
                     version_code = *(uint32_t *)desc;
                     goto out;
                 }
@@ -192,9 +189,7 @@ cleanup:
     return obj;
 }
 
-int ebpf_map_set_pin_path(struct bpf_object *obj,
-                          const char *map_name,
-                          const char *map_path)
+int ebpf_map_set_pin_path(struct bpf_object *obj, const char *map_name, const char *map_path)
 {
     struct bpf_map *map = NULL;
     int rv              = 0;
@@ -238,8 +233,7 @@ struct bpf_link *ebpf_load_and_attach_kprobe(struct bpf_object *obj,
     // libbpf and load
     kernel_version = get_kernel_version(load_method);
     if (kernel_version != 0) {
-        ebpf_log("got kernel_version=%d according to method=%d\n",
-                 kernel_version, load_method);
+        ebpf_log("got kernel_version=%d according to method=%d\n", kernel_version, load_method);
         if (bpf_object__set_kversion(obj, kernel_version) != 0) {
             ebpf_log("failed to set kversion\n");
         }

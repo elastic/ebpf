@@ -80,7 +80,5 @@ int netlink_filter_add_begin(struct netlink_ctx *ctx, const char *ifname);
  * @param[in] ebpf_obj_filename eBPF object filename
  * @return Error value (0 for success)
  */
-int netlink_filter_add_end(int fd,
-                           struct netlink_ctx *ctx,
-                           const char *ebpf_obj_filename);
+int netlink_filter_add_end(int fd, struct netlink_ctx *ctx, const char *ebpf_obj_filename);
 #endif

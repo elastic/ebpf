@@ -55,11 +55,9 @@ enum {
     __TCA_BPF_MAX,
 };
 
-#define NLMSG_TAIL(nmsg)                                                       \
-    ((struct rtattr *)(((void *)(nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
+#define NLMSG_TAIL(nmsg) ((struct rtattr *)(((void *)(nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
 
-static int
-attr_put(struct nlmsghdr *n, int max, int type, const void *buf, int attr_len)
+static int attr_put(struct nlmsghdr *n, int max, int type, const void *buf, int attr_len)
 {
     int len            = RTA_LENGTH(attr_len);
     struct rtattr *rta = NULL;
@@ -132,15 +130,13 @@ static int rtnetlink_open(struct rtnetlink_handle *rth)
         goto out;
     }
 
-    if (setsockopt(rth->fd, SOL_SOCKET, SO_SNDBUF, &sendbuf, sizeof(sendbuf)) <
-        0) {
+    if (setsockopt(rth->fd, SOL_SOCKET, SO_SNDBUF, &sendbuf, sizeof(sendbuf)) < 0) {
         ebpf_log("error setsockopt sendbuf\n");
         rv = -1;
         goto out;
     }
 
-    if (setsockopt(rth->fd, SOL_SOCKET, SO_RCVBUF, &receivebuf,
-                   sizeof(receivebuf)) < 0) {
+    if (setsockopt(rth->fd, SOL_SOCKET, SO_RCVBUF, &receivebuf, sizeof(receivebuf)) < 0) {
         ebpf_log("error setsockopt receivebuf\n");
         rv = -1;
         goto out;
@@ -163,8 +159,7 @@ static int rtnetlink_open(struct rtnetlink_handle *rth)
         goto out;
     }
     address_len = sizeof(rth->local);
-    if (getsockname(rth->fd, (struct sockaddr *)&rth->local, &address_len) <
-        0) {
+    if (getsockname(rth->fd, (struct sockaddr *)&rth->local, &address_len) < 0) {
         ebpf_log("error getsockname\n");
         rv = -1;
         goto out;
@@ -319,8 +314,8 @@ static int rtnetlink_send(struct rtnetlink_handle *rtnl, struct nlmsghdr *nlmsg)
             goto out;
         }
 
-        if (0 != nladdr.nl_pid || h->nlmsg_pid != rtnl->local.nl_pid ||
-            h->nlmsg_seq > seq || h->nlmsg_seq < seq - 1) {
+        if (0 != nladdr.nl_pid || h->nlmsg_pid != rtnl->local.nl_pid || h->nlmsg_seq > seq ||
+            h->nlmsg_seq < seq - 1) {
             /* skip this message. */
             recv_len -= NLMSG_ALIGN(len);
             h = (struct nlmsghdr *)((char *)h + NLMSG_ALIGN(len));
@@ -395,8 +390,7 @@ static int netlink_qdisc(int cmd, unsigned int flags, const char *ifname)
     }
     qdisc_req.t.tcm_parent = TC_H_CLSACT;
     qdisc_req.t.tcm_handle = TC_H_MAKE(TC_H_CLSACT, 0);
-    attr_put(&qdisc_req.n, sizeof(qdisc_req), TCA_KIND, "clsact",
-             strlen("clsact") + 1);
+    attr_put(&qdisc_req.n, sizeof(qdisc_req), TCA_KIND, "clsact", strlen("clsact") + 1);
 
     qdisc_req.t.tcm_ifindex = if_nametoindex(ifname);
     if (0 == qdisc_req.t.tcm_ifindex) {
@@ -422,10 +416,7 @@ int netlink_qdisc_add(const char *ifname)
     return netlink_qdisc(RTM_NEWQDISC, NLM_F_EXCL | NLM_F_CREATE, ifname);
 }
 
-int netlink_qdisc_del(const char *ifname)
-{
-    return netlink_qdisc(RTM_DELQDISC, 0, ifname);
-}
+int netlink_qdisc_del(const char *ifname) { return netlink_qdisc(RTM_DELQDISC, 0, ifname); }
 
 int netlink_filter_add_begin(struct netlink_ctx *ctx, const char *ifname)
 {
@@ -476,9 +467,7 @@ out:
     return rv;
 }
 
-int netlink_filter_add_end(int fd,
-                           struct netlink_ctx *ctx,
-                           const char *ebpf_obj_filename)
+int netlink_filter_add_end(int fd, struct netlink_ctx *ctx, const char *ebpf_obj_filename)
 {
     struct nlmsghdr *nl = NULL;
     char buf[128];

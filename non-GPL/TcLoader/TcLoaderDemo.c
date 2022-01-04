@@ -148,8 +148,7 @@ int main(int argc, char **argv)
     obj = NULL;
 
     /* tc filter add continued */
-    if (netlink_filter_add_end(prog_fd_dupd, &nl_ctx, EBPF_OBJ_FILE_NAME) !=
-        0) {
+    if (netlink_filter_add_end(prog_fd_dupd, &nl_ctx, EBPF_OBJ_FILE_NAME) != 0) {
         fprintf(stderr, "filter_add_end() failed\n");
         close(prog_fd_dupd);
         rv = -1;

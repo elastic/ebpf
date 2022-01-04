@@ -58,9 +58,9 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
         goto out_destroy_probe;
 
     struct ring_buffer_opts opts;
-    opts.sz         = sizeof(opts);
-    (*ctx)->ringbuf = ring_buffer__new(bpf_map__fd((*ctx)->probe->maps.ringbuf),
-                                       ring_buf_cb, cb, &opts);
+    opts.sz = sizeof(opts);
+    (*ctx)->ringbuf =
+        ring_buffer__new(bpf_map__fd((*ctx)->probe->maps.ringbuf), ring_buf_cb, cb, &opts);
 
     if ((*ctx)->ringbuf == NULL) {
         /* ring_buffer__new doesn't report errors, hard to find something that

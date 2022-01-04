@@ -40,8 +40,7 @@ int main(int argc, char **argv)
     rv = ebpf_map_allowed_pids_add(pid);
 
     if (0 == rv)
-        printf("PID %u added to " EBPF_ALLOWED_PIDS_MAP_NAME " BPF map!\n",
-               pid);
+        printf("PID %u added to " EBPF_ALLOWED_PIDS_MAP_NAME " BPF map!\n", pid);
 
 cleanup:
 

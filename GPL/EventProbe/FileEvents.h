@@ -23,8 +23,7 @@
 
 #include "EbpfEventProto.h"
 
-static int ebpf_file_path__from_dentry(struct ebpf_file_path *dst,
-                                       struct dentry *src)
+static int ebpf_file_path__from_dentry(struct ebpf_file_path *dst, struct dentry *src)
 {
     size_t filepart_length;
     struct dentry *parent_dentry  = NULL;
@@ -56,10 +55,9 @@ static int ebpf_file_path__from_dentry(struct ebpf_file_path *dst,
 
     int j = 0;
     for (int i = dentries_len; i != 0; i--) {
-        filepart_length = bpf_probe_read_kernel_str(
-            dst->path_array[j], MAX_PATH,
-            BPF_CORE_READ(dentries[i - 1], d_name.name));
-        j = j + 1;
+        filepart_length = bpf_probe_read_kernel_str(dst->path_array[j], MAX_PATH,
+                                                    BPF_CORE_READ(dentries[i - 1], d_name.name));
+        j               = j + 1;
     }
     dst->patharray_len = j;
     return j;

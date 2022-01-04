@@ -57,9 +57,7 @@ int main(int argc, char **argv)
 
         rv = ebpf_map_allowed_subnets_add(IPaddr, netmask);
         if (0 == rv) {
-            printf("IP subnet %s added to " EBPF_ALLOWED_SUBNETS_MAP_NAME
-                   " BPF map!\n",
-                   argv[1]);
+            printf("IP subnet %s added to " EBPF_ALLOWED_SUBNETS_MAP_NAME " BPF map!\n", argv[1]);
         }
     } else {
         if (!inet_pton(AF_INET, argv[1], &IPaddr)) {
@@ -71,8 +69,7 @@ int main(int argc, char **argv)
         /* An IP with no subnet was given - add to allowed_IPs */
         rv = ebpf_map_allowed_IPs_add(IPaddr);
         if (0 == rv) {
-            printf("IP %s added to " EBPF_ALLOWED_IPS_MAP_NAME " BPF map!\n",
-                   argv[1]);
+            printf("IP %s added to " EBPF_ALLOWED_IPS_MAP_NAME " BPF map!\n", argv[1]);
         }
     }
 

@@ -18,8 +18,7 @@
 #define EBPF_ALLOWED_IPS_MAP_NAME "allowed_IPs"
 #define EBPF_ALLOWED_IPS_MAP_PATH "/sys/fs/bpf/elastic/endpoint/allowed_IPs"
 #define EBPF_ALLOWED_SUBNETS_MAP_NAME "allowed_subnets"
-#define EBPF_ALLOWED_SUBNETS_MAP_PATH                                          \
-    "/sys/fs/bpf/elastic/endpoint/allowed_subnets"
+#define EBPF_ALLOWED_SUBNETS_MAP_PATH "/sys/fs/bpf/elastic/endpoint/allowed_subnets"
 #define EBPF_ALLOWED_PIDS_MAP_NAME "allowed_pids"
 #define EBPF_ALLOWED_PIDS_MAP_PATH "/sys/fs/bpf/elastic/endpoint/allowed_pids"
 
@@ -50,9 +49,7 @@ extern struct ebpf_maps_info ebpf_maps[EBPF_MAP_NUM];
  * @param[in] args Arguments to format string
  * @return
  */
-int libbpf_print_fn(enum libbpf_print_level level,
-                    const char *format,
-                    va_list args);
+int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args);
 
 /**
  * @brief Log function which is used by this eBPF library

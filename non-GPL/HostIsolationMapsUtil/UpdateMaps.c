@@ -26,16 +26,14 @@ static int ebpf_update_map(const char *map_path,
                            const void *key,
                            const void *val);
 static int ebpf_create_map(enum ebpf_hostisolation_map map_id, int *map_fd);
-static int ebpf_clear_map(const char *map_path,
-                          enum ebpf_hostisolation_map map_id);
+static int ebpf_clear_map(const char *map_path, enum ebpf_hostisolation_map map_id);
 
 int ebpf_map_allowed_IPs_add(uint32_t IPaddr)
 {
     uint32_t key = IPaddr;
     uint32_t val = 1; // values are not used in the hash map
 
-    return ebpf_update_map(EBPF_ALLOWED_IPS_MAP_PATH, EBPF_MAP_ALLOWED_IPS,
-                           &key, &val);
+    return ebpf_update_map(EBPF_ALLOWED_IPS_MAP_PATH, EBPF_MAP_ALLOWED_IPS, &key, &val);
 }
 
 int ebpf_map_allowed_subnets_add(uint32_t IPaddr, uint32_t netmask)
@@ -49,8 +47,7 @@ int ebpf_map_allowed_subnets_add(uint32_t IPaddr, uint32_t netmask)
     };
     uint32_t val = 1; // values are not used in the lpm trie map
 
-    return ebpf_update_map(EBPF_ALLOWED_SUBNETS_MAP_PATH,
-                           EBPF_MAP_ALLOWED_SUBNETS, &key, &val);
+    return ebpf_update_map(EBPF_ALLOWED_SUBNETS_MAP_PATH, EBPF_MAP_ALLOWED_SUBNETS, &key, &val);
 }
 
 int ebpf_map_allowed_pids_add(uint32_t pid)
@@ -58,8 +55,7 @@ int ebpf_map_allowed_pids_add(uint32_t pid)
     uint32_t key = pid;
     uint32_t val = 1; // values are not used in the hash map
 
-    return ebpf_update_map(EBPF_ALLOWED_PIDS_MAP_PATH, EBPF_MAP_ALLOWED_PIDS,
-                           &key, &val);
+    return ebpf_update_map(EBPF_ALLOWED_PIDS_MAP_PATH, EBPF_MAP_ALLOWED_PIDS, &key, &val);
 }
 
 int ebpf_map_allowed_IPs_clear()
@@ -69,8 +65,7 @@ int ebpf_map_allowed_IPs_clear()
 
 int ebpf_map_allowed_subnets_clear()
 {
-    return ebpf_clear_map(EBPF_ALLOWED_SUBNETS_MAP_PATH,
-                          EBPF_MAP_ALLOWED_SUBNETS);
+    return ebpf_clear_map(EBPF_ALLOWED_SUBNETS_MAP_PATH, EBPF_MAP_ALLOWED_SUBNETS);
 }
 
 int ebpf_map_allowed_pids_clear()
@@ -90,8 +85,7 @@ static int ebpf_create_map(enum ebpf_hostisolation_map map_id, int *map_fd)
     }
 
     fd = bpf_create_map(ebpf_maps[map_id].type, ebpf_maps[map_id].key_size,
-                        ebpf_maps[map_id].value_size,
-                        ebpf_maps[map_id].max_entries,
+                        ebpf_maps[map_id].value_size, ebpf_maps[map_id].max_entries,
                         ebpf_maps[map_id].map_flags);
 
     if (fd < 0) {
@@ -125,24 +119,19 @@ static int ebpf_update_map(const char *map_path,
         // perhaps the map does not exist, try to create it and pin to bpf fs
         rv = ebpf_create_map(map_id, &map_fd);
         if (rv) {
-            ebpf_log(
-                "Error updating map, make sure to run with sudo. Errno=%d\n",
-                errno);
+            ebpf_log("Error updating map, make sure to run with sudo. Errno=%d\n", errno);
             goto cleanup;
         }
         rv = bpf_obj_pin(map_fd, map_path);
         if (rv) {
-            ebpf_log(
-                "Error pinning map, make sure to run with sudo. Errno=%d\n",
-                errno);
+            ebpf_log("Error pinning map, make sure to run with sudo. Errno=%d\n", errno);
             goto cleanup;
         }
     }
 
     rv = bpf_map_update_elem(map_fd, key, val, 0);
     if (rv) {
-        ebpf_log("Error: failed to add entry to map: %s, errno=%d\n", map_path,
-                 errno);
+        ebpf_log("Error: failed to add entry to map: %s, errno=%d\n", map_path, errno);
         goto cleanup;
     }
 
@@ -154,8 +143,7 @@ cleanup:
     return rv;
 }
 
-static int ebpf_clear_map(const char *map_path,
-                          enum ebpf_hostisolation_map map_id)
+static int ebpf_clear_map(const char *map_path, enum ebpf_hostisolation_map map_id)
 {
     int rv                   = 0;
     int map_fd               = -1;
@@ -173,9 +161,7 @@ static int ebpf_clear_map(const char *map_path,
         // perhaps the map does not exist, try to create it
         rv = ebpf_create_map(map_id, &map_fd);
         if (rv) {
-            ebpf_log(
-                "Error clearing map, make sure to run with sudo. Errno=%d\n",
-                errno);
+            ebpf_log("Error clearing map, make sure to run with sudo. Errno=%d\n", errno);
             goto cleanup;
         }
     }

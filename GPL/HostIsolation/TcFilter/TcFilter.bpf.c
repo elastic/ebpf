@@ -81,18 +81,15 @@ __attribute__((always_inline)) static int allow_destination_IP(struct iphdr *ip)
     }
 }
 
-__attribute__((always_inline)) static int
-allow_tcp_pkt_egress(struct tcphdr *tcp, struct iphdr *ip)
+__attribute__((always_inline)) static int allow_tcp_pkt_egress(struct tcphdr *tcp, struct iphdr *ip)
 {
     /* TCP packets are currently only filtered based on destination IP */
     return allow_destination_IP(ip);
 }
 
-__attribute__((always_inline)) static int
-allow_udp_pkt_egress(struct udphdr *udp)
+__attribute__((always_inline)) static int allow_udp_pkt_egress(struct udphdr *udp)
 {
-    if ((DNS_PORT == bpf_ntohs(udp->source)) ||
-        (DNS_PORT == bpf_ntohs(udp->dest))) {
+    if ((DNS_PORT == bpf_ntohs(udp->source)) || (DNS_PORT == bpf_ntohs(udp->dest))) {
         /* allow DNS port (both client and server) */
         return 1;
 #if 0

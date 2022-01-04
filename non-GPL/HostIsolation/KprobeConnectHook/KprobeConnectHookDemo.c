@@ -42,8 +42,7 @@ static int try_load_ebpf_kprobe(const char *ebpf_file,
     printf("BPF FILE OPENED\n");
 
     // pin allowed_IPs map when program is loaded
-    rv = ebpf_map_set_pin_path(obj, EBPF_ALLOWED_IPS_MAP_NAME,
-                               EBPF_ALLOWED_IPS_MAP_PATH);
+    rv = ebpf_map_set_pin_path(obj, EBPF_ALLOWED_IPS_MAP_NAME, EBPF_ALLOWED_IPS_MAP_PATH);
     if (rv) {
         printf("failed to init " EBPF_ALLOWED_IPS_MAP_NAME " BPF map\n");
         rv = -1;
@@ -52,8 +51,7 @@ static int try_load_ebpf_kprobe(const char *ebpf_file,
     printf("BPF ALLOWED_IPS MAP LOADED\n");
 
     // pin allowed_pids map when program is loaded
-    rv = ebpf_map_set_pin_path(obj, EBPF_ALLOWED_PIDS_MAP_NAME,
-                               EBPF_ALLOWED_PIDS_MAP_PATH);
+    rv = ebpf_map_set_pin_path(obj, EBPF_ALLOWED_PIDS_MAP_NAME, EBPF_ALLOWED_PIDS_MAP_PATH);
     if (rv) {
         printf("failed to init " EBPF_ALLOWED_PIDS_MAP_NAME " BPF map\n");
         rv = -1;
@@ -63,8 +61,7 @@ static int try_load_ebpf_kprobe(const char *ebpf_file,
 
     // create elastic/endpoint dir in bpf fs
     if (mkdir(EBPF_MAP_PARENT_DIRECTORY, 0700) && errno != EEXIST) {
-        printf("failed to create " EBPF_MAP_PARENT_DIRECTORY " dir, err=%d\n",
-               errno);
+        printf("failed to create " EBPF_MAP_PARENT_DIRECTORY " dir, err=%d\n", errno);
         rv = -1;
         goto cleanup;
     }
@@ -74,8 +71,7 @@ static int try_load_ebpf_kprobe(const char *ebpf_file,
         goto cleanup;
     }
 
-    link =
-        ebpf_load_and_attach_kprobe(obj, "kprobe/tcp_v4_connect", load_method);
+    link = ebpf_load_and_attach_kprobe(obj, "kprobe/tcp_v4_connect", load_method);
     if (!link) {
         printf("failed to load and attach kprobe\n");
         rv = -1;
@@ -127,8 +123,7 @@ int main(int argc, char **argv)
     rv = -1;
     while (rv && load_method < EBPF_MAX_LOAD_METHODS) {
         printf("trying loading method %d\n", load_method);
-        rv = try_load_ebpf_kprobe("./KprobeConnectHook.bpf.o", load_method,
-                                  &obj, &link);
+        rv = try_load_ebpf_kprobe("./KprobeConnectHook.bpf.o", load_method, &obj, &link);
         load_method++;
     }
 

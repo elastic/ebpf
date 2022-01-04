@@ -24,7 +24,7 @@
 #include "EbpfEventProto.h"
 #include "FileEvents.h"
 
-ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct *task)
+static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct *task)
 {
     unsigned long start, end, size;
 
@@ -34,22 +34,20 @@ ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct *task)
     size = end - start;
     size = size > buf_size ? buf_size : size;
 
-    bpf_probe_read_user(buf, size, (void *) start);
+    bpf_probe_read_user(buf, size, (void *)start);
 
     // Prevent final arg from being unterminated if buf is too small for args
     buf[buf_size - 1] = '\0';
 }
 
-static void ebpf_ctty__fill(struct ebpf_tty_dev *ctty,
-                            const struct task_struct *task)
+static void ebpf_ctty__fill(struct ebpf_tty_dev *ctty, const struct task_struct *task)
 {
     ctty->major = task->signal->tty->driver->major;
     ctty->minor = task->signal->tty->driver->minor_start;
     ctty->minor += task->signal->tty->index;
 }
 
-static void ebpf_pid_info__fill(struct ebpf_pid_info *pi,
-                                const struct task_struct *task)
+static void ebpf_pid_info__fill(struct ebpf_pid_info *pi, const struct task_struct *task)
 {
     pi->tgid = task->tgid;
     pi->sid  = task->group_leader->signal->pids[PIDTYPE_SID]->numbers[0].nr;
