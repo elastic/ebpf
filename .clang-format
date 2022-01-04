@@ -10,3 +10,4 @@ SpaceBeforeParens: ControlStatements
 SpacesBeforeTrailingComments: 1
 UseTab: Never
 ColumnLimit: 100
+AllowShortFunctionsOnASingleLine: false

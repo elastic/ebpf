@@ -35,17 +35,35 @@ static void ebpf_file_event_path__tostring(struct ebpf_file_path path, char *pat
     }
 }
 
-static void out_comma() { printf(","); }
+static void out_comma()
+{
+    printf(",");
+}
 
-static void out_newline() { printf("\n"); }
+static void out_newline()
+{
+    printf("\n");
+}
 
-static void out_object_start() { printf("{"); }
+static void out_object_start()
+{
+    printf("{");
+}
 
-static void out_object_end() { printf("}"); }
+static void out_object_end()
+{
+    printf("}");
+}
 
-static void out_event_type(const char *type) { printf("\"event_type\":\"%s\"", type); }
+static void out_event_type(const char *type)
+{
+    printf("\"event_type\":\"%s\"", type);
+}
 
-static void out_int(const char *name, const int value) { printf("\"%s\":%d", name, value); }
+static void out_int(const char *name, const int value)
+{
+    printf("\"%s\":%d", name, value);
+}
 
 static void out_string(const char *name, const char *value)
 {

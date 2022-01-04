@@ -57,7 +57,10 @@ __attribute__((format(printf, 1, 2))) void ebpf_log(const char *format, ...)
     va_end(args);
 }
 
-libbpf_print_fn_t ebpf_default_log_func() { return libbpf_print_fn; }
+libbpf_print_fn_t ebpf_default_log_func()
+{
+    return libbpf_print_fn;
+}
 
 void ebpf_set_log_func(libbpf_print_fn_t fn)
 {

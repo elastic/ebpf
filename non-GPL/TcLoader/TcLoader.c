@@ -416,7 +416,10 @@ int netlink_qdisc_add(const char *ifname)
     return netlink_qdisc(RTM_NEWQDISC, NLM_F_EXCL | NLM_F_CREATE, ifname);
 }
 
-int netlink_qdisc_del(const char *ifname) { return netlink_qdisc(RTM_DELQDISC, 0, ifname); }
+int netlink_qdisc_del(const char *ifname)
+{
+    return netlink_qdisc(RTM_DELQDISC, 0, ifname);
+}
 
 int netlink_filter_add_begin(struct netlink_ctx *ctx, const char *ifname)
 {
