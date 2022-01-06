@@ -59,9 +59,4 @@ static bool is_kernel_thread(const struct task_struct *task)
     return task->group_leader->signal->pids[PIDTYPE_SID]->numbers[0].nr == 0;
 }
 
-static bool is_thread_group_leader(const struct task_struct *task)
-{
-    return task->pid == task->tgid;
-}
-
 #endif // EBPF_EVENTPROBE_HELPERS_H

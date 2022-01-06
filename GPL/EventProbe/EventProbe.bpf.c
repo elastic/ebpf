@@ -30,7 +30,7 @@ SEC("fexit/security_path_unlink")
 int BPF_PROG(security_path_unlink_exit, const struct path *dir, struct dentry *dentry, long ret)
 {
     struct task_struct *task = bpf_get_current_task_btf();
-    if (is_kernel_thread(task) || !is_thread_group_leader(task))
+    if (is_kernel_thread(task))
         goto out;
 
     struct ebpf_file_delete_event *event =
@@ -54,7 +54,7 @@ int BPF_PROG(sched_process_fork,
         const struct task_struct *parent,
         const struct task_struct *child)
 {
-    if (is_kernel_thread(child) || !is_thread_group_leader(child))
+    if (is_kernel_thread(child))
         goto out;
 
     struct ebpf_process_fork_event *event =
@@ -79,7 +79,7 @@ int BPF_PROG(sched_process_exec,
         pid_t old_pid,
         const struct linux_binprm *binprm)
 {
-    if (is_kernel_thread(task) || !is_thread_group_leader(task))
+    if (is_kernel_thread(task))
         goto out;
 
     struct ebpf_process_exec_event *event =
