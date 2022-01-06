@@ -24,15 +24,6 @@
 #include "FileEvents.h"
 #include "EbpfEventProto.h"
 
-#define MINORBITS 20
-#define MINORMASK ((1U << MINORBITS) - 1)
-
-#define MAJOR(dev) ((unsigned int) ((dev) >> MINORBITS))
-#define MINOR(dev) ((unsigned int) ((dev) & MINORMASK))
-
-#include <bpf/bpf_core_read.h>
-#include "EbpfEventProto.h"
-
 static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct *task)
 {
     unsigned long start, end, size;
