@@ -34,7 +34,7 @@ int BPF_PROG(security_path_unlink_exit, const struct path *dir, struct dentry *d
         goto out;
 
     struct ebpf_file_delete_event *event =
-        bpf_ringbuf_reserve(&ringbuf, sizeof(struct ebpf_file_delete_event), 0);
+        bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;
 
@@ -83,7 +83,7 @@ int BPF_PROG(sched_process_exec,
         goto out;
 
     struct ebpf_process_exec_event *event =
-    bpf_ringbuf_reserve(&ringbuf, sizeof(struct ebpf_process_exec_event), 0);
+    bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;
 
