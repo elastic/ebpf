@@ -216,6 +216,23 @@ def getTestClosures()
     return test_closures
 }
 
+def validateFormatting()
+{
+    def path  = "/opt/endpoint-dev/dev/toolchain/bin"
+
+    withEnv(["PATH=${path}:$PATH"])
+    {
+        try
+        {
+            sh "find GPL/ non-GPL/ -name '*.[c, h]' | xargs clang-format -Werror --dry-run"
+        }
+        catch(Exception e)
+        {
+            error("Error running clang-format");
+        }
+    }
+}
+
 def buildAndStash(arch)
 {
     def cpath = "/opt/endpoint-dev/dev/sysroot/x86_64-linux-gnu/usr/include"
@@ -302,6 +319,17 @@ pipeline {
 
     stages
     {
+        stage('Formatting')
+        {
+            steps
+            {
+                script
+                {
+                    validateFormatting()
+                }
+            }
+        }
+
         stage('Build')
         {
             steps

@@ -1,42 +1,40 @@
 // SPDX-License-Identifier: LicenseRef-Elastic-License-2.0
 
 /*
- * Copyright 2021 Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
- * or more contributor license agreements. Licensed under the Elastic License 2.0;
- * you may not use this file except in compliance with the Elastic License 2.0.
+ * Copyright 2021 Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under
+ * one or more contributor license agreements. Licensed under the Elastic
+ * License 2.0; you may not use this file except in compliance with the Elastic
+ * License 2.0.
  */
-
 
 //
 // Host Isolation standalone demo
 // Loader for eBPF program #2 (attaches to tcp_v4_connect kprobe)
-// 
+//
+#include <Common.h>
 #include <argp.h>
-#include <unistd.h>
-#include <time.h>
+#include <arpa/inet.h>
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
-#include <arpa/inet.h>
-#include <sys/stat.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <unistd.h>
 
-#include <Common.h>
 #include "KprobeLoader.h"
 
 // try to load and attach an eBPF kprobe program with a specified load_method
-static int
-try_load_ebpf_kprobe(const char *ebpf_file,
-                     enum ebpf_load_method load_method,
-                     struct bpf_object **bpf_obj,
-                     struct bpf_link **bpf_link)
+static int try_load_ebpf_kprobe(const char *ebpf_file,
+                                enum ebpf_load_method load_method,
+                                struct bpf_object **bpf_obj,
+                                struct bpf_link **bpf_link)
 {
     struct bpf_object *obj = NULL;
-    struct bpf_link *link = NULL;
-    int rv = 0;
+    struct bpf_link *link  = NULL;
+    int rv                 = 0;
 
     obj = ebpf_open_object_file(ebpf_file);
-    if (!obj)
-    {
+    if (!obj) {
         printf("failed to open BPF object\n");
         rv = -1;
         goto cleanup;
@@ -45,8 +43,7 @@ try_load_ebpf_kprobe(const char *ebpf_file,
 
     // pin allowed_IPs map when program is loaded
     rv = ebpf_map_set_pin_path(obj, EBPF_ALLOWED_IPS_MAP_NAME, EBPF_ALLOWED_IPS_MAP_PATH);
-    if (rv)
-    {
+    if (rv) {
         printf("failed to init " EBPF_ALLOWED_IPS_MAP_NAME " BPF map\n");
         rv = -1;
         goto cleanup;
@@ -55,8 +52,7 @@ try_load_ebpf_kprobe(const char *ebpf_file,
 
     // pin allowed_pids map when program is loaded
     rv = ebpf_map_set_pin_path(obj, EBPF_ALLOWED_PIDS_MAP_NAME, EBPF_ALLOWED_PIDS_MAP_PATH);
-    if (rv)
-    {
+    if (rv) {
         printf("failed to init " EBPF_ALLOWED_PIDS_MAP_NAME " BPF map\n");
         rv = -1;
         goto cleanup;
@@ -64,22 +60,19 @@ try_load_ebpf_kprobe(const char *ebpf_file,
     printf("BPF ALLOWED_PIDS MAP LOADED\n");
 
     // create elastic/endpoint dir in bpf fs
-    if (mkdir(EBPF_MAP_PARENT_DIRECTORY, 0700) && errno != EEXIST)
-    {
+    if (mkdir(EBPF_MAP_PARENT_DIRECTORY, 0700) && errno != EEXIST) {
         printf("failed to create " EBPF_MAP_PARENT_DIRECTORY " dir, err=%d\n", errno);
         rv = -1;
         goto cleanup;
     }
-    if (mkdir(EBPF_MAP_DIRECTORY, 0700) && errno != EEXIST)
-    {
+    if (mkdir(EBPF_MAP_DIRECTORY, 0700) && errno != EEXIST) {
         printf("failed to create " EBPF_MAP_DIRECTORY " dir, err=%d\n", errno);
         rv = -1;
         goto cleanup;
     }
 
     link = ebpf_load_and_attach_kprobe(obj, "kprobe/tcp_v4_connect", load_method);
-    if (!link)
-    {
+    if (!link) {
         printf("failed to load and attach kprobe\n");
         rv = -1;
         goto cleanup;
@@ -89,46 +82,38 @@ try_load_ebpf_kprobe(const char *ebpf_file,
     rv = 0;
 
 cleanup:
-    if (rv)
-    {
+    if (rv) {
         ebpf_object_close(obj);
         ebpf_link_destroy(link);
-    }
-    else
-    {
-        *bpf_obj = obj;
+    } else {
+        *bpf_obj  = obj;
         *bpf_link = link;
     }
     return rv;
 }
 
-int
-main(int argc,
-     char **argv)
+int main(int argc, char **argv)
 {
-    struct bpf_object *obj = NULL;
-    struct bpf_link *link = NULL;
+    struct bpf_object *obj            = NULL;
+    struct bpf_link *link             = NULL;
     enum ebpf_load_method load_method = EBPF_METHOD_NO_OVERRIDE;
-    struct rlimit rl = {};
-    int rv = -1;
+    struct rlimit rl                  = {};
+    int rv                            = -1;
 
     ebpf_set_log_func(ebpf_default_log_func());
 
-    // increase locked memory rlimit to accommodate maps (which are treated as locked memory)
-    if (getrlimit(RLIMIT_MEMLOCK, &rl) == 0)
-    {
+    // increase locked memory rlimit to accommodate maps (which are treated as
+    // locked memory)
+    if (getrlimit(RLIMIT_MEMLOCK, &rl) == 0) {
         // set rlimit to 1MB
         rl.rlim_max = 1024 * 1024;
         rl.rlim_cur = rl.rlim_max;
-        if (setrlimit(RLIMIT_MEMLOCK, &rl) != 0)
-        {
+        if (setrlimit(RLIMIT_MEMLOCK, &rl) != 0) {
             printf("setting rlimit failed! please run with sudo\n");
             rv = -1;
             goto cleanup;
         }
-    }
-    else
-    {
+    } else {
         printf("setting rlimit failed! please run with sudo\n");
         rv = -1;
         goto cleanup;
@@ -136,15 +121,13 @@ main(int argc,
 
     // loading may fail on some older platforms - try all known methods
     rv = -1;
-    while (rv && load_method < EBPF_MAX_LOAD_METHODS)
-    {
+    while (rv && load_method < EBPF_MAX_LOAD_METHODS) {
         printf("trying loading method %d\n", load_method);
         rv = try_load_ebpf_kprobe("./KprobeConnectHook.bpf.o", load_method, &obj, &link);
         load_method++;
     }
 
-    if (rv)
-    {
+    if (rv) {
         goto cleanup;
     }
 

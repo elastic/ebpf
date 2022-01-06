@@ -18,11 +18,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "vmlinux.h"
+
+#include <bpf/bpf_core_read.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
-#include <bpf/bpf_core_read.h>
-#include "Maps.h"
+
 #include "Helpers.h"
+#include "Maps.h"
 
 char LICENSE[] SEC("license") = "GPL";
 
@@ -33,13 +35,12 @@ int BPF_PROG(security_path_unlink_exit, const struct path *dir, struct dentry *d
     if (is_kernel_thread(task))
         goto out;
 
-    struct ebpf_file_delete_event *event =
-        bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    struct ebpf_file_delete_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;
 
     event->hdr.type = EBPF_EVENT_FILE_DELETE;
-    event->hdr.ts = bpf_ktime_get_ns();
+    event->hdr.ts   = bpf_ktime_get_ns();
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_file_path__from_dentry(&event->path, dentry);
 
@@ -50,20 +51,17 @@ out:
 }
 
 SEC("tp_btf/sched_process_fork")
-int BPF_PROG(sched_process_fork,
-        const struct task_struct *parent,
-        const struct task_struct *child)
+int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct task_struct *child)
 {
     if (is_kernel_thread(child))
         goto out;
 
-    struct ebpf_process_fork_event *event =
-        bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    struct ebpf_process_fork_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;
 
     event->hdr.type = EBPF_EVENT_PROCESS_FORK;
-    event->hdr.ts = bpf_ktime_get_ns();
+    event->hdr.ts   = bpf_ktime_get_ns();
     ebpf_pid_info__fill(&event->parent_pids, parent);
     ebpf_pid_info__fill(&event->child_pids, child);
 
@@ -75,20 +73,19 @@ out:
 
 SEC("tp_btf/sched_process_exec")
 int BPF_PROG(sched_process_exec,
-        const struct task_struct *task,
-        pid_t old_pid,
-        const struct linux_binprm *binprm)
+             const struct task_struct *task,
+             pid_t old_pid,
+             const struct linux_binprm *binprm)
 {
     if (is_kernel_thread(task))
         goto out;
 
-    struct ebpf_process_exec_event *event =
-    bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    struct ebpf_process_exec_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;
 
     event->hdr.type = EBPF_EVENT_PROCESS_EXEC;
-    event->hdr.ts = bpf_ktime_get_ns();
+    event->hdr.ts   = bpf_ktime_get_ns();
 
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_ctty__fill(&event->ctty, task);
