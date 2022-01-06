@@ -44,6 +44,8 @@ static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct
     size = size > buf_size ? buf_size : size;
 
     bpf_probe_read_user(buf, size, (void *) start);
+
+    // Prevent final arg from being unterminated if buf is too small for args
     buf[buf_size - 1] = '\0';
 }
 
