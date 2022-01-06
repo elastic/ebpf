@@ -51,12 +51,12 @@ Or if you want to use a custom path for the eBPF object file.
 sudo ELASTIC_EBPF_TC_FILTER_OBJ_PATH=build/target/ebpf/TcFilter.bpf.o  build/target/test/BPFTcFilterTests
 ```
 
-## Build
 
-Build dependencies, some distros might not have bmake
+## Build dependencies
+Some distros might not have bmake
 or an older CMake, compiling them from source is usually a good alternative.
 
-bmake is the NetBSD make tool and it used to build elftoolchain's libelf, the BSD Licensed ELF library
+bmake is the NetBSD make tool and it's used to build elftoolchain's libelf, the BSD Licensed ELF library
 we use as alternative to the GNU/Linux licensed elfutils's libelf.
 
 **Ubuntu/Debian**
@@ -70,6 +70,8 @@ apt install clang llvm cmake bmake zlib1g-dev m4 gcc g++ libc6-dev-i386
 ```
 yum install gcc g++ clang llvm zlib-devel m4 bmake
 ```
+
+## Build
 
 The build is a pretty standard CMake project.
 
