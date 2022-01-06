@@ -58,7 +58,7 @@ int BPF_PROG(sched_process_fork,
         return 0;
 
     struct ebpf_process_fork_event *event =
-        bpf_ringbuf_reserve(&ringbuf, sizeof(struct ebpf_process_fork_event), 0);
+        bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;
 
