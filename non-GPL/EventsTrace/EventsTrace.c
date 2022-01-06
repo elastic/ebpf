@@ -22,7 +22,7 @@ static void sig_int(int signo)
     fprintf(stdout, "Received SIGINT, Exiting...\n");
 }
 
-static void ebpf_file_event_path__tostring(struct ebpf_event_file_path path, char *pathbuf)
+static void ebpf_file_event_path__tostring(struct ebpf_file_path path, char *pathbuf)
 {
     strcpy(pathbuf, "/");
     for (int i = 0; i < path.patharray_len; i++)
@@ -36,41 +36,153 @@ static void ebpf_file_event_path__tostring(struct ebpf_event_file_path path, cha
     }
 }
 
-static int event_ctx_callback(struct ebpf_event *evt, size_t size)
+static void out_comma()
 {
-    if (evt->data == NULL)
-    {
-        printf("[SKIP] Event with no data\n");
-        return 0;
+    printf(",");
+}
+
+static void out_event_type(const char *type)
+{
+    printf("\"event_type\":\"%s\"", type);
+}
+
+static void out_newline()
+{
+    printf("\n");
+}
+
+static void out_object_start()
+{
+    printf("{");
+}
+
+static void out_object_end()
+{
+    printf("}");
+}
+
+static void out_int(const char *name, const int value)
+{
+    printf("\"%s\":%d", name, value);
+}
+
+static void out_string(const char *name, const char *value)
+{
+    printf("\"%s\":\"%s\"", name, value);
+}
+
+static void out_tty_dev(const char *name, struct ebpf_tty_dev *tty_dev)
+{
+    printf("\"%s\":", name);
+    out_object_start();
+    out_int("major", tty_dev->major);
+    out_comma();
+    out_int("minor", tty_dev->minor);
+    out_object_end();
+}
+
+static void out_pid_info(const char *name, struct ebpf_pid_info *pid_info)
+{
+    printf("\"%s\":", name);
+    out_object_start();
+    out_int("tgid", pid_info->tgid);
+    out_comma();
+    out_int("sid", pid_info->tgid);
+    out_object_end();
+}
+
+static void out_argv(const char *name, char *buf, size_t buf_size)
+{
+    printf("\"%s\":", name);
+
+    char scratch_space[buf_size];
+
+    // Buf is the argv array, with each argument delimited by a '\0', rework
+    // it in a scratch space so it's a space-separated string we can print
+    memcpy(scratch_space, buf, buf_size);
+
+    for (int i = 0; i < buf_size; i++) {
+        if (scratch_space[i] == '\0')
+            scratch_space[i] = ' ';
     }
 
-    switch(evt->type)
-    {
-        case EBPF_EVENT_FILE_DELETE:
-        {
-            struct ebpf_event_file_delete_data *evt_data =
-                (struct ebpf_event_file_delete_data *)evt->data;
-            char pathbuf[MAX_FILEPATH_LENGTH];
-            ebpf_file_event_path__tostring(evt_data->path, pathbuf);
-            printf("[EBPF_EVENT_FILE_DELETE]: pid: %d path: %s\n", evt_data->pid, pathbuf);
-        }
-
-        case EBPF_EVENT_PROCESS_FORK:
-        {
-            struct ebpf_event_process_fork_data *evt_data =
-                (struct ebpf_event_process_fork_data *)evt->data;
-            printf("[EBPF_EVENT_PROCESS_FORK]: parent_pid: %d child_pid: %d\n",
-                    evt_data->parent_pid, evt_data->child_pid);
+    for (int i = buf_size - 2; i >= 0; i--) {
+        if (scratch_space[i] != ' ') {
+            scratch_space[i+1] = '\0';
             break;
         }
+    }
 
-        case EBPF_EVENT_PROCESS_EXEC:
-        {
-            struct ebpf_event_process_exec_data *evt_data =
-                (struct ebpf_event_process_exec_data *)evt->data;
-            printf("[EBPF_EVENT_PROCESS_EXEC]: pid: %d\n", evt_data->pid);
-            break;
-        }
+    printf("\"%s\"", scratch_space);
+}
+
+static void out_file_delete(struct ebpf_file_delete_event *evt)
+{
+    out_object_start();
+    out_event_type("FILE_DELETE");
+    out_comma();
+
+    out_pid_info("pid_info", &evt->pids);
+    out_comma();
+
+    char pathbuf[MAX_FILEPATH_LENGTH];
+    ebpf_file_event_path__tostring(evt->path, pathbuf);
+    out_string("path", pathbuf);
+
+    out_object_end();
+    out_newline();
+}
+
+static void out_process_fork(struct ebpf_process_fork_event *evt)
+{
+    out_object_start();
+    out_event_type("PROCESS_FORK");
+    out_comma();
+
+    out_pid_info("parent_pids", &evt->parent_pids);
+    out_comma();
+
+    out_pid_info("child_pids", &evt->child_pids);
+
+    out_object_end();
+    out_newline();
+}
+
+static void out_process_exec(struct ebpf_process_exec_event *evt)
+{
+    out_object_start();
+    out_event_type("PROCESS_EXEC");
+    out_comma();
+
+    out_pid_info("pids", &evt->pids);
+    out_comma();
+
+    out_tty_dev("ctty", &evt->ctty);
+    out_comma();
+
+    out_string("filename", evt->filename);
+    out_comma();
+
+    out_argv("argv", evt->argv, sizeof(evt->argv));
+
+    out_object_end();
+    out_newline();
+}
+
+static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
+{
+    switch(evt_hdr->type) {
+    case EBPF_EVENT_FILE_DELETE:
+        out_file_delete((struct ebpf_file_delete_event *) evt_hdr);
+        break;
+
+    case EBPF_EVENT_PROCESS_FORK:
+        out_process_fork((struct ebpf_process_fork_event *) evt_hdr);
+        break;
+
+    case EBPF_EVENT_PROCESS_EXEC:
+        out_process_exec((struct ebpf_process_exec_event *) evt_hdr);
+        break;
     }
 
     return 0;
