@@ -31,7 +31,7 @@ int BPF_PROG(security_path_unlink_exit, const struct path *dir, struct dentry *d
 {
     struct task_struct *task = bpf_get_current_task_btf();
     if (is_kernel_thread(task) || !is_thread_group_leader(task))
-        return 0;
+        goto out;
 
     struct ebpf_file_delete_event *event =
         bpf_ringbuf_reserve(&ringbuf, sizeof(struct ebpf_file_delete_event), 0);
@@ -55,7 +55,7 @@ int BPF_PROG(sched_process_fork,
         const struct task_struct *child)
 {
     if (is_kernel_thread(child) || !is_thread_group_leader(child))
-        return 0;
+        goto out;
 
     struct ebpf_process_fork_event *event =
         bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
@@ -80,7 +80,7 @@ int BPF_PROG(sched_process_exec,
         const struct linux_binprm *binprm)
 {
     if (is_kernel_thread(task) || !is_thread_group_leader(task))
-        return 0;
+        goto out;
 
     struct ebpf_process_exec_event *event =
     bpf_ringbuf_reserve(&ringbuf, sizeof(struct ebpf_process_exec_event), 0);
