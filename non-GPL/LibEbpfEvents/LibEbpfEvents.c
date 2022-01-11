@@ -21,12 +21,21 @@ struct ebpf_event_ctx {
     struct EventProbe_bpf *probe;
 };
 
+struct ring_buf_cb_ctx {
+    ebpf_event_handler_fn cb;
+    uint64_t events;
+};
+
 /* This is just a thin wrapper that calls the event context's saved callback */
 static int ring_buf_cb(void *ctx, void *data, size_t size)
 {
-    ebpf_event_handler_fn cb      = ctx;
-    struct ebpf_event_header *evt = data;
-    return cb(evt);
+    struct ring_buf_cb_ctx *cb_ctx = ctx;
+    ebpf_event_handler_fn cb       = cb_ctx->cb;
+    struct ebpf_event_header *evt  = data;
+    if (evt->type & cb_ctx->events) {
+        return cb(evt);
+    }
+    return 0;
 }
 
 int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
@@ -58,9 +67,13 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
         goto out_destroy_probe;
 
     struct ring_buffer_opts opts;
-    opts.sz = sizeof(opts);
+    opts.sz                        = sizeof(opts);
+    struct ring_buf_cb_ctx *cb_ctx = calloc(1, sizeof(struct ring_buf_cb_ctx));
+    cb_ctx->cb                     = cb;
+    cb_ctx->events                 = events;
+
     (*ctx)->ringbuf =
-        ring_buffer__new(bpf_map__fd((*ctx)->probe->maps.ringbuf), ring_buf_cb, cb, &opts);
+        ring_buffer__new(bpf_map__fd((*ctx)->probe->maps.ringbuf), ring_buf_cb, cb_ctx, &opts);
 
     if ((*ctx)->ringbuf == NULL) {
         /* ring_buffer__new doesn't report errors, hard to find something that
