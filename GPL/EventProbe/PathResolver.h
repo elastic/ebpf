@@ -41,7 +41,7 @@
 #include "Helpers.h"
 
 #define PATH_MAX 4096
-#define PATH_MAX_BOUND 4095
+#define PATH_MAX_INDEX_MASK 4095
 
 // Maximum number of path components we'll grab before we give up and just
 // prepend "./" to the path. Even though bumping this won't increase the number
@@ -148,19 +148,19 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
             break;
 
         // Note that even though the value of size is guaranteed to be
-        // less than PATH_MAX_BOUND here, we have to apply the bound again
+        // less than PATH_MAX_INDEX_MASK here, we have to apply the bound again
         // before using it an index into an array as if it's spilled to the
         // stack by the compiler, the verifier bounds information will not be
         // retained after each bitwise and (this only carries over when stored
         // in a register).
-        buf[size & PATH_MAX_BOUND] = '/';
-        size                       = (size + 1) & PATH_MAX_BOUND;
+        buf[size & PATH_MAX_INDEX_MASK] = '/';
+        size                            = (size + 1) & PATH_MAX_INDEX_MASK;
 
-        int ret = bpf_probe_read_str(buf + (size & PATH_MAX_BOUND),
+        int ret = bpf_probe_read_str(buf + (size & PATH_MAX_INDEX_MASK),
                                      PATH_MAX > size ? PATH_MAX - size : 0, (void *)component.name);
 
         if (ret > 0) {
-            size += ((ret - 1) & PATH_MAX_BOUND);
+            size += ((ret - 1) & PATH_MAX_INDEX_MASK);
         } else {
             ebpf_debug("could not read d_name at %p, current path %s", component.name, buf);
             buf[0] = '\0';
