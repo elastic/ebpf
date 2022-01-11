@@ -156,8 +156,9 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
         buf[size & PATH_MAX_INDEX_MASK] = '/';
         size                            = (size + 1) & PATH_MAX_INDEX_MASK;
 
-        int ret = bpf_probe_read_str(buf + (size & PATH_MAX_INDEX_MASK),
-                                     PATH_MAX > size ? PATH_MAX - size : 0, (void *)component.name);
+        int ret = bpf_probe_read_kernel_str(buf + (size & PATH_MAX_INDEX_MASK),
+                                            PATH_MAX > size ? PATH_MAX - size : 0,
+                                            (void *)component.name);
 
         if (ret > 0) {
             size += ((ret - 1) & PATH_MAX_INDEX_MASK);
