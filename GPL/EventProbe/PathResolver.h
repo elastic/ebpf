@@ -97,10 +97,10 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
     // dentry_arr
     for (int i = 0; i < PATH_RESOLVER_MAX_COMPONENTS; i++) {
         if (curr_dentry == root.dentry && curr_vfsmount == root.mnt) {
-            // We've reached the global root if either the current dentry or
-            // the current vfsmount matches those of the root struct path. Fill
-            // in the rest of dentry_stack with NULLs so the next loop ignores
-            // the remaining entries.
+            // We've reached the global root if both the current dentry and the
+            // current vfsmount match those of the root struct path. Fill in
+            // the rest of dentry_stack with NULLs so the next loop ignores the
+            // remaining entries.
             truncated     = false;
             dentry_arr[i] = NULL;
             continue;
