@@ -37,21 +37,21 @@ static const struct argp_option opts[] = {
     {},
 };
 
-uint64_t events_env;
+uint64_t g_events_env;
 static error_t parse_arg(int key, char *arg, struct argp_state *state)
 {
     switch (key) {
     case 'a':
-        events_env = EBPF_EVENT_FILE_DELETE | EBPF_EVENT_PROCESS_FORK | EBPF_EVENT_PROCESS_EXEC;
+        g_events_env = EBPF_EVENT_FILE_DELETE | EBPF_EVENT_PROCESS_FORK | EBPF_EVENT_PROCESS_EXEC;
         break;
     case EBPF_EVENT_FILE_DELETE:
-        events_env |= EBPF_EVENT_FILE_DELETE;
+        g_events_env |= EBPF_EVENT_FILE_DELETE;
         break;
     case EBPF_EVENT_PROCESS_FORK:
-        events_env |= EBPF_EVENT_PROCESS_FORK;
+        g_events_env |= EBPF_EVENT_PROCESS_FORK;
         break;
     case EBPF_EVENT_PROCESS_EXEC:
-        events_env |= EBPF_EVENT_PROCESS_EXEC;
+        g_events_env |= EBPF_EVENT_PROCESS_EXEC;
         break;
     case ARGP_KEY_ARG:
         argp_usage(state);
@@ -324,11 +324,11 @@ int main(int argc, char **argv)
 
     err = argp_parse(&argp, argc, argv, 0, NULL, NULL);
     if (err)
-        return err;
+        goto cleanup;
 
     struct ebpf_event_ctx *ctx;
     uint64_t features = EBPF_KERNEL_FEATURE_BPF;
-    uint64_t events   = events_env;
+    uint64_t events   = g_events_env;
     err               = ebpf_event_ctx__new(&ctx, event_ctx_callback, features, events);
     if (err < 0) {
         fprintf(stderr, "Could not create event context: %d %s\n", err, strerror(-err));

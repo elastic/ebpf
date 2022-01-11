@@ -43,6 +43,8 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         uint64_t features,
                         uint64_t events)
 {
+    struct ring_buf_cb_ctx *cb_ctx = NULL;
+
     int err;
     *ctx = calloc(1, sizeof(struct ebpf_event_ctx));
     if (ctx == NULL)
@@ -67,10 +69,16 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
         goto out_destroy_probe;
 
     struct ring_buffer_opts opts;
-    opts.sz                        = sizeof(opts);
-    struct ring_buf_cb_ctx *cb_ctx = calloc(1, sizeof(struct ring_buf_cb_ctx));
-    cb_ctx->cb                     = cb;
-    cb_ctx->events                 = events;
+    opts.sz = sizeof(opts);
+
+    cb_ctx = calloc(1, sizeof(struct ring_buf_cb_ctx));
+    if (cb_ctx == NULL) {
+        err = -ENOMEM;
+        goto out_destroy_probe;
+    }
+
+    cb_ctx->cb     = cb;
+    cb_ctx->events = events;
 
     (*ctx)->ringbuf =
         ring_buffer__new(bpf_map__fd((*ctx)->probe->maps.ringbuf), ring_buf_cb, cb_ctx, &opts);
@@ -88,6 +96,12 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
 out_destroy_probe:
     EventProbe_bpf__destroy((*ctx)->probe);
     free(*ctx);
+    *ctx = NULL;
+    if (cb_ctx) {
+
+        free(cb_ctx);
+        cb_ctx = NULL;
+    }
     return err;
 }
 
