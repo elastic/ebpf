@@ -7,13 +7,66 @@
  * License 2.0.
  */
 
+#include <argp.h>
 #include <errno.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
 #define __aligned_u64 __u64 __attribute__((aligned(8)))
 #include <LibEbpfEvents.h>
+
+const char *argp_program_version     = "EventsTrace 0.0.0";
+const char *argp_program_bug_address = "https://github.com/elastic/ebpf/issues";
+const char argp_program_doc[] =
+    "Command line to trace Process, Network and File Events\n"
+    "\n"
+    "This program traces Process, Network and File Events\ncoming from the LibEbpfEvents library\n"
+    "\n"
+    "USAGE: ./EventsTrace [--all] [--file-delete] [--process-fork] [--process-exec]\n";
+
+static const struct argp_option opts[] = {
+    {"all", 'a', NULL, false, "Wether or not to consider all the events"},
+    {"file-delete", EBPF_EVENT_FILE_DELETE, NULL, false,
+     "Wether or not to consider file delete events"},
+    {"process-fork", EBPF_EVENT_PROCESS_FORK, NULL, false,
+     "Wether or not to consider process fork events"},
+    {"process-exec", EBPF_EVENT_PROCESS_EXEC, NULL, false,
+     "Wether or not to consider process exec events"},
+    {},
+};
+
+uint64_t events_env;
+static error_t parse_arg(int key, char *arg, struct argp_state *state)
+{
+    switch (key) {
+    case 'a':
+        events_env = EBPF_EVENT_FILE_DELETE | EBPF_EVENT_PROCESS_FORK | EBPF_EVENT_PROCESS_EXEC;
+        break;
+    case EBPF_EVENT_FILE_DELETE:
+        events_env |= EBPF_EVENT_FILE_DELETE;
+        break;
+    case EBPF_EVENT_PROCESS_FORK:
+        events_env |= EBPF_EVENT_PROCESS_FORK;
+        break;
+    case EBPF_EVENT_PROCESS_EXEC:
+        events_env |= EBPF_EVENT_PROCESS_EXEC;
+        break;
+    case ARGP_KEY_ARG:
+        argp_usage(state);
+        break;
+    default:
+        return ARGP_ERR_UNKNOWN;
+    }
+    return 0;
+}
+
+static const struct argp argp = {
+    .options = opts,
+    .parser  = parse_arg,
+    .doc     = argp_program_doc,
+};
 
 static volatile sig_atomic_t exiting = 0;
 
@@ -259,7 +312,7 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
     return 0;
 }
 
-int main(int argc, char const *argv[])
+int main(int argc, char **argv)
 {
     int err                      = 0;
     struct FileEvents_bpf *probe = NULL;
@@ -269,9 +322,13 @@ int main(int argc, char const *argv[])
         goto cleanup;
     }
 
+    err = argp_parse(&argp, argc, argv, 0, NULL, NULL);
+    if (err)
+        return err;
+
     struct ebpf_event_ctx *ctx;
     uint64_t features = EBPF_KERNEL_FEATURE_BPF;
-    uint64_t events   = EBPF_EVENT_FILE_DELETE;
+    uint64_t events   = events_env;
     err               = ebpf_event_ctx__new(&ctx, event_ctx_callback, features, events);
     if (err < 0) {
         fprintf(stderr, "Could not create event context: %d %s\n", err, strerror(-err));
