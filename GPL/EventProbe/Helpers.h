@@ -24,6 +24,12 @@
 #include "EbpfEventProto.h"
 #include "FileEvents.h"
 
+#if BPF_DEBUG_TRACE == 1
+#define ebpf_debug(fmt, ...) bpf_printk(fmt, ##__VA_ARGS__)
+#else
+#define ebpf_debug(fmt, ...)
+#endif
+
 static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct *task)
 {
     unsigned long start, end, size;
