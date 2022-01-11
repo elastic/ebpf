@@ -57,7 +57,7 @@ struct bpf_map_def SEC("maps") path_resolver_scratch_map = {
     .type        = BPF_MAP_TYPE_ARRAY,
     .max_entries = 128,
     .key_size    = sizeof(uint32_t),
-    .value_size  = sizeof(struct dentry) * PATH_RESOLVER_MAX_COMPONENTS,
+    .value_size  = sizeof(struct dentry *) * PATH_RESOLVER_MAX_COMPONENTS,
 };
 
 static void
