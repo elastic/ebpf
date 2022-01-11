@@ -99,7 +99,7 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
         if (curr_dentry == root.dentry && curr_vfsmount == root.mnt) {
             // We've reached the global root if both the current dentry and the
             // current vfsmount match those of the root struct path. Fill in
-            // the rest of dentry_stack with NULLs so the next loop ignores the
+            // the rest of dentry_arr with NULLs so the next loop ignores the
             // remaining entries.
             truncated     = false;
             dentry_arr[i] = NULL;
@@ -118,9 +118,9 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
 
             // We might be at another fs root here (in which case
             // curr_dentry->d_name will have "/", we need to go up another
-            // level to get an actual component name), so fill the stack at
-            // this spot with NULL so it's ignored in the next loop and
-            // continue to check the above condition again.
+            // level to get an actual component name), so fill the dentry
+            // pointer array at this spot with NULL so it's ignored in the next
+            // loop and continue to check the above condition again.
             dentry_arr[i] = NULL;
             continue;
         }
