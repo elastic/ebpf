@@ -25,6 +25,7 @@
 
 #include "Helpers.h"
 #include "Maps.h"
+#include "PathResolver.h"
 
 char LICENSE[] SEC("license") = "GPL";
 
@@ -90,6 +91,7 @@ int BPF_PROG(sched_process_exec,
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_ctty__fill(&event->ctty, task);
     ebpf_argv__fill(event->argv, sizeof(event->argv), task);
+    ebpf_resolve_path_to_string(event->cwd, &task->fs->pwd, task);
     bpf_probe_read_kernel_str(event->filename, sizeof(event->filename), binprm->filename);
 
     bpf_ringbuf_submit(event, 0);

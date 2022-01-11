@@ -20,6 +20,12 @@
 
 # BPF program
 
+if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+    set(BPF_DEBUG_TRACE 1)
+else()
+    set(BPF_DEBUG_TRACE 0)
+endif()
+
 set(EVENTS_PROBE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(EVENTS_PROBE_DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/EventProbe.bpf.d)
 set(EVENTS_PROBE_CFLAGS
@@ -27,6 +33,7 @@ set(EVENTS_PROBE_CFLAGS
                 -target bpf
                 -MD -MF ${EVENTS_PROBE_DEPFILE}
                 -D__KERNEL__
+                -DBPF_DEBUG_TRACE=${BPF_DEBUG_TRACE}
                 -D__TARGET_ARCH_${ARCH_TRUNC}
                 -D__${ARCH}__
                 -I${LIBBPF_TARGET_INCLUDE_DIR}

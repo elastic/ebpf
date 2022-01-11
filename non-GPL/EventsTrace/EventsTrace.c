@@ -162,6 +162,9 @@ static void out_process_exec(struct ebpf_process_exec_event *evt)
     out_string("filename", evt->filename);
     out_comma();
 
+    out_string("cwd", evt->cwd);
+    out_comma();
+
     out_argv("argv", evt->argv, sizeof(evt->argv));
 
     out_object_end();

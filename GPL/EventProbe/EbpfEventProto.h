@@ -70,6 +70,7 @@ struct ebpf_process_exec_event {
     struct ebpf_pid_info pids;
     struct ebpf_tty_dev ctty;
     char filename[PATH_MAX];
+    char cwd[PATH_MAX];
     char argv[ARGV_MAX];
 } __attribute__((packed));
 
