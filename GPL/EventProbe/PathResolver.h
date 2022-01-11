@@ -89,7 +89,7 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
     unsigned long cpu = bpf_get_smp_processor_id();
     if (!(dentry_arr = bpf_map_lookup_elem(&path_resolver_scratch_map, &cpu))) {
         ebpf_debug("Could not get path resolver scratch area for cpu %d", cpu);
-        return;
+        goto out_err;
     }
 
     // Loop 1, follow the dentry chain (up to a maximum of
@@ -144,8 +144,10 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
             continue;
 
         struct qstr component = BPF_CORE_READ(dentry, d_name);
-        if (size + component.len + 1 > PATH_MAX)
-            break;
+        if (size + component.len + 1 > PATH_MAX) {
+            ebpf_debug("path under construction is too long: %s", buf);
+            goto out_err;
+        }
 
         // Note that even though the value of size is guaranteed to be
         // less than PATH_MAX_INDEX_MASK here, we have to apply the bound again
@@ -164,8 +166,7 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
             size += ((ret - 1) & PATH_MAX_INDEX_MASK);
         } else {
             ebpf_debug("could not read d_name at %p, current path %s", component.name, buf);
-            buf[0] = '\0';
-            return;
+            goto out_err;
         }
     }
 
@@ -176,6 +177,11 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
         buf[0] = '/';
         buf[1] = '\0';
     }
+
+    return;
+
+out_err:
+    buf[0] = '\0';
 }
 
 #endif // EBPF_EVENTPROBE_PATHRESOLVER_H
