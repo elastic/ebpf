@@ -214,7 +214,7 @@ static void out_process_setsid(struct ebpf_process_setsid_event *evt)
     out_newline();
 }
 
-static void out_processs_exit(struct ebpf_process_exit_event *evt)
+static void out_process_exit(struct ebpf_process_exit_event *evt)
 {
     out_object_start();
     out_event_type("PROCESS_EXIT");
@@ -238,7 +238,7 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         break;
 
     case EBPF_EVENT_PROCESS_EXIT:
-        out_processs_exit((struct ebpf_process_exit_event *)evt_hdr);
+        out_process_exit((struct ebpf_process_exit_event *)evt_hdr);
         break;
 
     case EBPF_EVENT_PROCESS_SETSID:
