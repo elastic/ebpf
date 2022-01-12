@@ -47,7 +47,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
 
     int err;
     *ctx = calloc(1, sizeof(struct ebpf_event_ctx));
-    if (ctx == NULL)
+    if (*ctx == NULL)
         return -ENOMEM;
 
     (*ctx)->probe = EventProbe_bpf__open();
