@@ -97,7 +97,7 @@ static void out_pid_info(const char *name, struct ebpf_pid_info *pid_info)
     out_comma();
     out_int("pgid", pid_info->pgid);
     out_comma();
-    out_int("sid", pid_info->tgid);
+    out_int("sid", pid_info->sid);
     out_comma();
     out_uint("start_time_ns", pid_info->start_time_ns);
     out_object_end();
