@@ -42,12 +42,12 @@ struct ebpf_file_path {
 } __attribute__((packed));
 
 struct ebpf_pid_info {
+    uint64_t start_time_ns;
     uint32_t tid;
     uint32_t tgid;
     uint32_t ppid;
     uint32_t pgid;
     uint32_t sid;
-    uint64_t start_time_ns;
 } __attribute__((packed));
 
 struct ebpf_cred_info {
