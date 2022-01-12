@@ -27,13 +27,13 @@ const char argp_program_doc[] =
     "USAGE: ./EventsTrace [--all] [--file-delete] [--process-fork] [--process-exec]\n";
 
 static const struct argp_option opts[] = {
-    {"all", 'a', NULL, false, "Wether or not to consider all the events"},
+    {"all", 'a', NULL, false, "Whether or not to consider all the events"},
     {"file-delete", EBPF_EVENT_FILE_DELETE, NULL, false,
-     "Wether or not to consider file delete events"},
+     "Whether or not to consider file delete events"},
     {"process-fork", EBPF_EVENT_PROCESS_FORK, NULL, false,
-     "Wether or not to consider process fork events"},
+     "Whether or not to consider process fork events"},
     {"process-exec", EBPF_EVENT_PROCESS_EXEC, NULL, false,
-     "Wether or not to consider process exec events"},
+     "Whether or not to consider process exec events"},
     {},
 };
 

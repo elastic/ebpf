@@ -11,7 +11,7 @@ set(CLANG "clang")
 set(LLC "llc")
 set(BPFTOOL "bpftool")
 set(BTF_FILE "/sys/kernel/btf/vmlinux")
-option(USE_BUILTIN_VMLINUX "Wether or not to use the builtin vmlinux.h for building the BPF programs instead of trying to generate one from the system" False)
+option(USE_BUILTIN_VMLINUX "Whether or not to use the builtin vmlinux.h for building the BPF programs instead of trying to generate one from the system" False)
 
 # Standard includes
 execute_process(COMMAND ${CLANG} -print-file-name=include
