@@ -20,7 +20,7 @@
 
 # BPF program
 
-if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+if (CMAKE_BUILD_TYPE STREQUAL Debug)
     set(BPF_DEBUG_TRACE 1)
 else()
     set(BPF_DEBUG_TRACE 0)
