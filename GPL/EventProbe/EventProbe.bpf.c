@@ -29,6 +29,42 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
+
+enum ebpf_fileevents_tid_state_id {
+    EBPF_FILEEVENTS_TID_STATE_UNKNOWN = 0,
+    EBPF_FILEEVENTS_TID_STATE_UNLINK  = 1,
+};
+
+struct ebpf_fileevents_unlink_state {
+    struct vfsmount *mnt;
+};
+struct ebpf_fileevents_tid_state {
+    enum ebpf_fileevents_tid_state_id state_id;
+    union {
+        struct ebpf_fileevents_unlink_state unlink;
+    } state;
+};
+
+struct bpf_map_def SEC("maps") elastic_ebpf_fileevents_tid_state = {
+    .type        = BPF_MAP_TYPE_LRU_HASH,
+    .key_size    = sizeof(u64),
+    .value_size  = sizeof(struct ebpf_fileevents_tid_state),
+    .max_entries = 4096,
+};
+
+static __always_inline struct ebpf_fileevents_tid_state *ebpf_fileevents_write_state__get(void)
+{
+    u64 tid = bpf_get_current_pid_tgid();
+    return bpf_map_lookup_elem(&elastic_ebpf_fileevents_tid_state, &tid);
+}
+
+static __always_inline long
+ebpf_fileevents_write_state__set(struct ebpf_fileevents_tid_state *state)
+{
+    u64 tid = bpf_get_current_pid_tgid();
+    return bpf_map_update_elem(&elastic_ebpf_fileevents_tid_state, &tid, state, BPF_ANY);
+}
+
 // todo(fntlnz): this is a temporary workaround, the userspace program should do this
 // just for reference.
 // 2 is on 5.14 on arch
@@ -88,7 +124,10 @@ int BPF_PROG(fexit__vfs_unlink)
     de = (struct dentry *)ctx[fentry__vfs_unlink__dentry_parm];
 
     struct vfsmount *mnt = state->state.unlink.mnt;
-    ebpf_event_file_path__from_dentry(&event->path, mnt, de);
+    struct path p;
+    p.dentry = de;
+    p.mnt = mnt;
+    ebpf_resolve_path_to_string(event->path, &p, task);
     bpf_ringbuf_submit(event, 0);
 
 out:
