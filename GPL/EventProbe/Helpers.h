@@ -22,7 +22,6 @@
 #define EBPF_EVENTPROBE_HELPERS_H
 
 #include "EbpfEventProto.h"
-#include "FileEvents.h"
 
 #if BPF_DEBUG_TRACE == 0
 #undef bpf_printk

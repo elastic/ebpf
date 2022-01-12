@@ -79,18 +79,6 @@ static void sig_int(int signo)
     fprintf(stdout, "Received SIGINT, Exiting...\n");
 }
 
-static void ebpf_file_event_path__tostring(struct ebpf_file_path path, char *pathbuf)
-{
-    strcpy(pathbuf, "/");
-    for (int i = 0; i < path.patharray_len; i++) {
-        strcat(pathbuf, path.path_array[i]);
-
-        if (i != path.patharray_len - 1) {
-            strcat(pathbuf, "/");
-        }
-    }
-}
-
 static void out_comma()
 {
     printf(",");
@@ -211,9 +199,7 @@ static void out_file_delete(struct ebpf_file_delete_event *evt)
     out_pid_info("pid_info", &evt->pids);
     out_comma();
 
-    char pathbuf[MAX_FILEPATH_LENGTH];
-    ebpf_file_event_path__tostring(evt->path, pathbuf);
-    out_string("path", pathbuf);
+    out_string("path", evt->path);
 
     out_object_end();
     out_newline();

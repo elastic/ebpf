@@ -13,10 +13,6 @@
 
 #define PATH_MAX 4096
 
-#define MAX_PATH_DEPTH 32
-#define MAX_PATH 256
-#define MAX_FILEPATH_LENGTH (MAX_PATH_DEPTH * MAX_PATH)
-
 #ifndef __KERNEL__
 #include <stdint.h>
 #else
@@ -34,11 +30,6 @@ enum ebpf_event_type {
 struct ebpf_event_header {
     uint64_t ts;
     uint64_t type;
-} __attribute__((packed));
-
-struct ebpf_file_path {
-    uint32_t patharray_len;
-    char path_array[MAX_PATH_DEPTH][MAX_PATH];
 } __attribute__((packed));
 
 struct ebpf_pid_info {
@@ -68,7 +59,10 @@ struct ebpf_tty_dev {
 struct ebpf_file_delete_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
-    struct ebpf_file_path path;
+    // When computing the path we need to allocate twice the size of PATH_MAX
+    // because the verifier does not have a way to know if the path actually
+    // fits in PATH_MAX
+    char path[PATH_MAX * 2];
 } __attribute__((packed));
 
 struct ebpf_process_fork_event {
