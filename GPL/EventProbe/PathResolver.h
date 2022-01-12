@@ -70,7 +70,7 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
 
     unsigned long cpu = bpf_get_smp_processor_id();
     if (!(dentry_arr = bpf_map_lookup_elem(&path_resolver_scratch_map, &cpu))) {
-        ebpf_debug("Could not get path resolver scratch area for cpu %d", cpu);
+        bpf_printk("Could not get path resolver scratch area for cpu %d", cpu);
         goto out_err;
     }
 
@@ -127,7 +127,7 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
 
         struct qstr component = BPF_CORE_READ(dentry, d_name);
         if (size + component.len + 1 > PATH_MAX) {
-            ebpf_debug("path under construction is too long: %s", buf);
+            bpf_printk("path under construction is too long: %s", buf);
             goto out_err;
         }
 
@@ -147,7 +147,7 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
         if (ret > 0) {
             size += ((ret - 1) & PATH_MAX_INDEX_MASK);
         } else {
-            ebpf_debug("could not read d_name at %p, current path %s", component.name, buf);
+            bpf_printk("could not read d_name at %p, current path %s", component.name, buf);
             goto out_err;
         }
     }
