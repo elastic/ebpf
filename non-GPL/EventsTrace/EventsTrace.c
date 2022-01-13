@@ -24,7 +24,7 @@ const char argp_program_doc[] =
     "\n"
     "This program traces Process, Network and File Events\ncoming from the LibEbpfEvents library\n"
     "\n"
-    "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create]\n"
+    "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename]\n"
     "[--process-fork] [--process-exec] [--process-exit] [--process-setsid]\n";
 
 static const struct argp_option opts[] = {
@@ -33,6 +33,8 @@ static const struct argp_option opts[] = {
      "Whether or not to consider file delete events", 1},
     {"file-create", EBPF_EVENT_FILE_CREATE, NULL, false,
      "Whether or not to consider file create events", 1},
+    {"file-rename", EBPF_EVENT_FILE_RENAME, NULL, false,
+     "Whether or not to consider file rename events", 1},
     {"process-fork", EBPF_EVENT_PROCESS_FORK, NULL, false,
      "Whether or not to consider process fork events", 1},
     {"process-exec", EBPF_EVENT_PROCESS_EXEC, NULL, false,
@@ -54,6 +56,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
         break;
     case EBPF_EVENT_FILE_DELETE:
     case EBPF_EVENT_FILE_CREATE:
+    case EBPF_EVENT_FILE_RENAME:
     case EBPF_EVENT_PROCESS_FORK:
     case EBPF_EVENT_PROCESS_EXEC:
     case EBPF_EVENT_PROCESS_EXIT:
@@ -224,6 +227,24 @@ static void out_file_create(struct ebpf_file_create_event *evt)
     out_newline();
 }
 
+static void out_file_rename(struct ebpf_file_rename_event *evt)
+{
+    out_object_start();
+    out_event_type("FILE_RENAME");
+    out_comma();
+
+    out_pid_info("pids", &evt->pids);
+    out_comma();
+
+    out_string("old_path", evt->old_path);
+    out_comma();
+
+    out_string("new_path", evt->new_path);
+
+    out_object_end();
+    out_newline();
+}
+
 static void out_process_fork(struct ebpf_process_fork_event *evt)
 {
     out_object_start();
@@ -313,6 +334,9 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         break;
     case EBPF_EVENT_FILE_CREATE:
         out_file_create((struct ebpf_file_create_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_FILE_RENAME:
+        out_file_rename((struct ebpf_file_rename_event *)evt_hdr);
         break;
     }
 

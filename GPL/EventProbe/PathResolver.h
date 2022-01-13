@@ -9,7 +9,7 @@
  * Constructing paths in a BPF probe is complicated due to the fact that paths
  * are stored as the leaf of a struct dentry chain, with each dentry
  * corresponding to one path component. This means, to construct the full path
- * in string form, we have to walk the chain. Doign so completely for any
+ * in string form, we have to walk the chain. Doing so completely for any
  * arbitrarily long path is impossible as that would require an unbounded loop,
  * so we make a best effort with a bounded loop, truncating particularly long
  * paths.
