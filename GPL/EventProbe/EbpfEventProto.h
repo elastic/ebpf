@@ -12,6 +12,10 @@
 #define ARGV_MAX 8192 // See issue #43, quite possibly too small
 
 #define PATH_MAX 4096
+// When computing the path we need to allocate twice the size of PATH_MAX
+// because the verifier does not have a way to know if the path actually
+// fits in PATH_MAX
+#define PATH_MAX_BUF PATH_MAX * 2
 
 #ifndef __KERNEL__
 #include <stdint.h>
@@ -26,6 +30,7 @@ enum ebpf_event_type {
     EBPF_EVENT_PROCESS_SETSID = (1 << 4),
     EBPF_EVENT_FILE_DELETE    = (1 << 5),
     EBPF_EVENT_FILE_CREATE    = (1 << 6),
+    EBPF_EVENT_FILE_RENAME    = (1 << 7),
 };
 
 struct ebpf_event_header {
@@ -60,16 +65,20 @@ struct ebpf_tty_dev {
 struct ebpf_file_delete_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
-    // When computing the path we need to allocate twice the size of PATH_MAX
-    // because the verifier does not have a way to know if the path actually
-    // fits in PATH_MAX
-    char path[PATH_MAX * 2];
+    char path[PATH_MAX_BUF];
 } __attribute__((packed));
 
 struct ebpf_file_create_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
-    char path[PATH_MAX * 2 - 1];
+    char path[PATH_MAX_BUF];
+} __attribute__((packed));
+
+struct ebpf_file_rename_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
+    char old_path[PATH_MAX_BUF];
+    char new_path[PATH_MAX_BUF];
 } __attribute__((packed));
 
 struct ebpf_process_fork_event {

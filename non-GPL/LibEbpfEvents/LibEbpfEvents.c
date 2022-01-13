@@ -22,6 +22,7 @@ struct ring_buf_cb_ctx {
     ebpf_event_handler_fn cb;
     uint64_t events_mask;
 };
+
 struct ebpf_event_ctx {
     struct ring_buffer *ringbuf;
     struct EventProbe_bpf *probe;
@@ -148,12 +149,25 @@ out:
 static int fill_ctx_relos(struct ebpf_event_ctx **ctx)
 {
     int err = 0;
-    err     = FILL_FUNCTION_RELO(ctx, vfs_unlink, dentry);
+
+    err = FILL_FUNCTION_RELO(ctx, vfs_unlink, dentry);
     if (err)
         goto out;
+
     err = FILL_FUNCTION_RET_RELO(ctx, vfs_unlink);
     if (err)
         goto out;
+
+    /* The following relocations can fail as they may not exist in recent signatures.
+     * The indexes will be used only in the case `struct renamedata` is not present.
+     * This is checked at runtime.
+     */
+    FILL_FUNCTION_RELO(ctx, vfs_rename, old_dentry);
+    FILL_FUNCTION_RELO(ctx, vfs_rename, new_dentry);
+    err = FILL_FUNCTION_RET_RELO(ctx, vfs_rename);
+    if (err)
+        goto out;
+
 out:
     return err;
 }
