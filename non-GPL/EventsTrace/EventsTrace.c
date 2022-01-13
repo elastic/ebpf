@@ -318,7 +318,7 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
 int main(int argc, char **argv)
 {
     int err = 0;
-    struct ebpf_event_ctx *ctx;
+    struct ebpf_event_ctx *ctx = NULL;
 
     if (signal(SIGINT, sig_int) == SIG_ERR) {
         fprintf(stderr, "Failed to register SIGINT handler\n");
