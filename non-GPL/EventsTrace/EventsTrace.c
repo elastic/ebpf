@@ -314,8 +314,7 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
 
 int main(int argc, char **argv)
 {
-    int err                      = 0;
-    struct FileEvents_bpf *probe = NULL;
+    int err = 0;
 
     if (signal(SIGINT, sig_int) == SIG_ERR) {
         fprintf(stderr, "Failed to register SIGINT handler\n");
@@ -344,8 +343,6 @@ int main(int argc, char **argv)
     }
 
 cleanup:
-    if (probe) {
-        ebpf_event_ctx__destroy(ctx);
-    }
+    ebpf_event_ctx__destroy(ctx);
     return err != 0;
 }
