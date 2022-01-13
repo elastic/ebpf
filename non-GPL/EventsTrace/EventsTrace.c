@@ -41,7 +41,8 @@ static const struct argp_option opts[] = {
     {},
 };
 
-uint64_t g_events_env;
+uint64_t g_events_env = 0;
+
 static error_t parse_arg(int key, char *arg, struct argp_state *state)
 {
     switch (key) {
