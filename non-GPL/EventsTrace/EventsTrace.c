@@ -249,6 +249,7 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
 
     case EBPF_EVENT_PROCESS_SETSID:
         out_process_setsid((struct ebpf_process_setsid_event *)evt_hdr);
+        break;
 
     case EBPF_EVENT_FILE_DELETE:
         out_file_delete((struct ebpf_file_delete_event *)evt_hdr);
