@@ -269,5 +269,4 @@ out:
     return rv;
 }
 
-char __license[] __section("license") = "GPL";
-
+char __license[] __section("license") = "Dual BSD/GPL";
