@@ -77,12 +77,11 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
         goto out_destroy_probe;
     }
 
-
-    (*ctx)->cb_ctx->cb     = cb;
+    (*ctx)->cb_ctx->cb          = cb;
     (*ctx)->cb_ctx->events_mask = events;
 
-    (*ctx)->ringbuf =
-        ring_buffer__new(bpf_map__fd((*ctx)->probe->maps.ringbuf), ring_buf_cb, (*ctx)->cb_ctx, &opts);
+    (*ctx)->ringbuf = ring_buffer__new(bpf_map__fd((*ctx)->probe->maps.ringbuf), ring_buf_cb,
+                                       (*ctx)->cb_ctx, &opts);
 
     if ((*ctx)->ringbuf == NULL) {
         /* ring_buffer__new doesn't report errors, hard to find something that
@@ -95,7 +94,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
     return ring_buffer__epoll_fd((*ctx)->ringbuf);
 
 out_destroy_probe:
-    ebpf_event_ctx__destroy(*ctx);
+    ebpf_event_ctx__destroy(ctx);
     return err;
 }
 
@@ -105,22 +104,20 @@ int ebpf_event_ctx__next(struct ebpf_event_ctx *ctx, int timeout)
     return consumed > 0 ? 0 : consumed;
 }
 
-void ebpf_event_ctx__destroy(struct ebpf_event_ctx *ctx)
+void ebpf_event_ctx__destroy(struct ebpf_event_ctx **ctx)
 {
-    if (!ctx) {
-        return;
+    if (*ctx) {
+        if ((*ctx)->ringbuf) {
+            ring_buffer__free((*ctx)->ringbuf);
+        }
+        if ((*ctx)->probe) {
+            EventProbe_bpf__destroy((*ctx)->probe);
+        }
+        if ((*ctx)->cb_ctx) {
+            free((*ctx)->cb_ctx);
+            (*ctx)->cb_ctx = NULL;
+        }
+        free(*ctx);
+        *ctx = NULL;
     }
-    if (ctx->ringbuf) {
-        ring_buffer__free(ctx->ringbuf);
-    }
-    if (ctx->probe) {
-        EventProbe_bpf__destroy(ctx->probe);
-    }
-    if (ctx->cb_ctx) {
-        free(ctx->cb_ctx);
-        ctx->cb_ctx = NULL;
-    }
-
-    free(ctx);
-    ctx = NULL;
 }

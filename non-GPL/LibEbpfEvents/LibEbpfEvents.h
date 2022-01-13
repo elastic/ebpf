@@ -40,6 +40,6 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
  */
 int ebpf_event_ctx__next(struct ebpf_event_ctx *ctx, int timeout);
 
-void ebpf_event_ctx__destroy(struct ebpf_event_ctx *ctx);
+void ebpf_event_ctx__destroy(struct ebpf_event_ctx **ctx);
 
 #endif // EBPF_EVENTS_H_
