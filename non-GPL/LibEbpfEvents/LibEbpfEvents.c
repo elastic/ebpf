@@ -108,6 +108,9 @@ int ebpf_event_ctx__next(struct ebpf_event_ctx *ctx, int timeout)
 
 void ebpf_event_ctx__destroy(struct ebpf_event_ctx *ctx)
 {
+    if (!ctx) {
+        return;
+    }
     if (ctx->ringbuf) {
         ring_buffer__free(ctx->ringbuf);
     }
@@ -118,8 +121,7 @@ void ebpf_event_ctx__destroy(struct ebpf_event_ctx *ctx)
         free(ctx->cb_ctx);
         ctx->cb_ctx = NULL;
     }
-    if (ctx) {
-        free(ctx);
-        ctx = NULL;
-    }
+
+    free(ctx);
+    ctx = NULL;
 }
