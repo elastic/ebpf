@@ -71,19 +71,18 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
     struct ring_buffer_opts opts;
     opts.sz = sizeof(opts);
 
-    struct ring_buf_cb_ctx *cb_ctx = (*ctx)->cb_ctx;
-
-    cb_ctx = calloc(1, sizeof(struct ring_buf_cb_ctx));
-    if (cb_ctx == NULL) {
+    (*ctx)->cb_ctx = calloc(1, sizeof(struct ring_buf_cb_ctx));
+    if ((*ctx)->cb_ctx == NULL) {
         err = -ENOMEM;
         goto out_destroy_probe;
     }
 
-    cb_ctx->cb     = cb;
-    cb_ctx->events = events;
+
+    (*ctx)->cb_ctx->cb     = cb;
+    (*ctx)->cb_ctx->events = events;
 
     (*ctx)->ringbuf =
-        ring_buffer__new(bpf_map__fd((*ctx)->probe->maps.ringbuf), ring_buf_cb, cb_ctx, &opts);
+        ring_buffer__new(bpf_map__fd((*ctx)->probe->maps.ringbuf), ring_buf_cb, (*ctx)->cb_ctx, &opts);
 
     if ((*ctx)->ringbuf == NULL) {
         /* ring_buffer__new doesn't report errors, hard to find something that
