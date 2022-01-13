@@ -49,8 +49,22 @@ static void ebpf_ctty__fill(struct ebpf_tty_dev *ctty, const struct task_struct 
 
 static void ebpf_pid_info__fill(struct ebpf_pid_info *pi, const struct task_struct *task)
 {
-    pi->tgid = task->tgid;
-    pi->sid  = task->group_leader->signal->pids[PIDTYPE_SID]->numbers[0].nr;
+    pi->tid           = task->pid;
+    pi->tgid          = task->tgid;
+    pi->ppid          = task->group_leader->real_parent->tgid;
+    pi->pgid          = task->group_leader->signal->pids[PIDTYPE_PGID]->numbers[0].nr;
+    pi->sid           = task->group_leader->signal->pids[PIDTYPE_SID]->numbers[0].nr;
+    pi->start_time_ns = task->group_leader->start_time;
+}
+
+static void ebpf_cred_info__fill(struct ebpf_cred_info *ci, const struct task_struct *task)
+{
+    ci->ruid = task->cred->uid.val;
+    ci->euid = task->cred->euid.val;
+    ci->suid = task->cred->suid.val;
+    ci->rgid = task->cred->gid.val;
+    ci->egid = task->cred->egid.val;
+    ci->sgid = task->cred->sgid.val;
 }
 
 static bool is_kernel_thread(const struct task_struct *task)

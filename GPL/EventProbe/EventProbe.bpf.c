@@ -88,9 +88,61 @@ int BPF_PROG(sched_process_exec,
     event->hdr.ts   = bpf_ktime_get_ns();
 
     ebpf_pid_info__fill(&event->pids, task);
+    ebpf_cred_info__fill(&event->creds, task);
     ebpf_ctty__fill(&event->ctty, task);
     ebpf_argv__fill(event->argv, sizeof(event->argv), task);
     bpf_probe_read_kernel_str(event->filename, sizeof(event->filename), binprm->filename);
+
+    bpf_ringbuf_submit(event, 0);
+
+out:
+    return 0;
+}
+
+SEC("tp_btf/sched_process_exit")
+int BPF_PROG(sched_process_exit, const struct task_struct *task)
+{
+    if (is_kernel_thread(task))
+        goto out;
+
+    struct ebpf_process_exit_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    if (!event)
+        goto out;
+
+    event->hdr.type = EBPF_EVENT_PROCESS_EXIT;
+    event->hdr.ts   = bpf_ktime_get_ns();
+
+    // The exit _status_ is stored in the second byte of task->exit_code
+    event->exit_code = (task->exit_code >> 8) & 0xFF;
+    ebpf_pid_info__fill(&event->pids, task);
+
+    bpf_ringbuf_submit(event, 0);
+
+out:
+    return 0;
+}
+
+// tracepoint/syscalls/sys_[enter/exit]_[name] tracepoints are not available
+// with BTF type information, so we must use a non-BTF tracepoint
+SEC("tracepoint/syscalls/sys_exit_setsid")
+int tracepoint_syscalls_sys_exit_setsid(struct trace_event_raw_sys_exit *args)
+{
+    const struct task_struct *task = (struct task_struct *)bpf_get_current_task_btf();
+
+    if (is_kernel_thread(task))
+        goto out;
+
+    if (args->ret < 0)
+        goto out;
+
+    struct ebpf_process_setsid_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    if (!event)
+        goto out;
+
+    event->hdr.type = EBPF_EVENT_PROCESS_SETSID;
+    event->hdr.ts   = bpf_ktime_get_ns();
+
+    ebpf_pid_info__fill(&event->pids, task);
 
     bpf_ringbuf_submit(event, 0);
 
