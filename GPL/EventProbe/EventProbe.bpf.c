@@ -112,6 +112,8 @@ int BPF_PROG(sched_process_exit, const struct task_struct *task)
     event->hdr.type = EBPF_EVENT_PROCESS_EXIT;
     event->hdr.ts   = bpf_ktime_get_ns();
 
+    // The exit _status_ is stored in the second byte of task->exit_code
+    event->exit_code = (task->exit_code >> 8) & 0xFF;
     ebpf_pid_info__fill(&event->pids, task);
 
     bpf_ringbuf_submit(event, 0);

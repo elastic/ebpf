@@ -221,6 +221,9 @@ static void out_process_exit(struct ebpf_process_exit_event *evt)
     out_comma();
 
     out_pid_info("pids", &evt->pids);
+    out_comma();
+
+    out_int("exit_code", evt->exit_code);
 
     out_object_end();
     out_newline();

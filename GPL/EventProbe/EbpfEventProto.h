@@ -90,6 +90,7 @@ struct ebpf_process_exec_event {
 struct ebpf_process_exit_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
+    int32_t exit_code;
 } __attribute__((packed));
 
 struct ebpf_process_setsid_event {
