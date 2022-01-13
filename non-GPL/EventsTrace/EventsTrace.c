@@ -34,6 +34,10 @@ static const struct argp_option opts[] = {
      "Whether or not to consider process fork events"},
     {"process-exec", EBPF_EVENT_PROCESS_EXEC, NULL, false,
      "Whether or not to consider process exec events"},
+    {"process-exit", EBPF_EVENT_PROCESS_EXIT, NULL, false,
+     "Whether or not to consider process exit events"},
+    {"process-setsid", EBPF_EVENT_PROCESS_SETSID, NULL, false,
+     "Whether or not to consider process setsid events"},
     {},
 };
 
@@ -42,16 +46,14 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
 {
     switch (key) {
     case 'a':
-        g_events_env = EBPF_EVENT_FILE_DELETE | EBPF_EVENT_PROCESS_FORK | EBPF_EVENT_PROCESS_EXEC;
+        g_events_env = UINT64_MAX;
         break;
     case EBPF_EVENT_FILE_DELETE:
-        g_events_env |= EBPF_EVENT_FILE_DELETE;
-        break;
     case EBPF_EVENT_PROCESS_FORK:
-        g_events_env |= EBPF_EVENT_PROCESS_FORK;
-        break;
     case EBPF_EVENT_PROCESS_EXEC:
-        g_events_env |= EBPF_EVENT_PROCESS_EXEC;
+    case EBPF_EVENT_PROCESS_EXIT:
+    case EBPF_EVENT_PROCESS_SETSID:
+        g_events_env |= key;
         break;
     case ARGP_KEY_ARG:
         argp_usage(state);
