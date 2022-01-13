@@ -16,14 +16,14 @@
 
 #include "EventProbe.skel.h"
 
-struct ebpf_event_ctx {
-    struct ring_buffer *ringbuf;
-    struct EventProbe_bpf *probe;
-};
-
 struct ring_buf_cb_ctx {
     ebpf_event_handler_fn cb;
     uint64_t events;
+};
+struct ebpf_event_ctx {
+    struct ring_buffer *ringbuf;
+    struct EventProbe_bpf *probe;
+    struct ring_buf_cb_ctx *cb_ctx;
 };
 
 /* This is just a thin wrapper that calls the event context's saved callback */
@@ -43,21 +43,21 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         uint64_t features,
                         uint64_t events)
 {
-    struct ring_buf_cb_ctx *cb_ctx = NULL;
 
     int err;
     *ctx = calloc(1, sizeof(struct ebpf_event_ctx));
-    if (*ctx == NULL)
-        return -ENOMEM;
+    if (*ctx == NULL) {
+        err = -ENOMEM;
+        goto out_destroy_probe;
+    }
 
     (*ctx)->probe = EventProbe_bpf__open();
     if ((*ctx)->probe == NULL) {
-        free(*ctx);
-
         /* EventProbe_bpf__open doesn't report errors, hard to find something
          * that fits perfect here
          */
-        return -ENOENT;
+        err = -ENOENT;
+        goto out_destroy_probe;
     }
 
     err = EventProbe_bpf__load((*ctx)->probe);
@@ -70,6 +70,8 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
 
     struct ring_buffer_opts opts;
     opts.sz = sizeof(opts);
+
+    struct ring_buf_cb_ctx *cb_ctx = (*ctx)->cb_ctx;
 
     cb_ctx = calloc(1, sizeof(struct ring_buf_cb_ctx));
     if (cb_ctx == NULL) {
@@ -94,14 +96,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
     return ring_buffer__epoll_fd((*ctx)->ringbuf);
 
 out_destroy_probe:
-    EventProbe_bpf__destroy((*ctx)->probe);
-    free(*ctx);
-    *ctx = NULL;
-    if (cb_ctx) {
-
-        free(cb_ctx);
-        cb_ctx = NULL;
-    }
+    ebpf_event_ctx__destroy(*ctx);
     return err;
 }
 
@@ -113,6 +108,18 @@ int ebpf_event_ctx__next(struct ebpf_event_ctx *ctx, int timeout)
 
 void ebpf_event_ctx__destroy(struct ebpf_event_ctx *ctx)
 {
-    ring_buffer__free(ctx->ringbuf);
-    EventProbe_bpf__destroy(ctx->probe);
+    if (ctx->ringbuf) {
+        ring_buffer__free(ctx->ringbuf);
+    }
+    if (ctx->probe) {
+        EventProbe_bpf__destroy(ctx->probe);
+    }
+    if (ctx->cb_ctx) {
+        free(ctx->cb_ctx);
+        ctx->cb_ctx = NULL;
+    }
+    if (ctx) {
+        free(ctx);
+        ctx = NULL;
+    }
 }
