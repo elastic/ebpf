@@ -317,7 +317,7 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
 
 int main(int argc, char **argv)
 {
-    int err = 0;
+    int err                    = 0;
     struct ebpf_event_ctx *ctx = NULL;
 
     if (signal(SIGINT, sig_int) == SIG_ERR) {
@@ -346,6 +346,6 @@ int main(int argc, char **argv)
     }
 
 cleanup:
-    ebpf_event_ctx__destroy(ctx);
+    ebpf_event_ctx__destroy(&ctx);
     return err != 0;
 }
