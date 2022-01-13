@@ -1,3 +1,4 @@
+# Build
 /build/
 /contrib/elftoolchain/build/
 /contrib/elftoolchain/build_obj/
@@ -5,3 +6,9 @@
 /non-GPL/HostIsolation/KprobeConnectHook/build/
 /non-GPL/HostIsolationMapsUtil/build/
 /non-GPL/TcLoader/build/
+
+# VSCode
+.vscode/
+
+# Direnv
+.envrc

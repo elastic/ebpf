@@ -196,3 +196,44 @@ int tracepoint_syscalls_sys_exit_setsid(struct trace_event_raw_sys_exit *args)
 out:
     return 0;
 }
+
+SEC("fexit/do_filp_open")
+int BPF_PROG(do_filp_open_exit,
+             int dfd,
+             struct filename *pathname,
+             const struct open_flags *op,
+             struct file *ret)
+{
+    /*
+    'ret' fields such f_mode and f_path should be obtained via BPF_CORE_READ
+    because there's a kernel bug that causes a panic.
+    Read more: github.com/torvalds/linux/commit/588a25e92458c6efeb7a261d5ca5726f5de89184
+    */
+
+    struct task_struct *task = bpf_get_current_task_btf();
+    if (is_kernel_thread(task))
+        goto out;
+
+    if (!ret)
+        goto out;
+
+    fmode_t fmode = BPF_CORE_READ(ret, f_mode);
+    if (fmode & (fmode_t)0x100000) // FMODE_CREATED
+    {
+        struct ebpf_file_create_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+        if (!event)
+            goto out;
+
+        event->hdr.type = EBPF_EVENT_FILE_CREATE;
+        event->hdr.ts   = bpf_ktime_get_ns();
+
+        struct path p = BPF_CORE_READ(ret, f_path);
+        ebpf_resolve_path_to_string(event->path, &p, task);
+        ebpf_pid_info__fill(&event->pids, task);
+
+        bpf_ringbuf_submit(event, 0);
+    }
+
+out:
+    return 0;
+}

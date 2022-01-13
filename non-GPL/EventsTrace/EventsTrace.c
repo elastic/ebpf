@@ -196,7 +196,22 @@ static void out_file_delete(struct ebpf_file_delete_event *evt)
     out_event_type("FILE_DELETE");
     out_comma();
 
-    out_pid_info("pid_info", &evt->pids);
+    out_pid_info("pids", &evt->pids);
+    out_comma();
+
+    out_string("path", evt->path);
+
+    out_object_end();
+    out_newline();
+}
+
+static void out_file_create(struct ebpf_file_create_event *evt)
+{
+    out_object_start();
+    out_event_type("FILE_CREATE");
+    out_comma();
+
+    out_pid_info("pids", &evt->pids);
     out_comma();
 
     out_string("path", evt->path);
@@ -280,21 +295,20 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
     case EBPF_EVENT_PROCESS_FORK:
         out_process_fork((struct ebpf_process_fork_event *)evt_hdr);
         break;
-
     case EBPF_EVENT_PROCESS_EXEC:
         out_process_exec((struct ebpf_process_exec_event *)evt_hdr);
         break;
-
     case EBPF_EVENT_PROCESS_EXIT:
         out_process_exit((struct ebpf_process_exit_event *)evt_hdr);
         break;
-
     case EBPF_EVENT_PROCESS_SETSID:
         out_process_setsid((struct ebpf_process_setsid_event *)evt_hdr);
         break;
-
     case EBPF_EVENT_FILE_DELETE:
         out_file_delete((struct ebpf_file_delete_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_FILE_CREATE:
+        out_file_create((struct ebpf_file_create_event *)evt_hdr);
         break;
     }
 
