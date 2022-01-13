@@ -60,9 +60,14 @@ static void out_event_type(const char *type)
     printf("\"event_type\":\"%s\"", type);
 }
 
-static void out_int(const char *name, const int value)
+static void out_uint(const char *name, const unsigned long value)
 {
-    printf("\"%s\":%d", name, value);
+    printf("\"%s\":%lu", name, value);
+}
+
+static void out_int(const char *name, const long value)
+{
+    printf("\"%s\":%ld", name, value);
 }
 
 static void out_string(const char *name, const char *value)
@@ -84,9 +89,35 @@ static void out_pid_info(const char *name, struct ebpf_pid_info *pid_info)
 {
     printf("\"%s\":", name);
     out_object_start();
+    out_int("tid", pid_info->tid);
+    out_comma();
     out_int("tgid", pid_info->tgid);
     out_comma();
-    out_int("sid", pid_info->tgid);
+    out_int("ppid", pid_info->ppid);
+    out_comma();
+    out_int("pgid", pid_info->pgid);
+    out_comma();
+    out_int("sid", pid_info->sid);
+    out_comma();
+    out_uint("start_time_ns", pid_info->start_time_ns);
+    out_object_end();
+}
+
+static void out_cred_info(const char *name, struct ebpf_cred_info *cred_info)
+{
+    printf("\"%s\":", name);
+    out_object_start();
+    out_int("ruid", cred_info->ruid);
+    out_comma();
+    out_int("rgid", cred_info->rgid);
+    out_comma();
+    out_int("euid", cred_info->euid);
+    out_comma();
+    out_int("egid", cred_info->egid);
+    out_comma();
+    out_int("suid", cred_info->suid);
+    out_comma();
+    out_int("sgid", cred_info->sgid);
     out_object_end();
 }
 
@@ -156,6 +187,9 @@ static void out_process_exec(struct ebpf_process_exec_event *evt)
     out_pid_info("pids", &evt->pids);
     out_comma();
 
+    out_cred_info("creds", &evt->creds);
+    out_comma();
+
     out_tty_dev("ctty", &evt->ctty);
     out_comma();
 
@@ -171,19 +205,53 @@ static void out_process_exec(struct ebpf_process_exec_event *evt)
     out_newline();
 }
 
+static void out_process_setsid(struct ebpf_process_setsid_event *evt)
+{
+    out_object_start();
+    out_event_type("PROCESS_SETSID");
+    out_comma();
+
+    out_pid_info("pids", &evt->pids);
+
+    out_object_end();
+    out_newline();
+}
+
+static void out_process_exit(struct ebpf_process_exit_event *evt)
+{
+    out_object_start();
+    out_event_type("PROCESS_EXIT");
+    out_comma();
+
+    out_pid_info("pids", &evt->pids);
+    out_comma();
+
+    out_int("exit_code", evt->exit_code);
+
+    out_object_end();
+    out_newline();
+}
+
 static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
 {
     switch (evt_hdr->type) {
-    case EBPF_EVENT_FILE_DELETE:
-        out_file_delete((struct ebpf_file_delete_event *)evt_hdr);
-        break;
-
     case EBPF_EVENT_PROCESS_FORK:
         out_process_fork((struct ebpf_process_fork_event *)evt_hdr);
         break;
 
     case EBPF_EVENT_PROCESS_EXEC:
         out_process_exec((struct ebpf_process_exec_event *)evt_hdr);
+        break;
+
+    case EBPF_EVENT_PROCESS_EXIT:
+        out_process_exit((struct ebpf_process_exit_event *)evt_hdr);
+        break;
+
+    case EBPF_EVENT_PROCESS_SETSID:
+        out_process_setsid((struct ebpf_process_setsid_event *)evt_hdr);
+
+    case EBPF_EVENT_FILE_DELETE:
+        out_file_delete((struct ebpf_file_delete_event *)evt_hdr);
         break;
     }
 

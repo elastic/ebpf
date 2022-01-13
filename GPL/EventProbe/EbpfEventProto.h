@@ -24,9 +24,11 @@
 #endif
 
 enum ebpf_event_type {
-    EBPF_EVENT_PROCESS_FORK = (1 << 1),
-    EBPF_EVENT_PROCESS_EXEC = (1 << 2),
-    EBPF_EVENT_FILE_DELETE  = (1 << 3),
+    EBPF_EVENT_PROCESS_FORK   = (1 << 1),
+    EBPF_EVENT_PROCESS_EXEC   = (1 << 2),
+    EBPF_EVENT_PROCESS_EXIT   = (1 << 3),
+    EBPF_EVENT_PROCESS_SETSID = (1 << 4),
+    EBPF_EVENT_FILE_DELETE    = (1 << 5),
 };
 
 struct ebpf_event_header {
@@ -40,8 +42,21 @@ struct ebpf_file_path {
 } __attribute__((packed));
 
 struct ebpf_pid_info {
+    uint64_t start_time_ns;
+    uint32_t tid;
     uint32_t tgid;
+    uint32_t ppid;
+    uint32_t pgid;
     uint32_t sid;
+} __attribute__((packed));
+
+struct ebpf_cred_info {
+    uint32_t ruid; // Real user ID
+    uint32_t rgid; // Real group ID
+    uint32_t euid; // Effective user ID
+    uint32_t egid; // Effective group ID
+    uint32_t suid; // Saved user ID
+    uint32_t sgid; // Saved group ID
 } __attribute__((packed));
 
 struct ebpf_tty_dev {
@@ -52,26 +67,35 @@ struct ebpf_tty_dev {
 // Full events follow
 struct ebpf_file_delete_event {
     struct ebpf_event_header hdr;
-
     struct ebpf_pid_info pids;
     struct ebpf_file_path path;
 } __attribute__((packed));
 
 struct ebpf_process_fork_event {
     struct ebpf_event_header hdr;
-
     struct ebpf_pid_info parent_pids;
     struct ebpf_pid_info child_pids;
 } __attribute__((packed));
 
 struct ebpf_process_exec_event {
     struct ebpf_event_header hdr;
-
     struct ebpf_pid_info pids;
+    struct ebpf_cred_info creds;
     struct ebpf_tty_dev ctty;
     char filename[PATH_MAX];
     char cwd[PATH_MAX];
     char argv[ARGV_MAX];
+} __attribute__((packed));
+
+struct ebpf_process_exit_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
+    int32_t exit_code;
+} __attribute__((packed));
+
+struct ebpf_process_setsid_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
 } __attribute__((packed));
 
 #endif // EBPF_EVENTPROBE_EBPFEVENTPROTO_H
