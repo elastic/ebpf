@@ -18,7 +18,7 @@
 
 struct ring_buf_cb_ctx {
     ebpf_event_handler_fn cb;
-    uint64_t events;
+    uint64_t events_mask;
 };
 struct ebpf_event_ctx {
     struct ring_buffer *ringbuf;
@@ -32,7 +32,7 @@ static int ring_buf_cb(void *ctx, void *data, size_t size)
     struct ring_buf_cb_ctx *cb_ctx = ctx;
     ebpf_event_handler_fn cb       = cb_ctx->cb;
     struct ebpf_event_header *evt  = data;
-    if (evt->type & cb_ctx->events) {
+    if (evt->type & cb_ctx->events_mask) {
         return cb(evt);
     }
     return 0;
@@ -79,7 +79,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
 
 
     (*ctx)->cb_ctx->cb     = cb;
-    (*ctx)->cb_ctx->events = events;
+    (*ctx)->cb_ctx->events_mask = events;
 
     (*ctx)->ringbuf =
         ring_buffer__new(bpf_map__fd((*ctx)->probe->maps.ringbuf), ring_buf_cb, (*ctx)->cb_ctx, &opts);
