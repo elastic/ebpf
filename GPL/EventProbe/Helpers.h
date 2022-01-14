@@ -33,8 +33,7 @@
 #define RELO_FENTRY_ARG_READ(type, func_name, arg_name)                                            \
     ({                                                                                             \
         type _ret;                                                                                 \
-        bpf_core_read(&_ret, sizeof(_ret),                                           \
-                      ctx + arg__##func_name##__##arg_name##__);                                   \
+        bpf_core_read(&_ret, sizeof(_ret), ctx + arg__##func_name##__##arg_name##__);              \
         _ret;                                                                                      \
     })
 
@@ -42,7 +41,7 @@
 #define RELO_FENTRY_RET_READ(type, func_name)                                                      \
     ({                                                                                             \
         type _ret;                                                                                 \
-        bpf_core_read(&_ret, sizeof(_ret), ctx + ret__##func_name##__);              \
+        bpf_core_read(&_ret, sizeof(_ret), ctx + ret__##func_name##__);                            \
         _ret;                                                                                      \
     })
 

@@ -65,7 +65,3 @@ TEST_F(BPFFileEventsTests, DISABLED_TestDoUnlinkAt)
     // does not support BPF_PROG_TEST_RUN against fentry/fexit programs.
     // Keeping the structure around for future reference/usage.
 }
-
-TEST_F(BPFFileEventsTests, DISABLED_TestFexitDoFilpOpen)
-{
-}

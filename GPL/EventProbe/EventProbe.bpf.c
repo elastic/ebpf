@@ -198,7 +198,7 @@ out:
 }
 
 SEC("fexit/do_filp_open")
-int BPF_PROG(do_filp_open_exit,
+int BPF_PROG(fexit__do_filp_open,
              int dfd,
              struct filename *pathname,
              const struct open_flags *op,
@@ -209,11 +209,6 @@ int BPF_PROG(do_filp_open_exit,
     because there's a kernel bug that causes a panic.
     Read more: github.com/torvalds/linux/commit/588a25e92458c6efeb7a261d5ca5726f5de89184
     */
-
-    struct task_struct *task = bpf_get_current_task_btf();
-    if (is_kernel_thread(task))
-        goto out;
-
     if (IS_ERR_OR_NULL(ret))
         goto out;
 
@@ -227,8 +222,8 @@ int BPF_PROG(do_filp_open_exit,
         event->hdr.type = EBPF_EVENT_FILE_CREATE;
         event->hdr.ts   = bpf_ktime_get_ns();
 
-        struct path p = BPF_CORE_READ(ret, f_path);
-        ebpf_resolve_path_to_string(event->path, &p, task);
+        struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+        ebpf_resolve_path_to_string(event->path, &ret->f_path, task);
         ebpf_pid_info__fill(&event->pids, task);
 
         bpf_ringbuf_submit(event, 0);

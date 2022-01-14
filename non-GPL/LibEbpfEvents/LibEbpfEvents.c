@@ -151,7 +151,7 @@ static int fill_ctx_relos(struct ebpf_event_ctx **ctx)
     err     = FILL_FUNCTION_RELO(ctx, vfs_unlink, dentry);
     if (err)
         goto out;
-    err     = FILL_FUNCTION_RET_RELO(ctx, vfs_unlink);
+    err = FILL_FUNCTION_RET_RELO(ctx, vfs_unlink);
     if (err)
         goto out;
 out:

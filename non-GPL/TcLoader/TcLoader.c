@@ -371,10 +371,10 @@ static int netlink_qdisc(int cmd, unsigned int flags, const char *ifname)
     int rv                            = -1;
     struct rtnetlink_handle qdisc_rth = {.fd = -1};
     struct netlink_msg qdisc_req      = {
-             .n.nlmsg_len   = NLMSG_LENGTH(sizeof(struct tcmsg)),
-             .n.nlmsg_flags = NLM_F_REQUEST | flags,
-             .n.nlmsg_type  = cmd,
-             .t.tcm_family  = AF_UNSPEC,
+        .n.nlmsg_len   = NLMSG_LENGTH(sizeof(struct tcmsg)),
+        .n.nlmsg_flags = NLM_F_REQUEST | flags,
+        .n.nlmsg_type  = cmd,
+        .t.tcm_family  = AF_UNSPEC,
     };
 
     if (!ifname) {

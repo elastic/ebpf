@@ -24,20 +24,23 @@ const char argp_program_doc[] =
     "\n"
     "This program traces Process, Network and File Events\ncoming from the LibEbpfEvents library\n"
     "\n"
-    "USAGE: ./EventsTrace [--all] [--file-delete] [--process-fork] [--process-exec]\n";
+    "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create]\n"
+    "[--process-fork] [--process-exec] [--process-exit] [--process-setsid]\n";
 
 static const struct argp_option opts[] = {
-    {"all", 'a', NULL, false, "Whether or not to consider all the events"},
+    {"all", 'a', NULL, false, "Whether or not to consider all the events", 0},
     {"file-delete", EBPF_EVENT_FILE_DELETE, NULL, false,
-     "Whether or not to consider file delete events"},
+     "Whether or not to consider file delete events", 1},
+    {"file-create", EBPF_EVENT_FILE_CREATE, NULL, false,
+     "Whether or not to consider file create events", 1},
     {"process-fork", EBPF_EVENT_PROCESS_FORK, NULL, false,
-     "Whether or not to consider process fork events"},
+     "Whether or not to consider process fork events", 1},
     {"process-exec", EBPF_EVENT_PROCESS_EXEC, NULL, false,
-     "Whether or not to consider process exec events"},
+     "Whether or not to consider process exec events", 1},
     {"process-exit", EBPF_EVENT_PROCESS_EXIT, NULL, false,
-     "Whether or not to consider process exit events"},
+     "Whether or not to consider process exit events", 1},
     {"process-setsid", EBPF_EVENT_PROCESS_SETSID, NULL, false,
-     "Whether or not to consider process setsid events"},
+     "Whether or not to consider process setsid events", 1},
     {},
 };
 
@@ -50,6 +53,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
         g_events_env = UINT64_MAX;
         break;
     case EBPF_EVENT_FILE_DELETE:
+    case EBPF_EVENT_FILE_CREATE:
     case EBPF_EVENT_PROCESS_FORK:
     case EBPF_EVENT_PROCESS_EXEC:
     case EBPF_EVENT_PROCESS_EXIT:
