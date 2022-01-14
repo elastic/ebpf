@@ -214,7 +214,7 @@ int BPF_PROG(do_filp_open_exit,
     if (is_kernel_thread(task))
         goto out;
 
-    if (!ret)
+    if (IS_ERR_OR_NULL(ret))
         goto out;
 
     fmode_t fmode = BPF_CORE_READ(ret, f_mode);

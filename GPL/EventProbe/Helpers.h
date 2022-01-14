@@ -46,6 +46,14 @@
         _ret;                                                                                      \
     })
 
+// From linux/err.h
+#define MAX_ERRNO 4095
+
+static bool IS_ERR_OR_NULL(const void *ptr)
+{
+    return (!ptr) || (unsigned long)ptr >= (unsigned long)-MAX_ERRNO;
+}
+
 static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct *task)
 {
     unsigned long start, end, size;
