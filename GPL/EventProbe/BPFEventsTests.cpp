@@ -23,7 +23,6 @@
 
 #include <bpf/libbpf.h>
 #include <bpf/bpf.h>
-#include <bpf/bpf_endian.h>
 
 #include "EventProbe.skel.h"
 
@@ -55,7 +54,7 @@ protected:
         rinf = {RLIM_INFINITY, RLIM_INFINITY};
         if (setrlimit(RLIMIT_MEMLOCK, &rinf) == -EPERM)
         {
-            FAIL() << "setrlimit failed, running the BPFTcFilterTests suite requires root permissions";
+            FAIL() << "setrlimit failed, running the BPFFileEventsTests suite requires root permissions";
         }
     }
 };
@@ -65,4 +64,8 @@ TEST_F(BPFFileEventsTests, DISABLED_TestDoUnlinkAt)
     // tests are disabled because at the moment of writing the kernel
     // does not support BPF_PROG_TEST_RUN against fentry/fexit programs.
     // Keeping the structure around for future reference/usage.
+}
+
+TEST_F(BPFFileEventsTests, DISABLED_TestFexitDoFilpOpen)
+{
 }
