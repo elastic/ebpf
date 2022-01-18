@@ -29,7 +29,6 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
-
 enum ebpf_fileevents_tid_state_id {
     EBPF_FILEEVENTS_TID_STATE_UNKNOWN = 0,
     EBPF_FILEEVENTS_TID_STATE_UNLINK  = 1,
@@ -65,12 +64,9 @@ ebpf_fileevents_write_state__set(struct ebpf_fileevents_tid_state *state)
     return bpf_map_update_elem(&elastic_ebpf_fileevents_tid_state, &tid, state, BPF_ANY);
 }
 
-// todo(fntlnz): this is a temporary workaround, the userspace program should do this
-// just for reference.
-// 2 is on 5.14 on arch
-// 1 is on 5.10 on al2
-// 1 is on 5.10.68 on COS
-const int fentry__vfs_unlink__dentry_parm = 2;
+// Context relocations: see the fill_ctx_relos in LibEbpfEvents.c
+// to see how these are updated from userspace
+const volatile int fentry__vfs_unlink__dentry_parm = 0;
 
 SEC("fentry/do_unlinkat")
 int BPF_PROG(fexit__do_unlinkat)
@@ -101,6 +97,7 @@ int BPF_PROG(fexit__mnt_want_write)
 SEC("fexit/vfs_unlink")
 int BPF_PROG(fexit__vfs_unlink)
 {
+    struct dentry *de        = NULL;
     struct task_struct *task = bpf_get_current_task_btf();
     if (is_kernel_thread(task))
         goto out;
@@ -108,10 +105,10 @@ int BPF_PROG(fexit__vfs_unlink)
     struct ebpf_fileevents_tid_state *state = ebpf_fileevents_write_state__get();
     if (state == NULL) {
         bpf_printk("vfs_unlink: no state\n");
-        return 0;
+        goto out;
     }
 
-    struct dentry *de = NULL;
+    bpf_core_read(&de, sizeof(unsigned long long), ctx + fentry__vfs_unlink__dentry_parm);
 
     struct ebpf_file_delete_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
@@ -121,12 +118,10 @@ int BPF_PROG(fexit__vfs_unlink)
     event->hdr.ts   = bpf_ktime_get_ns();
     ebpf_pid_info__fill(&event->pids, task);
 
-    de = (struct dentry *)ctx[fentry__vfs_unlink__dentry_parm];
-
     struct vfsmount *mnt = state->state.unlink.mnt;
     struct path p;
     p.dentry = de;
-    p.mnt = mnt;
+    p.mnt    = mnt;
     ebpf_resolve_path_to_string(event->path, &p, task);
     bpf_ringbuf_submit(event, 0);
 
