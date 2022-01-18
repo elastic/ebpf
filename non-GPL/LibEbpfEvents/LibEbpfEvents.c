@@ -38,6 +38,16 @@ static int ring_buf_cb(void *ctx, void *data, size_t size)
     return 0;
 }
 
+// todo(fntlnz): this is a temporary fixed value, the userspace program should do this
+// just for reference.
+// 2 is on 5.14 on arch
+// 1 is on 5.10 on al2
+// 1 is on 5.10.68 on COS
+static void fill_ctx_relos(struct ebpf_event_ctx **ctx)
+{
+    (*ctx)->probe->rodata->fentry__vfs_unlink__dentry_parm = 2;
+}
+
 int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         ebpf_event_handler_fn cb,
                         uint64_t features,
@@ -60,6 +70,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
         goto out_destroy_probe;
     }
 
+    fill_ctx_relos(ctx);
     err = EventProbe_bpf__load((*ctx)->probe);
     if (err != 0)
         goto out_destroy_probe;
