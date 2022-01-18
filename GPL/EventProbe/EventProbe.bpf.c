@@ -80,14 +80,13 @@ int BPF_PROG(fexit__do_unlinkat)
 }
 
 SEC("fentry/mnt_want_write")
-int BPF_PROG(fexit__mnt_want_write)
+int BPF_PROG(fexit__mnt_want_write, struct vfsmount *mnt)
 {
     struct ebpf_fileevents_tid_state *state = ebpf_fileevents_write_state__get();
     if (state == NULL) {
         return 0;
     }
 
-    struct vfsmount *mnt = (struct vfsmount *)ctx[0];
     struct ebpf_fileevents_unlink_state unlink_state;
     unlink_state.mnt    = mnt;
     state->state.unlink = unlink_state;
