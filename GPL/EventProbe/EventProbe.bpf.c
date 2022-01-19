@@ -66,7 +66,7 @@ ebpf_fileevents_write_state__set(struct ebpf_fileevents_tid_state *state)
 
 // Context relocations: see the fill_ctx_relos in LibEbpfEvents.c
 // to see how these are updated from userspace
-const volatile int fentry__vfs_unlink__dentry_parm = 0;
+const volatile int arg__vfs_unlink__dentry__ = 0;
 
 SEC("fentry/do_unlinkat")
 int BPF_PROG(fexit__do_unlinkat)
@@ -107,7 +107,7 @@ int BPF_PROG(fexit__vfs_unlink)
         goto out;
     }
 
-    bpf_core_read(&de, sizeof(unsigned long long), ctx + fentry__vfs_unlink__dentry_parm);
+    bpf_core_read(&de, sizeof(unsigned long long), ctx + arg__vfs_unlink__dentry__);
 
     struct ebpf_file_delete_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
