@@ -37,7 +37,7 @@ char LICENSE[] SEC("license") = "GPL";
 const volatile int arg__vfs_unlink__dentry__ = 0;
 
 SEC("fentry/do_unlinkat")
-int BPF_PROG(fexit__do_unlinkat)
+int BPF_PROG(fentry__do_unlinkat)
 {
     struct ebpf_fileevents_tid_state state;
     __builtin_memset(&state, 0, sizeof(struct ebpf_fileevents_tid_state));
@@ -47,7 +47,7 @@ int BPF_PROG(fexit__do_unlinkat)
 }
 
 SEC("fentry/mnt_want_write")
-int BPF_PROG(fexit__mnt_want_write, struct vfsmount *mnt)
+int BPF_PROG(fentry__mnt_want_write, struct vfsmount *mnt)
 {
     struct ebpf_fileevents_tid_state *state = ebpf_fileevents_write_state__get();
     if (state == NULL) {
