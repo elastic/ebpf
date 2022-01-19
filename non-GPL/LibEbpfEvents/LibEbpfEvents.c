@@ -94,10 +94,14 @@ out:
         __r;                                                                                       \
     })
 
-/* Fill context relocations for kernel functions */
+/* Fill context relocations for kernel functions
+ * You can add additional functions here by using the FILL_FUNCTION_RELO macro
+ * Remember to add the relative const in the EventProbe
+ */
 static int fill_ctx_relos(struct ebpf_event_ctx **ctx)
 {
     int err = 0;
+    // arg__vfs_unlink__dentry__
     err     = FILL_FUNCTION_RELO(ctx, vfs_unlink, dentry);
     return err;
 }
