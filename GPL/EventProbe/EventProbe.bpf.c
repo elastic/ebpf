@@ -30,11 +30,7 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
-
-// Context relocations: see the fill_ctx_relos in LibEbpfEvents.c
-// to see how these are updated from userspace
-// format is "arg__<kernel_func_symbol_name>__<arg_name>__"
-const volatile int arg__vfs_unlink__dentry__ = 0;
+DECL_RELO_FUNC_ARGUMENT(vfs_unlink, dentry);
 
 SEC("fentry/do_unlinkat")
 int BPF_PROG(fentry__do_unlinkat)
@@ -74,7 +70,7 @@ int BPF_PROG(fexit__vfs_unlink)
         goto out;
     }
 
-    bpf_core_read(&de, sizeof(unsigned long long), ctx + arg__vfs_unlink__dentry__);
+    de = RELO_FENTRY_ARG_READ(vfs_unlink, dentry);
 
     struct ebpf_file_delete_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)

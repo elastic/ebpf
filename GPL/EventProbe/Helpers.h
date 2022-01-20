@@ -28,6 +28,13 @@
 #define bpf_printk(fmt, ...)
 #endif
 
+#define DECL_RELO_FUNC_ARGUMENT(func_name, arg_name) const volatile int arg__##func_name##__##arg_name##__ = 0;
+#define RELO_FENTRY_ARG_READ(func_name, arg_name) ({ \
+    void *_ret; \
+    bpf_core_read(&_ret, sizeof(unsigned long long), ctx + arg__##func_name##__##arg_name##__); \
+    _ret; \
+})
+
 static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct *task)
 {
     unsigned long start, end, size;
