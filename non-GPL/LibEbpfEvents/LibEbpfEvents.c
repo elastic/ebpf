@@ -58,24 +58,27 @@ static int resolve_btf_func_arg_id(const char *func_name, const char *arg_name)
 
         const struct btf_type *btf_type_ptr = btf__type_by_id(btf, btf_type);
 
-        if (btf_is_func(btf_type_ptr)) {
-            const char *name = btf__name_by_offset(btf, btf_type_ptr->name_off);
-            if (strcmp(name, func_name) == 0) {
-                int proto_btf_type = btf__resolve_type(btf, btf_type_ptr->type);
-                if (proto_btf_type < 0)
-                    goto out;
+        if (!btf_is_func(btf_type_ptr))
+            continue;
 
-                const struct btf_type *proto_btf_type_ptr = btf__type_by_id(btf, proto_btf_type);
-                if (btf_is_func_proto(proto_btf_type_ptr)) {
-                    struct btf_param *params = btf_params(proto_btf_type_ptr);
-                    for (int j = 0; j < btf_vlen(proto_btf_type_ptr); j++) {
-                        const char *cur_name = btf__name_by_offset(btf, params[j].name_off);
-                        if (strcmp(cur_name, arg_name) == 0) {
-                            ret = j;
-                            goto out;
-                        }
-                    }
-                }
+        const char *name = btf__name_by_offset(btf, btf_type_ptr->name_off);
+        if (!strcmp(name, func_name) == 0)
+            continue;
+
+        int proto_btf_type = btf__resolve_type(btf, btf_type_ptr->type);
+        if (proto_btf_type < 0)
+            goto out;
+
+        const struct btf_type *proto_btf_type_ptr = btf__type_by_id(btf, proto_btf_type);
+        if (!btf_is_func_proto(proto_btf_type_ptr))
+            continue;
+
+        struct btf_param *params = btf_params(proto_btf_type_ptr);
+        for (int j = 0; j < btf_vlen(proto_btf_type_ptr); j++) {
+            const char *cur_name = btf__name_by_offset(btf, params[j].name_off);
+            if (strcmp(cur_name, arg_name) == 0) {
+                ret = j;
+                goto out;
             }
         }
     }
@@ -86,7 +89,7 @@ out:
 
 #define FILL_FUNCTION_RELO(ctx, func_name, arg_name)                                               \
     ({                                                                                             \
-        int __r = 0;                                                                                   \
+        int __r = 0;                                                                               \
         (*ctx)->probe->rodata->arg__##func_name##__##arg_name##__ =                                \
             resolve_btf_func_arg_id(#func_name, #arg_name);                                        \
         if ((*ctx)->probe->rodata->arg__##func_name##__##arg_name##__ < 0)                         \
@@ -96,13 +99,12 @@ out:
 
 /* Fill context relocations for kernel functions
  * You can add additional functions here by using the FILL_FUNCTION_RELO macro
- * Remember to add the relative const in the EventProbe
+ * Remember to declare it in `EventProbe.bpf.c` using the DECL_RELO_FUNC_ARGUMENT macro
  */
 static int fill_ctx_relos(struct ebpf_event_ctx **ctx)
 {
     int err = 0;
-    // arg__vfs_unlink__dentry__
-    err     = FILL_FUNCTION_RELO(ctx, vfs_unlink, dentry);
+    err = FILL_FUNCTION_RELO(ctx, vfs_unlink, dentry);
     return err;
 }
 
@@ -111,7 +113,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         uint64_t features,
                         uint64_t events)
 {
-    int err;
+    int err = 0;
     *ctx = calloc(1, sizeof(struct ebpf_event_ctx));
     if (*ctx == NULL) {
         err = -ENOMEM;
