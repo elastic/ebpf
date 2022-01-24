@@ -53,7 +53,7 @@ const struct btf_type *resolve_btf_type_by_func_name(struct btf *btf, const char
             continue;
 
         const char *name = btf__name_by_offset(btf, btf_type_ptr->name_off);
-        if (!strcmp(name, func_name) == 0)
+        if (strcmp(name, func_name))
             continue;
 
         int proto_btf_type = btf__resolve_type(btf, btf_type_ptr->type);
@@ -96,6 +96,7 @@ static int resolve_btf_func_arg_id(const char *func_name, const char *arg_name)
     }
 
 out:
+    btf__free(btf);
     return ret;
 }
 
@@ -115,7 +116,9 @@ static int resolve_btf_func_ret(const char *func_name)
         goto out;
 
     ret = btf_vlen(proto_btf_type_ptr);
+
 out:
+    btf__free(btf);
     return ret;
 }
 
@@ -146,7 +149,12 @@ static int fill_ctx_relos(struct ebpf_event_ctx **ctx)
 {
     int err = 0;
     err     = FILL_FUNCTION_RELO(ctx, vfs_unlink, dentry);
+    if (err)
+        goto out;
     err     = FILL_FUNCTION_RET_RELO(ctx, vfs_unlink);
+    if (err)
+        goto out;
+out:
     return err;
 }
 

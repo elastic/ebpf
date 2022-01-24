@@ -47,20 +47,23 @@ SEC("fentry/mnt_want_write")
 int BPF_PROG(fentry__mnt_want_write, struct vfsmount *mnt)
 {
     struct ebpf_fileevents_tid_state *state = ebpf_fileevents_write_state__get();
-    if (state == NULL) {
-        return 0;
-    }
+    if (state == NULL)
+        goto out;
 
     struct ebpf_fileevents_unlink_state unlink_state;
     unlink_state.mnt    = mnt;
     state->state.unlink = unlink_state;
+out:
     return 0;
 }
 
 SEC("fexit/vfs_unlink")
 int BPF_PROG(fexit__vfs_unlink)
 {
-    int ret                  = RELO_FENTRY_RET_READ(___type(ret), vfs_unlink);
+    int ret = RELO_FENTRY_RET_READ(___type(ret), vfs_unlink);
+    if (ret != 0)
+        goto out;
+
     struct dentry *de        = NULL;
     struct task_struct *task = bpf_get_current_task_btf();
     if (is_kernel_thread(task))
@@ -68,15 +71,17 @@ int BPF_PROG(fexit__vfs_unlink)
 
     struct ebpf_fileevents_tid_state *state = ebpf_fileevents_write_state__get();
     if (state == NULL) {
-        bpf_printk("vfs_unlink: no state\n");
+        bpf_printk("fexit__vfs_unlink: no state\n");
         goto out;
     }
 
     de = RELO_FENTRY_ARG_READ(___type(de), vfs_unlink, dentry);
 
     struct ebpf_file_delete_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
-    if (!event)
+    if (!event) {
+        bpf_printk("fexit__vfs_unlink: failed to reserve event\n");
         goto out;
+    }
 
     event->hdr.type = EBPF_EVENT_FILE_DELETE;
     event->hdr.ts   = bpf_ktime_get_ns();
