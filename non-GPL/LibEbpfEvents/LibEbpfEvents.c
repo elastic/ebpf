@@ -40,17 +40,8 @@ static int ring_buf_cb(void *ctx, void *data, size_t size)
     return 0;
 }
 
-/* Find the BTF type relocation index for a named argument of a kernel function */
-static int resolve_btf_func_arg_id(const char *func_name, const char *arg_name)
+const struct btf_type *resolve_btf_type_by_func_name(struct btf *btf, const char *func_name)
 {
-    int ret = -1;
-    struct btf *btf;
-
-    btf = btf__load_vmlinux_btf();
-
-    if (libbpf_get_error(btf))
-        goto out;
-
     for (int i = 0; i < btf__type_cnt(btf); i++) {
         int btf_type = btf__resolve_type(btf, i);
         if (btf_type < 0)
@@ -73,16 +64,57 @@ static int resolve_btf_func_arg_id(const char *func_name, const char *arg_name)
         if (!btf_is_func_proto(proto_btf_type_ptr))
             continue;
 
-        struct btf_param *params = btf_params(proto_btf_type_ptr);
-        for (int j = 0; j < btf_vlen(proto_btf_type_ptr); j++) {
-            const char *cur_name = btf__name_by_offset(btf, params[j].name_off);
-            if (strcmp(cur_name, arg_name) == 0) {
-                ret = j;
-                goto out;
-            }
+        return proto_btf_type_ptr;
+    }
+
+out:
+    return NULL;
+}
+
+/* Find the BTF type relocation index for a named argument of a kernel function */
+static int resolve_btf_func_arg_id(const char *func_name, const char *arg_name)
+{
+    int ret = -1;
+    struct btf *btf;
+
+    btf = btf__load_vmlinux_btf();
+
+    if (libbpf_get_error(btf))
+        goto out;
+
+    const struct btf_type *proto_btf_type_ptr = resolve_btf_type_by_func_name(btf, func_name);
+    if (!proto_btf_type_ptr)
+        goto out;
+
+    struct btf_param *params = btf_params(proto_btf_type_ptr);
+    for (int j = 0; j < btf_vlen(proto_btf_type_ptr); j++) {
+        const char *cur_name = btf__name_by_offset(btf, params[j].name_off);
+        if (strcmp(cur_name, arg_name) == 0) {
+            ret = j;
+            goto out;
         }
     }
 
+out:
+    return ret;
+}
+
+/* Find the BTF relocation index for a func return value */
+static int resolve_btf_func_ret(const char *func_name)
+{
+    int ret = -1;
+    struct btf *btf;
+
+    btf = btf__load_vmlinux_btf();
+
+    if (libbpf_get_error(btf))
+        goto out;
+
+    const struct btf_type *proto_btf_type_ptr = resolve_btf_type_by_func_name(btf, func_name);
+    if (!proto_btf_type_ptr)
+        goto out;
+
+    ret = btf_vlen(proto_btf_type_ptr);
 out:
     return ret;
 }
@@ -97,6 +129,15 @@ out:
         __r;                                                                                       \
     })
 
+#define FILL_FUNCTION_RET_RELO(ctx, func_name)                                                     \
+    ({                                                                                             \
+        int __r                                     = 0;                                           \
+        (*ctx)->probe->rodata->ret__##func_name##__ = resolve_btf_func_ret(#func_name);            \
+        if ((*ctx)->probe->rodata->ret__##func_name##__ < 0)                                       \
+            __r = -1;                                                                              \
+        __r;                                                                                       \
+    })
+
 /* Fill context relocations for kernel functions
  * You can add additional functions here by using the FILL_FUNCTION_RELO macro
  * Remember to declare it in `EventProbe.bpf.c` using the DECL_RELO_FUNC_ARGUMENT macro
@@ -104,7 +145,8 @@ out:
 static int fill_ctx_relos(struct ebpf_event_ctx **ctx)
 {
     int err = 0;
-    err = FILL_FUNCTION_RELO(ctx, vfs_unlink, dentry);
+    err     = FILL_FUNCTION_RELO(ctx, vfs_unlink, dentry);
+    err     = FILL_FUNCTION_RET_RELO(ctx, vfs_unlink);
     return err;
 }
 
@@ -114,7 +156,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         uint64_t events)
 {
     int err = 0;
-    *ctx = calloc(1, sizeof(struct ebpf_event_ctx));
+    *ctx    = calloc(1, sizeof(struct ebpf_event_ctx));
     if (*ctx == NULL) {
         err = -ENOMEM;
         goto out_destroy_probe;
