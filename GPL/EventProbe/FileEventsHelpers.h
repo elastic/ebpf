@@ -29,6 +29,7 @@ enum ebpf_fileevents_tid_state_id {
 struct ebpf_fileevents_unlink_state {
     struct vfsmount *mnt;
 };
+
 struct ebpf_fileevents_tid_state {
     enum ebpf_fileevents_tid_state_id state_id;
     union {
