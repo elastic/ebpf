@@ -23,14 +23,15 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 
+#include "FileEventsHelpers.h"
 #include "Helpers.h"
 #include "Maps.h"
 #include "PathResolver.h"
-#include "FileEventsHelpers.h"
 
 char LICENSE[] SEC("license") = "GPL";
 
 DECL_RELO_FUNC_ARGUMENT(vfs_unlink, dentry);
+DECL_RELO_FUNC_RET(vfs_unlink);
 
 SEC("fentry/do_unlinkat")
 int BPF_PROG(fentry__do_unlinkat)
@@ -59,6 +60,7 @@ int BPF_PROG(fentry__mnt_want_write, struct vfsmount *mnt)
 SEC("fexit/vfs_unlink")
 int BPF_PROG(fexit__vfs_unlink)
 {
+    int ret                  = RELO_FENTRY_RET_READ(___type(ret), vfs_unlink);
     struct dentry *de        = NULL;
     struct task_struct *task = bpf_get_current_task_btf();
     if (is_kernel_thread(task))
@@ -70,7 +72,7 @@ int BPF_PROG(fexit__vfs_unlink)
         goto out;
     }
 
-    de = RELO_FENTRY_ARG_READ(vfs_unlink, dentry);
+    de = RELO_FENTRY_ARG_READ(___type(de), vfs_unlink, dentry);
 
     struct ebpf_file_delete_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
