@@ -99,7 +99,15 @@ out:
 SEC("tp_btf/sched_process_fork")
 int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct task_struct *child)
 {
-    if (is_kernel_thread(child))
+    // Ignore the !is_thread_group_leader(child) case as we want to ignore
+    // thread creations in the same thread group.
+    //
+    // Note that a non-thread-group-leader can perform a fork(2), or a clone(2)
+    // (without CLONE_THREAD), in which case the child will be in a new thread
+    // group. That is something we want to capture, so we only ignore the
+    // !is_thread_group_leader(child) case and not the
+    // !is_thread_group_leader(parent) case
+    if (!is_thread_group_leader(child) || is_kernel_thread(child))
         goto out;
 
     struct ebpf_process_fork_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
@@ -123,6 +131,11 @@ int BPF_PROG(sched_process_exec,
              pid_t old_pid,
              const struct linux_binprm *binprm)
 {
+    // Note that we don't ignore the !is_thread_group_leader(task) case here.
+    // if a non-thread-group-leader thread performs an execve, it assumes the
+    // pid info of the thread group leader, all other threads are terminated,
+    // and it performs the exec. Thus a non-thread-group-leader performing an
+    // exec is valid and something we want to capture
     if (is_kernel_thread(task))
         goto out;
 
@@ -146,10 +159,28 @@ out:
     return 0;
 }
 
-SEC("tp_btf/sched_process_exit")
-int BPF_PROG(sched_process_exit, const struct task_struct *task)
+// Process exit probe
+//
+// Note that we aren't using the sched_process_exit tracepoint here as it's
+// prone to race conditions. We want to emit an exit event when every single
+// thread in a thread group has exited. If we were to try to detect that by
+// checking task->signal->live == 0 (i.e. check that there are now 0 running
+// thread in the thread group), we would race with a thread exit on another CPU
+// decrementing task->signal->live before the BPF program can check if it
+// is equal to 0.
+//
+// Checking group_dead on taskstats_exit to determine if every thread in a
+// thread group has exited instead is free of race conditions. taskstats_exit
+// is only invoked from do_exit and that function call has been there since
+// 2006 (see kernel commit 115085ea0794c0f339be8f9d25505c7f9861d824).
+//
+// group_dead is the result of an atomic decrement and test operation on
+// task->signal->live, so is guaranteed to only be passed into taskstats_exit
+// as true once, which signifies the last thread in a thread group exiting.
+SEC("fentry/taskstats_exit")
+int BPF_PROG(fentry__taskstats_exit, const struct task_struct *task, int group_dead)
 {
-    if (is_kernel_thread(task))
+    if (!group_dead || is_kernel_thread(task))
         goto out;
 
     struct ebpf_process_exit_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
