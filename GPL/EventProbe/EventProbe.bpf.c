@@ -65,9 +65,7 @@ int BPF_PROG(fexit__vfs_unlink)
         goto out;
 
     struct dentry *de        = NULL;
-    struct task_struct *task = bpf_get_current_task_btf();
-    if (is_kernel_thread(task))
-        goto out;
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
     struct ebpf_fileevents_tid_state *state = ebpf_fileevents_write_state__get();
     if (state == NULL) {

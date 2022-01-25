@@ -71,12 +71,12 @@ static void ebpf_ctty__fill(struct ebpf_tty_dev *ctty, const struct task_struct 
 
 static void ebpf_pid_info__fill(struct ebpf_pid_info *pi, const struct task_struct *task)
 {
-    pi->tid           = task->pid;
-    pi->tgid          = task->tgid;
-    pi->ppid          = task->group_leader->real_parent->tgid;
-    pi->pgid          = task->group_leader->signal->pids[PIDTYPE_PGID]->numbers[0].nr;
-    pi->sid           = task->group_leader->signal->pids[PIDTYPE_SID]->numbers[0].nr;
-    pi->start_time_ns = task->group_leader->start_time;
+    pi->tid  = BPF_CORE_READ(task, pid);
+    pi->tgid = BPF_CORE_READ(task, tgid);
+    pi->ppid = BPF_CORE_READ(task, group_leader, real_parent, tgid);
+    pi->pgid = BPF_CORE_READ(task, group_leader, signal, pids[PIDTYPE_PGID], numbers[0].nr);
+    pi->sid  = BPF_CORE_READ(task, group_leader, signal, pids[PIDTYPE_SID], numbers[0].nr);
+    pi->start_time_ns = BPF_CORE_READ(task, group_leader, start_time);
 }
 
 static void ebpf_cred_info__fill(struct ebpf_cred_info *ci, const struct task_struct *task)
