@@ -23,7 +23,6 @@
 
 #include <bpf/libbpf.h>
 #include <bpf/bpf.h>
-#include <bpf/bpf_endian.h>
 
 #include "EventProbe.skel.h"
 
@@ -55,7 +54,7 @@ protected:
         rinf = {RLIM_INFINITY, RLIM_INFINITY};
         if (setrlimit(RLIMIT_MEMLOCK, &rinf) == -EPERM)
         {
-            FAIL() << "setrlimit failed, running the BPFTcFilterTests suite requires root permissions";
+            FAIL() << "setrlimit failed, running the BPFFileEventsTests suite requires root permissions";
         }
     }
 };

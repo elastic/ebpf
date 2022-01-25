@@ -25,6 +25,7 @@ enum ebpf_event_type {
     EBPF_EVENT_PROCESS_EXIT   = (1 << 3),
     EBPF_EVENT_PROCESS_SETSID = (1 << 4),
     EBPF_EVENT_FILE_DELETE    = (1 << 5),
+    EBPF_EVENT_FILE_CREATE    = (1 << 6),
 };
 
 struct ebpf_event_header {
@@ -63,6 +64,12 @@ struct ebpf_file_delete_event {
     // because the verifier does not have a way to know if the path actually
     // fits in PATH_MAX
     char path[PATH_MAX * 2];
+} __attribute__((packed));
+
+struct ebpf_file_create_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
+    char path[PATH_MAX * 2 - 1];
 } __attribute__((packed));
 
 struct ebpf_process_fork_event {

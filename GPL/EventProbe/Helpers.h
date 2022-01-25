@@ -33,8 +33,7 @@
 #define RELO_FENTRY_ARG_READ(type, func_name, arg_name)                                            \
     ({                                                                                             \
         type _ret;                                                                                 \
-        bpf_core_read(&_ret, sizeof(_ret),                                           \
-                      ctx + arg__##func_name##__##arg_name##__);                                   \
+        bpf_core_read(&_ret, sizeof(_ret), ctx + arg__##func_name##__##arg_name##__);              \
         _ret;                                                                                      \
     })
 
@@ -42,9 +41,17 @@
 #define RELO_FENTRY_RET_READ(type, func_name)                                                      \
     ({                                                                                             \
         type _ret;                                                                                 \
-        bpf_core_read(&_ret, sizeof(_ret), ctx + ret__##func_name##__);              \
+        bpf_core_read(&_ret, sizeof(_ret), ctx + ret__##func_name##__);                            \
         _ret;                                                                                      \
     })
+
+// From linux/err.h
+#define MAX_ERRNO 4095
+
+static bool IS_ERR_OR_NULL(const void *ptr)
+{
+    return (!ptr) || (unsigned long)ptr >= (unsigned long)-MAX_ERRNO;
+}
 
 static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct *task)
 {

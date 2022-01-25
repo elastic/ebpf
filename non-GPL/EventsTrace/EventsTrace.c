@@ -24,20 +24,23 @@ const char argp_program_doc[] =
     "\n"
     "This program traces Process, Network and File Events\ncoming from the LibEbpfEvents library\n"
     "\n"
-    "USAGE: ./EventsTrace [--all] [--file-delete] [--process-fork] [--process-exec]\n";
+    "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create]\n"
+    "[--process-fork] [--process-exec] [--process-exit] [--process-setsid]\n";
 
 static const struct argp_option opts[] = {
-    {"all", 'a', NULL, false, "Whether or not to consider all the events"},
+    {"all", 'a', NULL, false, "Whether or not to consider all the events", 0},
     {"file-delete", EBPF_EVENT_FILE_DELETE, NULL, false,
-     "Whether or not to consider file delete events"},
+     "Whether or not to consider file delete events", 1},
+    {"file-create", EBPF_EVENT_FILE_CREATE, NULL, false,
+     "Whether or not to consider file create events", 1},
     {"process-fork", EBPF_EVENT_PROCESS_FORK, NULL, false,
-     "Whether or not to consider process fork events"},
+     "Whether or not to consider process fork events", 1},
     {"process-exec", EBPF_EVENT_PROCESS_EXEC, NULL, false,
-     "Whether or not to consider process exec events"},
+     "Whether or not to consider process exec events", 1},
     {"process-exit", EBPF_EVENT_PROCESS_EXIT, NULL, false,
-     "Whether or not to consider process exit events"},
+     "Whether or not to consider process exit events", 1},
     {"process-setsid", EBPF_EVENT_PROCESS_SETSID, NULL, false,
-     "Whether or not to consider process setsid events"},
+     "Whether or not to consider process setsid events", 1},
     {},
 };
 
@@ -50,6 +53,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
         g_events_env = UINT64_MAX;
         break;
     case EBPF_EVENT_FILE_DELETE:
+    case EBPF_EVENT_FILE_CREATE:
     case EBPF_EVENT_PROCESS_FORK:
     case EBPF_EVENT_PROCESS_EXEC:
     case EBPF_EVENT_PROCESS_EXIT:
@@ -196,7 +200,22 @@ static void out_file_delete(struct ebpf_file_delete_event *evt)
     out_event_type("FILE_DELETE");
     out_comma();
 
-    out_pid_info("pid_info", &evt->pids);
+    out_pid_info("pids", &evt->pids);
+    out_comma();
+
+    out_string("path", evt->path);
+
+    out_object_end();
+    out_newline();
+}
+
+static void out_file_create(struct ebpf_file_create_event *evt)
+{
+    out_object_start();
+    out_event_type("FILE_CREATE");
+    out_comma();
+
+    out_pid_info("pids", &evt->pids);
     out_comma();
 
     out_string("path", evt->path);
@@ -280,21 +299,20 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
     case EBPF_EVENT_PROCESS_FORK:
         out_process_fork((struct ebpf_process_fork_event *)evt_hdr);
         break;
-
     case EBPF_EVENT_PROCESS_EXEC:
         out_process_exec((struct ebpf_process_exec_event *)evt_hdr);
         break;
-
     case EBPF_EVENT_PROCESS_EXIT:
         out_process_exit((struct ebpf_process_exit_event *)evt_hdr);
         break;
-
     case EBPF_EVENT_PROCESS_SETSID:
         out_process_setsid((struct ebpf_process_setsid_event *)evt_hdr);
         break;
-
     case EBPF_EVENT_FILE_DELETE:
         out_file_delete((struct ebpf_file_delete_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_FILE_CREATE:
+        out_file_create((struct ebpf_file_create_event *)evt_hdr);
         break;
     }
 
