@@ -14,6 +14,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+
 #define __aligned_u64 __u64 __attribute__((aligned(8)))
 #include <LibEbpfEvents.h>
 
@@ -25,7 +28,8 @@ const char argp_program_doc[] =
     "This program traces Process, Network and File Events\ncoming from the LibEbpfEvents library\n"
     "\n"
     "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename]\n"
-    "[--process-fork] [--process-exec] [--process-exit] [--process-setsid]\n";
+    "[--process-fork] [--process-exec] [--process-exit] [--process-setsid]\n"
+    "[--net-conn-accept]\n";
 
 static const struct argp_option opts[] = {
     {"all", 'a', NULL, false, "Whether or not to consider all the events", 0},
@@ -43,6 +47,8 @@ static const struct argp_option opts[] = {
      "Whether or not to consider process exit events", 1},
     {"process-setsid", EBPF_EVENT_PROCESS_SETSID, NULL, false,
      "Whether or not to consider process setsid events", 1},
+    {"net-conn-accept", EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED, NULL, false,
+     "Whether or not to consider network connection accepted events", 1},
     {},
 };
 
@@ -61,6 +67,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case EBPF_EVENT_PROCESS_EXEC:
     case EBPF_EVENT_PROCESS_EXIT:
     case EBPF_EVENT_PROCESS_SETSID:
+    case EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED:
         g_events_env |= key;
         break;
     case ARGP_KEY_ARG:
@@ -314,6 +321,75 @@ static void out_process_exit(struct ebpf_process_exit_event *evt)
     out_newline();
 }
 
+static void out_ip_addr(const char *name, const void *addr)
+{
+    char buf[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, addr, buf, sizeof(buf));
+    printf("\"%s\":\"%s\"", name, buf);
+}
+
+static void out_ip6_addr(const char *name, const void *addr)
+{
+    char buf[INET6_ADDRSTRLEN];
+    inet_ntop(AF_INET6, addr, buf, sizeof(buf));
+    printf("\"%s\":\"%s\"", name, buf);
+}
+
+static void out_net_info(const char *name, struct ebpf_net_info *net)
+{
+    printf("\"%s\":", name);
+    out_object_start();
+
+    if (net->family == EBPF_NETWORK_EVENT_AF_INET) {
+        out_string("family", "AF_INET");
+        out_comma();
+
+        out_ip_addr("source_address", &net->saddr);
+        out_comma();
+
+        out_int("source_port", net->sport);
+        out_comma();
+
+        out_ip_addr("destination_address", &net->daddr);
+        out_comma();
+
+        out_int("destination_port", net->dport);
+    } else {
+        out_string("family", "AF_INET6");
+
+        out_ip6_addr("source_address", &net->saddr6);
+        out_comma();
+
+        out_int("source_port", net->sport);
+        out_comma();
+
+        out_ip6_addr("destination_address", &net->daddr6);
+        out_comma();
+
+        out_int("destination_port", net->dport);
+    }
+
+    out_comma();
+    out_int("network_namespace", net->netns);
+
+    out_object_end();
+}
+
+static void out_network_connection_accepted(struct ebpf_net_connection_accepted_event *evt)
+{
+    out_object_start();
+    out_event_type("NETWORK_CONNECTION_ACCEPTED");
+    out_comma();
+
+    out_pid_info("pids", &evt->pids);
+    out_comma();
+
+    out_net_info("net", &evt->net);
+
+    out_object_end();
+    out_newline();
+}
+
 static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
 {
     switch (evt_hdr->type) {
@@ -337,6 +413,9 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         break;
     case EBPF_EVENT_FILE_RENAME:
         out_file_rename((struct ebpf_file_rename_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED:
+        out_network_connection_accepted((struct ebpf_net_connection_accepted_event *)evt_hdr);
         break;
     }
 
