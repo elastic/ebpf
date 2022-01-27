@@ -24,13 +24,14 @@
 #endif
 
 enum ebpf_event_type {
-    EBPF_EVENT_PROCESS_FORK   = (1 << 1),
-    EBPF_EVENT_PROCESS_EXEC   = (1 << 2),
-    EBPF_EVENT_PROCESS_EXIT   = (1 << 3),
-    EBPF_EVENT_PROCESS_SETSID = (1 << 4),
-    EBPF_EVENT_FILE_DELETE    = (1 << 5),
-    EBPF_EVENT_FILE_CREATE    = (1 << 6),
-    EBPF_EVENT_FILE_RENAME    = (1 << 7),
+    EBPF_EVENT_PROCESS_FORK                = (1 << 1),
+    EBPF_EVENT_PROCESS_EXEC                = (1 << 2),
+    EBPF_EVENT_PROCESS_EXIT                = (1 << 3),
+    EBPF_EVENT_PROCESS_SETSID              = (1 << 4),
+    EBPF_EVENT_FILE_DELETE                 = (1 << 5),
+    EBPF_EVENT_FILE_CREATE                 = (1 << 6),
+    EBPF_EVENT_FILE_RENAME                 = (1 << 7),
+    EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED = (1 << 8),
 };
 
 struct ebpf_event_header {
@@ -106,6 +107,32 @@ struct ebpf_process_exit_event {
 struct ebpf_process_setsid_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
+} __attribute__((packed));
+
+enum ebpf_net_info_af {
+    EBPF_NETWORK_EVENT_AF_INET  = 1,
+    EBPF_NETWORK_EVENT_AF_INET6 = 2,
+};
+
+struct ebpf_net_info {
+    enum ebpf_net_info_af family;
+    union {
+        uint8_t saddr[4];
+        uint8_t saddr6[16];
+    }; // Network byte order
+    union {
+        uint8_t daddr[4];
+        uint8_t daddr6[16];
+    }; // Network byte order
+    uint16_t sport;
+    uint16_t dport;
+    uint32_t netns;
+} __attribute__((packed));
+
+struct ebpf_net_connection_accepted_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
+    struct ebpf_net_info net;
 } __attribute__((packed));
 
 #endif // EBPF_EVENTPROBE_EBPFEVENTPROTO_H
