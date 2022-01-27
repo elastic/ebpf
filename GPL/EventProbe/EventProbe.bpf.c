@@ -50,7 +50,7 @@ int BPF_PROG(fentry__do_unlinkat)
 SEC("fentry/mnt_want_write")
 int BPF_PROG(fentry__mnt_want_write, struct vfsmount *mnt)
 {
-    struct ebpf_fileevents_state *state;
+    struct ebpf_fileevents_state *state = NULL;
 
     state = ebpf_fileevents_state__get(EBPF_FILEEVENTS_STATE_UNLINK);
     if (state) {
