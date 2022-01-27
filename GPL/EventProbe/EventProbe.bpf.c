@@ -31,12 +31,13 @@
 char LICENSE[] SEC("license") = "GPL";
 
 /* vfs_unlink */
-DECL_RELO_FUNC_ARGUMENT(vfs_unlink, dentry);
-DECL_RELO_FUNC_RET(vfs_unlink);
+DECL_FUNC_ARG(vfs_unlink, dentry);
+DECL_FUNC_RET(vfs_unlink);
 /* vfs_rename */
-DECL_RELO_FUNC_ARGUMENT(vfs_rename, old_dentry);
-DECL_RELO_FUNC_ARGUMENT(vfs_rename, new_dentry);
-DECL_RELO_FUNC_RET(vfs_rename);
+DECL_FUNC_ARG(vfs_rename, old_dentry);
+DECL_FUNC_ARG(vfs_rename, new_dentry);
+DECL_FUNC_RET(vfs_rename);
+DECL_FUNC_ARG_EXISTS(vfs_rename, rd);
 
 SEC("fentry/do_unlinkat")
 int BPF_PROG(fentry__do_unlinkat)
@@ -72,7 +73,7 @@ out:
 SEC("fexit/vfs_unlink")
 int BPF_PROG(fexit__vfs_unlink)
 {
-    int ret = RELO_FENTRY_RET_READ(___type(ret), vfs_unlink);
+    int ret = FUNC_RET_READ(___type(ret), vfs_unlink);
     if (ret != 0)
         goto out;
 
@@ -80,13 +81,13 @@ int BPF_PROG(fexit__vfs_unlink)
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
     struct ebpf_fileevents_state *state = NULL;
-    state = ebpf_fileevents_state__get(EBPF_FILEEVENTS_STATE_UNLINK);
+    state                               = ebpf_fileevents_state__get(EBPF_FILEEVENTS_STATE_UNLINK);
     if (state == NULL) {
         bpf_printk("fexit__vfs_unlink: no state\n");
         goto out;
     }
 
-    de = RELO_FENTRY_ARG_READ(___type(de), vfs_unlink, dentry);
+    de = FUNC_ARG_READ(___type(de), vfs_unlink, dentry);
 
     struct ebpf_file_delete_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event) {
@@ -296,15 +297,15 @@ int BPF_PROG(fentry__vfs_rename)
     }
 
     struct dentry *old_dentry, *new_dentry;
-    if (bpf_core_type_exists(struct renamedata)) {
+    if (FUNC_ARG_EXISTS(vfs_rename, rd)) {
         /* Function arguments have been refactored into struct renamedata */
         struct renamedata *rd = (struct renamedata *)ctx[0];
         old_dentry            = rd->old_dentry;
         new_dentry            = rd->new_dentry;
     } else {
         /* Dentries are accessible from ctx */
-        old_dentry = RELO_FENTRY_ARG_READ(___type(old_dentry), vfs_rename, old_dentry);
-        new_dentry = RELO_FENTRY_ARG_READ(___type(new_dentry), vfs_rename, new_dentry);
+        old_dentry = FUNC_ARG_READ(___type(old_dentry), vfs_rename, old_dentry);
+        new_dentry = FUNC_ARG_READ(___type(new_dentry), vfs_rename, new_dentry);
     }
 
     enum ebpf_fileevents_scratch_key key = EBPF_FILEEVENTS_SCRATCH_KEY_RENAME;
@@ -313,7 +314,7 @@ int BPF_PROG(fentry__vfs_rename)
     if (!s_state) // This is never the case as it's a percpu-array.
         goto out;
 
-    struct task_struct *task = (struct task_struct*) bpf_get_current_task();
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
     struct path p;
     p.mnt    = state->rename.mnt;
@@ -331,7 +332,7 @@ out:
 SEC("fexit/vfs_rename")
 int BPF_PROG(fexit__vfs_rename)
 {
-    int ret = RELO_FENTRY_RET_READ(___type(ret), vfs_rename);
+    int ret = FUNC_RET_READ(___type(ret), vfs_rename);
     if (ret)
         goto out;
 
@@ -352,7 +353,7 @@ int BPF_PROG(fexit__vfs_rename)
     if (!event)
         goto out;
 
-    struct task_struct *task = (struct task_struct*) bpf_get_current_task();
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
     event->hdr.type = EBPF_EVENT_FILE_RENAME;
     event->hdr.ts   = bpf_ktime_get_ns();

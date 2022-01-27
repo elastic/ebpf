@@ -41,7 +41,7 @@ static int ring_buf_cb(void *ctx, void *data, size_t size)
     return 0;
 }
 
-const struct btf_type *resolve_btf_type_by_func_name(struct btf *btf, const char *func_name)
+const struct btf_type *resolve_btf_type_by_func(struct btf *btf, const char *func)
 {
     for (int i = 0; i < btf__type_cnt(btf); i++) {
         int btf_type = btf__resolve_type(btf, i);
@@ -54,7 +54,7 @@ const struct btf_type *resolve_btf_type_by_func_name(struct btf *btf, const char
             continue;
 
         const char *name = btf__name_by_offset(btf, btf_type_ptr->name_off);
-        if (strcmp(name, func_name))
+        if (strcmp(name, func))
             continue;
 
         int proto_btf_type = btf__resolve_type(btf, btf_type_ptr->type);
@@ -73,102 +73,135 @@ out:
 }
 
 /* Find the BTF type relocation index for a named argument of a kernel function */
-static int resolve_btf_func_arg_id(const char *func_name, const char *arg_name)
+static int resolve_btf_func_arg_idx(struct btf *btf, const char *func, const char *arg)
 {
-    int ret = -1;
-    struct btf *btf;
-
-    btf = btf__load_vmlinux_btf();
-
-    if (libbpf_get_error(btf))
-        goto out;
-
-    const struct btf_type *proto_btf_type_ptr = resolve_btf_type_by_func_name(btf, func_name);
+    int ret                                   = -1;
+    const struct btf_type *proto_btf_type_ptr = resolve_btf_type_by_func(btf, func);
     if (!proto_btf_type_ptr)
         goto out;
 
     struct btf_param *params = btf_params(proto_btf_type_ptr);
     for (int j = 0; j < btf_vlen(proto_btf_type_ptr); j++) {
         const char *cur_name = btf__name_by_offset(btf, params[j].name_off);
-        if (strcmp(cur_name, arg_name) == 0) {
+        if (strcmp(cur_name, arg) == 0) {
             ret = j;
             goto out;
         }
     }
 
 out:
-    btf__free(btf);
     return ret;
 }
 
 /* Find the BTF relocation index for a func return value */
-static int resolve_btf_func_ret(const char *func_name)
+static int resolve_btf_func_ret_idx(struct btf *btf, const char *func)
 {
-    int ret = -1;
-    struct btf *btf;
-
-    btf = btf__load_vmlinux_btf();
-
-    if (libbpf_get_error(btf))
-        goto out;
-
-    const struct btf_type *proto_btf_type_ptr = resolve_btf_type_by_func_name(btf, func_name);
+    int ret                                   = -1;
+    const struct btf_type *proto_btf_type_ptr = resolve_btf_type_by_func(btf, func);
     if (!proto_btf_type_ptr)
         goto out;
 
     ret = btf_vlen(proto_btf_type_ptr);
 
 out:
-    btf__free(btf);
     return ret;
 }
 
-#define FILL_FUNCTION_RELO(ctx, func_name, arg_name)                                               \
+/* Check the BTF existence of a (func,arg) tuple */
+static int resolve_btf_func_arg_exists(struct btf *btf, const char *func, const char *arg)
+{
+    int ret                                   = -1;
+    const struct btf_type *proto_btf_type_ptr = resolve_btf_type_by_func(btf, func);
+    if (!proto_btf_type_ptr)
+        goto out;
+
+    struct btf_param *params = btf_params(proto_btf_type_ptr);
+    for (int j = 0; j < btf_vlen(proto_btf_type_ptr); j++) {
+        const char *cur_name = btf__name_by_offset(btf, params[j].name_off);
+        if (strcmp(cur_name, arg) == 0) {
+            ret = 0; // found
+            goto out;
+        }
+    }
+
+    ret = 1; // not found
+
+out:
+    return ret;
+}
+
+/* Given a function name and an argument name, returns the argument index
+ * in the function signature.
+ */
+#define FILL_FUNC_ARG_IDX(ctx, btf, func, arg)                                                     \
     ({                                                                                             \
         int __r = 0;                                                                               \
-        (*ctx)->probe->rodata->arg__##func_name##__##arg_name##__ =                                \
-            resolve_btf_func_arg_id(#func_name, #arg_name);                                        \
-        if ((*ctx)->probe->rodata->arg__##func_name##__##arg_name##__ < 0)                         \
+        (*ctx)->probe->rodata->arg__##func##__##arg##__ =                                          \
+            resolve_btf_func_arg_idx(btf, #func, #arg);                                            \
+        if ((*ctx)->probe->rodata->arg__##func##__##arg##__ < 0)                                   \
             __r = -1;                                                                              \
         __r;                                                                                       \
     })
 
-#define FILL_FUNCTION_RET_RELO(ctx, func_name)                                                     \
+/* Given a function name, returns the "ret" argument index. */
+#define FILL_FUNC_RET_IDX(ctx, btf, func)                                                          \
     ({                                                                                             \
-        int __r                                     = 0;                                           \
-        (*ctx)->probe->rodata->ret__##func_name##__ = resolve_btf_func_ret(#func_name);            \
-        if ((*ctx)->probe->rodata->ret__##func_name##__ < 0)                                       \
+        int __r                                = 0;                                                \
+        (*ctx)->probe->rodata->ret__##func##__ = resolve_btf_func_ret_idx(btf, #func);             \
+        if ((*ctx)->probe->rodata->ret__##func##__ < 0)                                            \
             __r = -1;                                                                              \
         __r;                                                                                       \
+    })
+
+/* Given a function name and an argument name, returns whether the argument
+ * exists or not.
+ */
+#define FILL_FUNC_ARG_EXISTS(ctx, btf, func, arg)                                                  \
+    ({                                                                                             \
+        bool __r = false;                                                                          \
+        int _r   = resolve_btf_func_arg_exists(btf, #func, #arg);                                  \
+        if (_r == 0)                                                                               \
+            __r = true;                                                                            \
+        (*ctx)->probe->rodata->exists__##func##__##arg##__ = __r;                                  \
+        _r;                                                                                        \
     })
 
 /* Fill context relocations for kernel functions
- * You can add additional functions here by using the FILL_FUNCTION_RELO macro
- * Remember to declare it in `EventProbe.bpf.c` using the DECL_RELO_FUNC_ARGUMENT macro
+ * You can add additional functions here by using the macros defined above.
+ *
+ * Rodata constants must be declared in `EventProbe.bpf.c` via the relative helper macros.
  */
 static int fill_ctx_relos(struct ebpf_event_ctx **ctx)
 {
-    int err = 0;
+    int err = -1;
 
-    err = FILL_FUNCTION_RELO(ctx, vfs_unlink, dentry);
+    struct btf *btf;
+    btf = btf__load_vmlinux_btf();
+    if (libbpf_get_error(btf))
+        goto out;
+
+    err = FILL_FUNC_ARG_IDX(ctx, btf, vfs_unlink, dentry);
     if (err)
         goto out;
 
-    err = FILL_FUNCTION_RET_RELO(ctx, vfs_unlink);
+    err = FILL_FUNC_RET_IDX(ctx, btf, vfs_unlink);
     if (err)
         goto out;
 
-    /* The following relocations can fail as they may not exist in recent signatures.
+    /* The following two macros can fail as the arguments may not exist in recent signatures.
      * The indexes will be used only in the case `struct renamedata` is not present.
-     * This is checked at runtime.
      */
-    FILL_FUNCTION_RELO(ctx, vfs_rename, old_dentry);
-    FILL_FUNCTION_RELO(ctx, vfs_rename, new_dentry);
-    err = FILL_FUNCTION_RET_RELO(ctx, vfs_rename);
+    FILL_FUNC_ARG_IDX(ctx, btf, vfs_rename, old_dentry);
+    FILL_FUNC_ARG_IDX(ctx, btf, vfs_rename, new_dentry);
+    err = FILL_FUNC_RET_IDX(ctx, btf, vfs_rename);
+    if (err)
+        goto out;
+    err = FILL_FUNC_ARG_EXISTS(ctx, btf, vfs_rename, rd);
     if (err)
         goto out;
 
 out:
+    btf__free(btf);
     return err;
 }
 
