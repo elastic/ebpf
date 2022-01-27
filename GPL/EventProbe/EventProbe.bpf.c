@@ -337,7 +337,7 @@ int BPF_PROG(fexit__vfs_rename)
         goto out;
 
     struct ebpf_fileevents_state *state = NULL;
-    state = ebpf_fileevents_state__get(EBPF_FILEEVENTS_STATE_RENAME);
+    state                               = ebpf_fileevents_state__get(EBPF_FILEEVENTS_STATE_RENAME);
     if (!state || state->rename.step != RENAME_STATE_PATHS_SET) {
         bpf_printk("fexit__vfs_rename: state missing or incomplete\n");
         goto out;

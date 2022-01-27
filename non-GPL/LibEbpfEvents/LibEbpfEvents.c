@@ -107,29 +107,6 @@ out:
     return ret;
 }
 
-/* Check the BTF existence of a (func,arg) tuple */
-static int resolve_btf_func_arg_exists(struct btf *btf, const char *func, const char *arg)
-{
-    int ret                                   = -1;
-    const struct btf_type *proto_btf_type_ptr = resolve_btf_type_by_func(btf, func);
-    if (!proto_btf_type_ptr)
-        goto out;
-
-    struct btf_param *params = btf_params(proto_btf_type_ptr);
-    for (int j = 0; j < btf_vlen(proto_btf_type_ptr); j++) {
-        const char *cur_name = btf__name_by_offset(btf, params[j].name_off);
-        if (strcmp(cur_name, arg) == 0) {
-            ret = 0; // found
-            goto out;
-        }
-    }
-
-    ret = 1; // not found
-
-out:
-    return ret;
-}
-
 /* Given a function name and an argument name, returns the argument index
  * in the function signature.
  */
@@ -159,8 +136,8 @@ out:
 #define FILL_FUNC_ARG_EXISTS(ctx, btf, func, arg)                                                  \
     ({                                                                                             \
         bool __r = false;                                                                          \
-        int _r   = resolve_btf_func_arg_exists(btf, #func, #arg);                                  \
-        if (_r == 0)                                                                               \
+        int _r   = resolve_btf_func_arg_idx(btf, #func, #arg);                                     \
+        if (_r >= 0)                                                                               \
             __r = true;                                                                            \
         (*ctx)->probe->rodata->exists__##func##__##arg##__ = __r;                                  \
         _r;                                                                                        \
