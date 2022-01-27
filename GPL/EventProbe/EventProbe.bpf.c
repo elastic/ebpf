@@ -79,7 +79,7 @@ int BPF_PROG(fexit__vfs_unlink)
     struct dentry *de        = NULL;
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
-    struct ebpf_fileevents_state *state;
+    struct ebpf_fileevents_state *state = NULL;
     state = ebpf_fileevents_state__get(EBPF_FILEEVENTS_STATE_UNLINK);
     if (state == NULL) {
         bpf_printk("fexit__vfs_unlink: no state\n");
