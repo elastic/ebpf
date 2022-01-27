@@ -165,8 +165,8 @@ out:
 // prone to race conditions. We want to emit an exit event when every single
 // thread in a thread group has exited. If we were to try to detect that by
 // checking task->signal->live == 0 (i.e. check that there are now 0 running
-// thread in the thread group), we would race with a thread exit on another CPU
-// decrementing task->signal->live before the BPF program can check if it
+// threads in the thread group), we would race with a thread exit on another
+// CPU decrementing task->signal->live before the BPF program can check if it
 // is equal to 0.
 //
 // Checking group_dead on taskstats_exit to determine if every thread in a
