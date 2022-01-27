@@ -28,22 +28,24 @@
 #define bpf_printk(fmt, ...)
 #endif
 
-#define DECL_RELO_FUNC_ARGUMENT(func_name, arg_name)                                               \
-    const volatile int arg__##func_name##__##arg_name##__ = 0;
-#define RELO_FENTRY_ARG_READ(type, func_name, arg_name)                                            \
+#define DECL_FUNC_ARG(func, arg) const volatile int arg__##func##__##arg##__ = 0;
+#define FUNC_ARG_READ(type, func, arg)                                                             \
     ({                                                                                             \
         type _ret;                                                                                 \
-        bpf_core_read(&_ret, sizeof(_ret), ctx + arg__##func_name##__##arg_name##__);              \
+        bpf_core_read(&_ret, sizeof(_ret), ctx + arg__##func##__##arg##__);                        \
         _ret;                                                                                      \
     })
 
-#define DECL_RELO_FUNC_RET(func_name) const volatile int ret__##func_name##__ = 0;
-#define RELO_FENTRY_RET_READ(type, func_name)                                                      \
+#define DECL_FUNC_RET(func) const volatile int ret__##func##__ = 0;
+#define FUNC_RET_READ(type, func)                                                                  \
     ({                                                                                             \
         type _ret;                                                                                 \
-        bpf_core_read(&_ret, sizeof(_ret), ctx + ret__##func_name##__);                            \
+        bpf_core_read(&_ret, sizeof(_ret), ctx + ret__##func##__);                                 \
         _ret;                                                                                      \
     })
+
+#define DECL_FUNC_ARG_EXISTS(func, arg) const volatile bool exists__##func##__##arg##__ = false;
+#define FUNC_ARG_EXISTS(func, arg) exists__##func##__##arg##__
 
 // From linux/err.h
 #define MAX_ERRNO 4095
