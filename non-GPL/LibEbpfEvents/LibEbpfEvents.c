@@ -112,21 +112,22 @@ out:
  */
 #define FILL_FUNC_ARG_IDX(ctx, btf, func, arg)                                                     \
     ({                                                                                             \
-        int __r = 0;                                                                               \
-        (*ctx)->probe->rodata->arg__##func##__##arg##__ =                                          \
-            resolve_btf_func_arg_idx(btf, #func, #arg);                                            \
-        if ((*ctx)->probe->rodata->arg__##func##__##arg##__ < 0)                                   \
-            __r = -1;                                                                              \
+        int __r = -1;                                                                              \
+        int r   = resolve_btf_func_arg_idx(btf, #func, #arg);                                      \
+        if (r >= 0)                                                                                \
+            __r = 0;                                                                               \
+        (*ctx)->probe->rodata->arg__##func##__##arg##__ = r;                                       \
         __r;                                                                                       \
     })
 
 /* Given a function name, returns the "ret" argument index. */
 #define FILL_FUNC_RET_IDX(ctx, btf, func)                                                          \
     ({                                                                                             \
-        int __r                                = 0;                                                \
-        (*ctx)->probe->rodata->ret__##func##__ = resolve_btf_func_ret_idx(btf, #func);             \
-        if ((*ctx)->probe->rodata->ret__##func##__ < 0)                                            \
-            __r = -1;                                                                              \
+        int __r = -1;                                                                              \
+        int r   = resolve_btf_func_ret_idx(btf, #func);                                            \
+        if (r >= 0)                                                                                \
+            __r = 0;                                                                               \
+        (*ctx)->probe->rodata->ret__##func##__ = r;                                                \
         __r;                                                                                       \
     })
 
@@ -135,12 +136,13 @@ out:
  */
 #define FILL_FUNC_ARG_EXISTS(ctx, btf, func, arg)                                                  \
     ({                                                                                             \
-        bool __r = false;                                                                          \
-        int _r   = resolve_btf_func_arg_idx(btf, #func, #arg);                                     \
-        if (_r >= 0)                                                                               \
-            __r = true;                                                                            \
-        (*ctx)->probe->rodata->exists__##func##__##arg##__ = __r;                                  \
-        _r;                                                                                        \
+        int __r = -1;                                                                              \
+        int r   = resolve_btf_func_arg_idx(btf, #func, #arg);                                      \
+        if (r >= 0) {                                                                              \
+            (*ctx)->probe->rodata->exists__##func##__##arg##__ = true;                             \
+            __r                                                = 0;                                \
+        }                                                                                          \
+        __r;                                                                                       \
     })
 
 /* Fill context relocations for kernel functions
