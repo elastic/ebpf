@@ -358,8 +358,8 @@ int BPF_PROG(fexit__vfs_rename)
     event->hdr.type = EBPF_EVENT_FILE_RENAME;
     event->hdr.ts   = bpf_ktime_get_ns();
     ebpf_pid_info__fill(&event->pids, task);
-    bpf_probe_read_str(event->old_path, PATH_MAX_BUF, s_state->rename.old_path);
-    bpf_probe_read_str(event->new_path, PATH_MAX_BUF, s_state->rename.new_path);
+    bpf_probe_read_kernel_str(event->old_path, PATH_MAX_BUF, s_state->rename.old_path);
+    bpf_probe_read_kernel_str(event->new_path, PATH_MAX_BUF, s_state->rename.new_path);
 
     bpf_ringbuf_submit(event, 0);
 
