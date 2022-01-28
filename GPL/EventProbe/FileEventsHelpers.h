@@ -61,8 +61,7 @@ struct bpf_map_def SEC("maps") elastic_ebpf_fileevents_state = {
     .max_entries = 4096,
 };
 
-static __always_inline struct ebpf_fileevents_key
-ebpf_fileevents_state__key(enum ebpf_fileevents_state_op op)
+static struct ebpf_fileevents_key ebpf_fileevents_state__key(enum ebpf_fileevents_state_op op)
 {
     struct ebpf_fileevents_key key;
     key.pid_tgid = bpf_get_current_pid_tgid();
@@ -70,15 +69,14 @@ ebpf_fileevents_state__key(enum ebpf_fileevents_state_op op)
     return key;
 }
 
-static __always_inline struct ebpf_fileevents_state *
-ebpf_fileevents_state__get(enum ebpf_fileevents_state_op op)
+static struct ebpf_fileevents_state *ebpf_fileevents_state__get(enum ebpf_fileevents_state_op op)
 {
     struct ebpf_fileevents_key key = ebpf_fileevents_state__key(op);
     return bpf_map_lookup_elem(&elastic_ebpf_fileevents_state, &key);
 }
 
-static __always_inline long ebpf_fileevents_state__set(enum ebpf_fileevents_state_op op,
-                                                       struct ebpf_fileevents_state *state)
+static long ebpf_fileevents_state__set(enum ebpf_fileevents_state_op op,
+                                       struct ebpf_fileevents_state *state)
 {
     struct ebpf_fileevents_key key = ebpf_fileevents_state__key(op);
     return bpf_map_update_elem(&elastic_ebpf_fileevents_state, &key, state, BPF_ANY);
