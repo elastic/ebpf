@@ -167,15 +167,16 @@ static int fill_ctx_relos(struct ebpf_event_ctx **ctx)
     if (err)
         goto out;
 
-    /* The following two macros can fail as the arguments may not exist in recent signatures.
-     * The indexes will be used only in the case `struct renamedata` is not present.
-     */
-    FILL_FUNC_ARG_IDX(ctx, btf, vfs_rename, old_dentry);
-    FILL_FUNC_ARG_IDX(ctx, btf, vfs_rename, new_dentry);
+    if (FILL_FUNC_ARG_EXISTS(ctx, btf, vfs_rename, rd)) {
+        /* We are on a 5.12- kernel */
+        err = FILL_FUNC_ARG_IDX(ctx, btf, vfs_rename, old_dentry);
+        if (err)
+            goto out;
+        err = FILL_FUNC_ARG_IDX(ctx, btf, vfs_rename, new_dentry);
+        if (err)
+            goto out;
+    }
     err = FILL_FUNC_RET_IDX(ctx, btf, vfs_rename);
-    if (err)
-        goto out;
-    err = FILL_FUNC_ARG_EXISTS(ctx, btf, vfs_rename, rd);
     if (err)
         goto out;
 
