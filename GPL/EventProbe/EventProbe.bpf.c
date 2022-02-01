@@ -280,9 +280,17 @@ out:
 SEC("fentry/do_renameat2")
 int BPF_PROG(fentry__do_renameat2)
 {
-    struct ebpf_fileevents_state state = {};
-    state.rename.step                  = RENAME_STATE_INIT;
+    struct ebpf_fileevents_state state = {.rename = {.step = RENAME_STATE_INIT}};
     ebpf_fileevents_state__set(EBPF_FILEEVENTS_STATE_RENAME, &state);
+
+    u32 zero = 0;
+    struct ebpf_fileevents_scratch_state *s_state;
+    s_state = bpf_map_lookup_elem(&elastic_ebpf_fileevents_scratch_space, &zero);
+    if (!s_state)
+        goto out;
+    ebpf_fileevents_scratch_state__set(EBPF_FILEEVENTS_STATE_RENAME, s_state);
+
+out:
     return 0;
 }
 
@@ -308,11 +316,12 @@ int BPF_PROG(fentry__vfs_rename)
         new_dentry = FUNC_ARG_READ(___type(new_dentry), vfs_rename, new_dentry);
     }
 
-    enum ebpf_fileevents_scratch_key key = EBPF_FILEEVENTS_SCRATCH_KEY_RENAME;
     struct ebpf_fileevents_scratch_state *s_state =
-        bpf_map_lookup_elem(&elastic_ebpf_fileevents_scratch_state, &key);
-    if (!s_state) // This is never the case as it's a percpu-array.
+        ebpf_fileevents_scratch_state__get(EBPF_FILEEVENTS_STATE_RENAME);
+    if (!s_state) {
+        bpf_printk("fentry__vfs_rename: scratch state missing\n");
         goto out;
+    }
 
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
@@ -343,11 +352,12 @@ int BPF_PROG(fexit__vfs_rename)
         goto out;
     }
 
-    enum ebpf_fileevents_scratch_key key = EBPF_FILEEVENTS_SCRATCH_KEY_RENAME;
     struct ebpf_fileevents_scratch_state *s_state =
-        bpf_map_lookup_elem(&elastic_ebpf_fileevents_scratch_state, &key);
-    if (!s_state) // This is never the case as it's a percpu-array.
+        ebpf_fileevents_scratch_state__get(EBPF_FILEEVENTS_STATE_RENAME);
+    if (!s_state) {
+        bpf_printk("fexit__vfs_rename: scratch state missing\n");
         goto out;
+    }
 
     struct ebpf_file_rename_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
