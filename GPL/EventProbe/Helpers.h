@@ -53,6 +53,26 @@ static bool IS_ERR_OR_NULL(const void *ptr)
     return (!ptr) || (unsigned long)ptr >= (unsigned long)-MAX_ERRNO;
 }
 
+// Reimplementation of memset:
+//
+// This is necessary because __builtin_memset, if passed a large enough size,
+// will be converted by LLVM to a call to the _library function_ memset, which
+// does not exist in BPF-land. An error that looks like this will be logged at
+// compile-time:
+//
+// error: A call to built-in function 'memset' is not supported.
+//
+// buf _must_ be declared as volatile, otherwise LLVM will decide to convert
+// this entire function to its memset intrinsic (as it does for
+// __builtin_memset when passed a large enough size), which will, when passed
+// to the BPF backend, be converted into a call to the library function memset,
+// and fail for the same reason stated above.
+static void memset(volatile char *buf, char data, size_t size)
+{
+    for (size_t i = 0; i < size; i++)
+        buf[i] = data;
+}
+
 static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct *task)
 {
     unsigned long start, end, size;
@@ -63,6 +83,7 @@ static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct
     size = end - start;
     size = size > buf_size ? buf_size : size;
 
+    memset(buf, '\0', buf_size);
     bpf_probe_read_user(buf, size, (void *)start);
 
     // Prevent final arg from being unterminated if buf is too small for args
@@ -100,6 +121,11 @@ static bool is_kernel_thread(const struct task_struct *task)
 {
     // Session ID is 0 for all kernel threads
     return task->group_leader->signal->pids[PIDTYPE_SID]->numbers[0].nr == 0;
+}
+
+static bool is_thread_group_leader(const struct task_struct *task)
+{
+    return task->pid == task->tgid;
 }
 
 #endif // EBPF_EVENTPROBE_HELPERS_H
