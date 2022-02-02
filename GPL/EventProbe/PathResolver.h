@@ -34,12 +34,12 @@
 #define PATH_RESOLVER_MAX_COMPONENTS 100
 
 // Map used as a scratch area by the path resolver to store intermediate state
-// (dentry pointers). Indexed by CPU number.
+// (dentry pointers).
 struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __type(key, u32);
     __type(value, struct dentry *[PATH_RESOLVER_MAX_COMPONENTS]);
-    __uint(max_entries, 128);
+    __uint(max_entries, 1);
 } path_resolver_scratch_map SEC(".maps");
 
 static void
@@ -68,9 +68,9 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
     struct dentry *curr_dentry = BPF_CORE_READ(path, dentry);
     struct dentry **dentry_arr;
 
-    unsigned long cpu = bpf_get_smp_processor_id();
-    if (!(dentry_arr = bpf_map_lookup_elem(&path_resolver_scratch_map, &cpu))) {
-        bpf_printk("Could not get path resolver scratch area for cpu %d", cpu);
+    u32 zero = 0;
+    if (!(dentry_arr = bpf_map_lookup_elem(&path_resolver_scratch_map, &zero))) {
+        bpf_printk("Could not get path resolver scratch area");
         goto out_err;
     }
 
