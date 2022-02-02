@@ -54,12 +54,12 @@ struct ebpf_fileevents_state {
     };
 };
 
-struct bpf_map_def SEC("maps") elastic_ebpf_fileevents_state = {
-    .type        = BPF_MAP_TYPE_LRU_HASH,
-    .key_size    = sizeof(struct ebpf_fileevents_key),
-    .value_size  = sizeof(struct ebpf_fileevents_state),
-    .max_entries = 4096,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __type(key, struct ebpf_fileevents_key);
+    __type(value, struct ebpf_fileevents_state);
+    __uint(max_entries, 4096);
+} elastic_ebpf_fileevents_state SEC(".maps");
 
 static struct ebpf_fileevents_key ebpf_fileevents_state__key(enum ebpf_fileevents_state_op op)
 {
@@ -99,19 +99,19 @@ struct ebpf_fileevents_scratch_space {
 /* This map is only used to initialize a "ebpf_fileevents_scratch_space" as
  * due to bpf stack size limitations, it can't be done in the program itself.
  */
-struct bpf_map_def SEC("maps") elastic_ebpf_fileevents_init_buffer = {
-    .type        = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size    = sizeof(u32),
-    .value_size  = sizeof(struct ebpf_fileevents_scratch_space),
-    .max_entries = 1,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, u32);
+    __type(value, struct ebpf_fileevents_scratch_space);
+    __uint(max_entries, 1);
+} elastic_ebpf_fileevents_init_buffer SEC(".maps");
 
-struct bpf_map_def SEC("maps") elastic_ebpf_fileevents_scratch_space = {
-    .type        = BPF_MAP_TYPE_LRU_HASH,
-    .key_size    = sizeof(struct ebpf_fileevents_key),
-    .value_size  = sizeof(struct ebpf_fileevents_scratch_space),
-    .max_entries = 512,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __type(key, struct ebpf_fileevents_key);
+    __type(value, struct ebpf_fileevents_scratch_space);
+    __uint(max_entries, 512);
+} elastic_ebpf_fileevents_scratch_space SEC(".maps");
 
 static struct ebpf_fileevents_scratch_space *
 ebpf_fileevents_scratch_space__get(enum ebpf_fileevents_state_op op)

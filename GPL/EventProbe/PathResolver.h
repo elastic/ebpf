@@ -35,12 +35,12 @@
 
 // Map used as a scratch area by the path resolver to store intermediate state
 // (dentry pointers). Indexed by CPU number.
-struct bpf_map_def SEC("maps") path_resolver_scratch_map = {
-    .type        = BPF_MAP_TYPE_ARRAY,
-    .max_entries = 128,
-    .key_size    = sizeof(uint32_t),
-    .value_size  = sizeof(struct dentry *) * PATH_RESOLVER_MAX_COMPONENTS,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __type(key, u32);
+    __type(value, struct dentry *[PATH_RESOLVER_MAX_COMPONENTS]);
+    __uint(max_entries, 128);
+} path_resolver_scratch_map SEC(".maps");
 
 static void
 ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_struct *task)
