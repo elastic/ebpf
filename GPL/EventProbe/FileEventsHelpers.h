@@ -85,48 +85,46 @@ static long ebpf_fileevents_state__set(enum ebpf_fileevents_state_op op,
 #define PATH_MAX 4096
 #define BUF PATH_MAX * 2
 
-struct ebpf_fileevents_rename_scratch_state {
+struct ebpf_fileevents_rename_scratch_space {
     char old_path[BUF];
     char new_path[BUF];
 };
 
-struct ebpf_fileevents_scratch_state {
+struct ebpf_fileevents_scratch_space {
     union {
-        struct ebpf_fileevents_rename_scratch_state rename;
+        struct ebpf_fileevents_rename_scratch_space rename;
     };
 };
 
-/* Use a scratch map to store big objects as a state in
- * prog chains.
- *
- * https://git.kernel.org/pub/scm/linux/kernel/git/netdev/net.git/commit/?id=5722569bb9c3bd922c4f10b5b2912fe88c255312
+/* This map is only used to initialize a "ebpf_fileevents_scratch_space" as
+ * due to bpf stack size limitations, it can't be done in the program itself.
  */
-struct bpf_map_def SEC("maps") elastic_ebpf_fileevents_scratch_space = {
+struct bpf_map_def SEC("maps") elastic_ebpf_fileevents_init_buffer = {
     .type        = BPF_MAP_TYPE_PERCPU_ARRAY,
     .key_size    = sizeof(u32),
-    .value_size  = sizeof(struct ebpf_fileevents_scratch_state),
+    .value_size  = sizeof(struct ebpf_fileevents_scratch_space),
     .max_entries = 1,
 };
 
-struct bpf_map_def SEC("maps") elastic_ebpf_fileevents_scratch_state = {
+struct bpf_map_def SEC("maps") elastic_ebpf_fileevents_scratch_space = {
     .type        = BPF_MAP_TYPE_LRU_HASH,
     .key_size    = sizeof(struct ebpf_fileevents_key),
-    .value_size  = sizeof(struct ebpf_fileevents_scratch_state),
+    .value_size  = sizeof(struct ebpf_fileevents_scratch_space),
     .max_entries = 512,
 };
 
-static struct ebpf_fileevents_scratch_state *
-ebpf_fileevents_scratch_state__get(enum ebpf_fileevents_state_op op)
+static struct ebpf_fileevents_scratch_space *
+ebpf_fileevents_scratch_space__get(enum ebpf_fileevents_state_op op)
 {
     struct ebpf_fileevents_key key = ebpf_fileevents_state__key(op);
-    return bpf_map_lookup_elem(&elastic_ebpf_fileevents_scratch_state, &key);
+    return bpf_map_lookup_elem(&elastic_ebpf_fileevents_scratch_space, &key);
 }
 
-static long ebpf_fileevents_scratch_state__set(enum ebpf_fileevents_state_op op,
-                                               struct ebpf_fileevents_scratch_state *s_state)
+static long ebpf_fileevents_scratch_space__set(enum ebpf_fileevents_state_op op,
+                                               struct ebpf_fileevents_scratch_space *ss)
 {
     struct ebpf_fileevents_key key = ebpf_fileevents_state__key(op);
-    return bpf_map_update_elem(&elastic_ebpf_fileevents_scratch_state, &key, s_state, BPF_ANY);
+    return bpf_map_update_elem(&elastic_ebpf_fileevents_scratch_space, &key, ss, BPF_ANY);
 }
 
 #endif // EBPF_EVENTPROBE_FILEEVENTS_HELPERS_H

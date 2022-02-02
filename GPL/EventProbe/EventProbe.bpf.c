@@ -284,11 +284,11 @@ int BPF_PROG(fentry__do_renameat2)
     ebpf_fileevents_state__set(EBPF_FILEEVENTS_STATE_RENAME, &state);
 
     u32 zero = 0;
-    struct ebpf_fileevents_scratch_state *s_state;
-    s_state = bpf_map_lookup_elem(&elastic_ebpf_fileevents_scratch_space, &zero);
-    if (!s_state)
+    struct ebpf_fileevents_scratch_space *ss =
+        bpf_map_lookup_elem(&elastic_ebpf_fileevents_init_buffer, &zero);
+    if (!ss)
         goto out;
-    ebpf_fileevents_scratch_state__set(EBPF_FILEEVENTS_STATE_RENAME, s_state);
+    ebpf_fileevents_scratch_space__set(EBPF_FILEEVENTS_STATE_RENAME, ss);
 
 out:
     return 0;
@@ -316,10 +316,10 @@ int BPF_PROG(fentry__vfs_rename)
         new_dentry = FUNC_ARG_READ(___type(new_dentry), vfs_rename, new_dentry);
     }
 
-    struct ebpf_fileevents_scratch_state *s_state =
-        ebpf_fileevents_scratch_state__get(EBPF_FILEEVENTS_STATE_RENAME);
-    if (!s_state) {
-        bpf_printk("fentry__vfs_rename: scratch state missing\n");
+    struct ebpf_fileevents_scratch_space *ss =
+        ebpf_fileevents_scratch_space__get(EBPF_FILEEVENTS_STATE_RENAME);
+    if (!ss) {
+        bpf_printk("fentry__vfs_rename: scratch space missing\n");
         goto out;
     }
 
@@ -328,9 +328,9 @@ int BPF_PROG(fentry__vfs_rename)
     struct path p;
     p.mnt    = state->rename.mnt;
     p.dentry = old_dentry;
-    ebpf_resolve_path_to_string(s_state->rename.old_path, &p, task);
+    ebpf_resolve_path_to_string(ss->rename.old_path, &p, task);
     p.dentry = new_dentry;
-    ebpf_resolve_path_to_string(s_state->rename.new_path, &p, task);
+    ebpf_resolve_path_to_string(ss->rename.new_path, &p, task);
 
     state->rename.step = RENAME_STATE_PATHS_SET;
 
@@ -352,10 +352,10 @@ int BPF_PROG(fexit__vfs_rename)
         goto out;
     }
 
-    struct ebpf_fileevents_scratch_state *s_state =
-        ebpf_fileevents_scratch_state__get(EBPF_FILEEVENTS_STATE_RENAME);
-    if (!s_state) {
-        bpf_printk("fexit__vfs_rename: scratch state missing\n");
+    struct ebpf_fileevents_scratch_space *ss =
+        ebpf_fileevents_scratch_space__get(EBPF_FILEEVENTS_STATE_RENAME);
+    if (!ss) {
+        bpf_printk("fexit__vfs_rename: scratch space missing\n");
         goto out;
     }
 
@@ -368,8 +368,8 @@ int BPF_PROG(fexit__vfs_rename)
     event->hdr.type = EBPF_EVENT_FILE_RENAME;
     event->hdr.ts   = bpf_ktime_get_ns();
     ebpf_pid_info__fill(&event->pids, task);
-    bpf_probe_read_kernel_str(event->old_path, PATH_MAX_BUF, s_state->rename.old_path);
-    bpf_probe_read_kernel_str(event->new_path, PATH_MAX_BUF, s_state->rename.new_path);
+    bpf_probe_read_kernel_str(event->old_path, PATH_MAX_BUF, ss->rename.old_path);
+    bpf_probe_read_kernel_str(event->new_path, PATH_MAX_BUF, ss->rename.new_path);
 
     bpf_ringbuf_submit(event, 0);
 
