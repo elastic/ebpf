@@ -17,14 +17,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+
 #include "vmlinux.h"
 
-#include <bpf/bpf_core_read.h>
 #include <bpf/bpf_helpers.h>
-#include <bpf/bpf_tracing.h>
-
-#include "Helpers.h"
-#include "PathResolver.h"
 
 char LICENSE[] SEC("license") = "GPL";
 
@@ -36,6 +32,6 @@ struct {
     __uint(max_entries, 4096 * 64); // todo: Need to verify if 256 kb is what we want
 } ringbuf SEC(".maps");
 
-#include "File/Probe.h"
-#include "Network/Probe.h"
-#include "Process/Probe.h"
+#include "File/Probe.bpf.c"
+#include "Network/Probe.bpf.c"
+#include "Process/Probe.bpf.c"
