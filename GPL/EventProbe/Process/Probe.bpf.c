@@ -18,6 +18,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "vmlinux.h"
+
+#include <bpf/bpf_helpers.h>
+#include <bpf/bpf_core_read.h>
+#include <bpf/bpf_tracing.h>
+
+#include "Helpers.h"
+#include "PathResolver.h"
+
 SEC("tp_btf/sched_process_fork")
 int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct task_struct *child)
 {
