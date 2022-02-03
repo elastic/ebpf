@@ -18,8 +18,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef EBPF_EVENTPROBE_FILEEVENTS_HELPERS_H
-#define EBPF_EVENTPROBE_FILEEVENTS_HELPERS_H
+#ifndef EBPF_EVENTPROBE_FILEEVENTS_STATE_H
+#define EBPF_EVENTPROBE_FILEEVENTS_STATE_H
 
 enum ebpf_fileevents_state_op {
     EBPF_FILEEVENTS_STATE_UNKNOWN = 0,
@@ -127,4 +127,4 @@ static long ebpf_fileevents_scratch_space__set(enum ebpf_fileevents_state_op op,
     return bpf_map_update_elem(&elastic_ebpf_fileevents_scratch_space, &key, ss, BPF_ANY);
 }
 
-#endif // EBPF_EVENTPROBE_FILEEVENTS_HELPERS_H
+#endif // EBPF_EVENTPROBE_FILEEVENTS_STATE_H
