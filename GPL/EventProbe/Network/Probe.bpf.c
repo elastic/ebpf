@@ -28,7 +28,7 @@
 #include "Helpers.h"
 #include "Network.h"
 
-static void __emit_network_event(enum ebpf_event_type typ, struct sock *sk)
+static void network_event_tcp__emit(enum ebpf_event_type typ, struct sock *sk)
 {
     struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
@@ -57,7 +57,8 @@ int BPF_PROG(
     if (!ret)
         goto out;
 
-    __emit_network_event(EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED, ret);
+    network_event_tcp__emit(EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED, ret);
+
 out:
     return 0;
 }
@@ -68,7 +69,8 @@ int BPF_PROG(fexit__tcp_v4_connect, struct sock *sk, struct sockaddr *uaddr, int
     if (ret)
         goto out;
 
-    __emit_network_event(EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED, sk);
+    network_event_tcp__emit(EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED, sk);
+
 out:
     return 0;
 }
@@ -79,7 +81,15 @@ int BPF_PROG(fexit__tcp_v6_connect, struct sock *sk, struct sockaddr *uaddr, int
     if (ret)
         goto out;
 
-    __emit_network_event(EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED, sk);
+    network_event_tcp__emit(EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED, sk);
+
 out:
+    return 0;
+}
+
+SEC("fentry/tcp_close")
+int BPF_PROG(fentry__tcp_close, struct sock *sk, long timeout)
+{
+    network_event_tcp__emit(EBPF_EVENT_NETWORK_CONNECTION_CLOSED, sk);
     return 0;
 }
