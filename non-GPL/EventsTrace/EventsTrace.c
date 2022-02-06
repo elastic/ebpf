@@ -49,6 +49,8 @@ static const struct argp_option opts[] = {
      "Whether or not to consider process setsid events", 1},
     {"net-conn-accept", EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED, NULL, false,
      "Whether or not to consider network connection accepted events", 1},
+    {"net-conn-attempt", EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED, NULL, false,
+     "Whether or not to consider network connection attempted events", 1},
     {},
 };
 
@@ -68,6 +70,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case EBPF_EVENT_PROCESS_EXIT:
     case EBPF_EVENT_PROCESS_SETSID:
     case EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED:
+    case EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED:
         g_events_env |= key;
         break;
     case ARGP_KEY_ARG:
@@ -375,10 +378,10 @@ static void out_net_info(const char *name, struct ebpf_net_info *net)
     out_object_end();
 }
 
-static void out_network_connection_accepted(struct ebpf_net_connection_accepted_event *evt)
+static void out_network_event(const char *name, struct ebpf_net_event *evt)
 {
     out_object_start();
-    out_event_type("NETWORK_CONNECTION_ACCEPTED");
+    out_event_type(name);
     out_comma();
 
     out_pid_info("pids", &evt->pids);
@@ -388,6 +391,16 @@ static void out_network_connection_accepted(struct ebpf_net_connection_accepted_
 
     out_object_end();
     out_newline();
+}
+
+static void out_network_connection_accepted_event(struct ebpf_net_event *evt)
+{
+    out_network_event("NETWORK_CONNECTION_ACCEPTED", evt);
+}
+
+static void out_network_connection_attempted_event(struct ebpf_net_event *evt)
+{
+    out_network_event("NETWORK_CONNECTION_ATTEMPTED", evt);
 }
 
 static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
@@ -415,7 +428,10 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         out_file_rename((struct ebpf_file_rename_event *)evt_hdr);
         break;
     case EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED:
-        out_network_connection_accepted((struct ebpf_net_connection_accepted_event *)evt_hdr);
+        out_network_connection_accepted_event((struct ebpf_net_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED:
+        out_network_connection_attempted_event((struct ebpf_net_event *)evt_hdr);
         break;
     }
 

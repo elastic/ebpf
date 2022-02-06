@@ -24,14 +24,15 @@
 #endif
 
 enum ebpf_event_type {
-    EBPF_EVENT_PROCESS_FORK                = (1 << 1),
-    EBPF_EVENT_PROCESS_EXEC                = (1 << 2),
-    EBPF_EVENT_PROCESS_EXIT                = (1 << 3),
-    EBPF_EVENT_PROCESS_SETSID              = (1 << 4),
-    EBPF_EVENT_FILE_DELETE                 = (1 << 5),
-    EBPF_EVENT_FILE_CREATE                 = (1 << 6),
-    EBPF_EVENT_FILE_RENAME                 = (1 << 7),
-    EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED = (1 << 8),
+    EBPF_EVENT_PROCESS_FORK                 = (1 << 1),
+    EBPF_EVENT_PROCESS_EXEC                 = (1 << 2),
+    EBPF_EVENT_PROCESS_EXIT                 = (1 << 3),
+    EBPF_EVENT_PROCESS_SETSID               = (1 << 4),
+    EBPF_EVENT_FILE_DELETE                  = (1 << 5),
+    EBPF_EVENT_FILE_CREATE                  = (1 << 6),
+    EBPF_EVENT_FILE_RENAME                  = (1 << 7),
+    EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED  = (1 << 8),
+    EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED = (1 << 9),
 };
 
 struct ebpf_event_header {
@@ -129,7 +130,7 @@ struct ebpf_net_info {
     uint32_t netns;
 } __attribute__((packed));
 
-struct ebpf_net_connection_accepted_event {
+struct ebpf_net_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
     struct ebpf_net_info net;
