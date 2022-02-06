@@ -29,7 +29,7 @@ const char argp_program_doc[] =
     "\n"
     "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename]\n"
     "[--process-fork] [--process-exec] [--process-exit] [--process-setsid]\n"
-    "[--net-conn-accept]\n";
+    "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n";
 
 static const struct argp_option opts[] = {
     {"all", 'a', NULL, false, "Whether or not to consider all the events", 0},
@@ -51,6 +51,8 @@ static const struct argp_option opts[] = {
      "Whether or not to consider network connection accepted events", 1},
     {"net-conn-attempt", EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED, NULL, false,
      "Whether or not to consider network connection attempted events", 1},
+    {"net-conn-closed", EBPF_EVENT_NETWORK_CONNECTION_CLOSED, NULL, false,
+     "Whether or not to consider network connection closed events", 1},
     {},
 };
 
@@ -71,6 +73,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case EBPF_EVENT_PROCESS_SETSID:
     case EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED:
     case EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED:
+    case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
         g_events_env |= key;
         break;
     case ARGP_KEY_ARG:
@@ -403,6 +406,11 @@ static void out_network_connection_attempted_event(struct ebpf_net_event *evt)
     out_network_event("NETWORK_CONNECTION_ATTEMPTED", evt);
 }
 
+static void out_network_connection_closed_event(struct ebpf_net_event *evt)
+{
+    out_network_event("NETWORK_CONNECTION_CLOSED", evt);
+}
+
 static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
 {
     switch (evt_hdr->type) {
@@ -432,6 +440,9 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         break;
     case EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED:
         out_network_connection_attempted_event((struct ebpf_net_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
+        out_network_connection_closed_event((struct ebpf_net_event *)evt_hdr);
         break;
     }
 

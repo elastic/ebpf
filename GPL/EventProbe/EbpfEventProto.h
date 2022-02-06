@@ -33,6 +33,7 @@ enum ebpf_event_type {
     EBPF_EVENT_FILE_RENAME                  = (1 << 7),
     EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED  = (1 << 8),
     EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED = (1 << 9),
+    EBPF_EVENT_NETWORK_CONNECTION_CLOSED    = (1 << 10),
 };
 
 struct ebpf_event_header {
