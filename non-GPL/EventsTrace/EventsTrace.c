@@ -341,8 +341,10 @@ static void out_ip6_addr(const char *name, const void *addr)
     printf("\"%s\":\"%s\"", name, buf);
 }
 
-static void out_net_info(const char *name, struct ebpf_net_info *net)
+static void out_net_info(const char *name, struct ebpf_net_event *evt)
 {
+    struct ebpf_net_info *net = &evt->net;
+
     printf("\"%s\":", name);
     out_object_start();
 
@@ -378,6 +380,14 @@ static void out_net_info(const char *name, struct ebpf_net_info *net)
     out_comma();
     out_int("network_namespace", net->netns);
 
+    if (evt->hdr.type == EBPF_EVENT_NETWORK_CONNECTION_CLOSED) {
+        out_comma();
+        out_int("bytes_sent", net->tcp.close.bytes_sent);
+
+        out_comma();
+        out_int("bytes_received", net->tcp.close.bytes_received);
+    }
+
     out_object_end();
 }
 
@@ -390,7 +400,10 @@ static void out_network_event(const char *name, struct ebpf_net_event *evt)
     out_pid_info("pids", &evt->pids);
     out_comma();
 
-    out_net_info("net", &evt->net);
+    out_net_info("net", evt);
+    out_comma();
+
+    out_string("comm", (const char *)&evt->comm);
 
     out_object_end();
     out_newline();
