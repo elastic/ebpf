@@ -116,6 +116,11 @@ enum ebpf_net_info_af {
     EBPF_NETWORK_EVENT_AF_INET6 = 2,
 };
 
+struct ebpf_net_info_tcp_close {
+    uint64_t bytes_sent;
+    uint64_t bytes_received;
+} __attribute__((packed));
+
 struct ebpf_net_info {
     enum ebpf_net_info_af family;
     union {
@@ -129,12 +134,16 @@ struct ebpf_net_info {
     uint16_t sport;
     uint16_t dport;
     uint32_t netns;
+    union {
+        struct ebpf_net_info_tcp_close close;
+    } tcp;
 } __attribute__((packed));
 
 struct ebpf_net_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
     struct ebpf_net_info net;
+    char comm[16]; // TASK_COMM_LEN
 } __attribute__((packed));
 
 #endif // EBPF_EVENTPROBE_EBPFEVENTPROTO_H

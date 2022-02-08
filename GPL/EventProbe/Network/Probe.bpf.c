@@ -30,17 +30,21 @@
 
 static void network_event_tcp__emit(enum ebpf_event_type typ, struct sock *sk)
 {
+    if (sk->sk_protocol != IPPROTO_TCP)
+        goto out;
+
     struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;
 
-    if (ebpf_sock_info__fill(&event->net, sk)) {
+    if (ebpf_sock_info__fill(typ, &event->net, sk)) {
         bpf_ringbuf_discard(event, 0);
         goto out;
     }
 
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     ebpf_pid_info__fill(&event->pids, task);
+    bpf_get_current_comm(event->comm, 16);
     event->hdr.ts   = bpf_ktime_get_ns();
     event->hdr.type = typ;
 

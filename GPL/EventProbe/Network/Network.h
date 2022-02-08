@@ -25,7 +25,8 @@
 #define AF_INET 2
 #define AF_INET6 10
 
-static int ebpf_sock_info__fill(struct ebpf_net_info *net, struct sock *sk)
+static int
+ebpf_sock_info__fill(enum ebpf_event_type typ, struct ebpf_net_info *net, struct sock *sk)
 {
     int err = 0;
 
@@ -72,6 +73,12 @@ static int ebpf_sock_info__fill(struct ebpf_net_info *net, struct sock *sk)
     u16 dport              = BPF_CORE_READ(sk, __sk_common.skc_dport);
     net->dport             = bpf_ntohs(dport);
     net->netns             = BPF_CORE_READ(sk, __sk_common.skc_net.net, ns.inum);
+
+    if (typ == EBPF_EVENT_NETWORK_CONNECTION_CLOSED) {
+        struct tcp_sock *tp           = (struct tcp_sock *)sk;
+        net->tcp.close.bytes_sent     = BPF_CORE_READ(tp, bytes_sent);
+        net->tcp.close.bytes_received = BPF_CORE_READ(tp, bytes_received);
+    }
 
 out:
     return err;
