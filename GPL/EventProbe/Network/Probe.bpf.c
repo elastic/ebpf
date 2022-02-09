@@ -87,6 +87,10 @@ int BPF_PROG(fexit__tcp_v6_connect, struct sock *sk, struct sockaddr *uaddr, int
 SEC("fentry/tcp_close")
 int BPF_PROG(fentry__tcp_close, struct sock *sk, long timeout)
 {
+    unsigned char state = BPF_CORE_READ(sk, __sk_common.skc_state);
+    if (state == TCP_CLOSE)
+        goto out;
+
     struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;
