@@ -28,32 +28,6 @@
 #include "Helpers.h"
 #include "Network.h"
 
-static void network_event_tcp__emit(enum ebpf_event_type typ, struct sock *sk)
-{
-    if (sk->sk_protocol != IPPROTO_TCP)
-        goto out;
-
-    struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
-    if (!event)
-        goto out;
-
-    if (ebpf_sock_info__fill(typ, &event->net, sk)) {
-        bpf_ringbuf_discard(event, 0);
-        goto out;
-    }
-
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    ebpf_pid_info__fill(&event->pids, task);
-    bpf_get_current_comm(event->comm, 16);
-    event->hdr.ts   = bpf_ktime_get_ns();
-    event->hdr.type = typ;
-
-    bpf_ringbuf_submit(event, 0);
-
-out:
-    return;
-}
-
 SEC("fexit/inet_csk_accept")
 int BPF_PROG(
     fexit__inet_csk_accept, struct sock *sk, int flags, int *err, bool kern, struct sock *ret)
@@ -61,7 +35,38 @@ int BPF_PROG(
     if (!ret)
         goto out;
 
-    network_event_tcp__emit(EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED, ret);
+    struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    if (!event)
+        goto out;
+
+    if (ebpf_network_event__fill(event, ret)) {
+        bpf_ringbuf_discard(event, 0);
+        goto out;
+    }
+
+    event->hdr.type = EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED;
+    bpf_ringbuf_submit(event, 0);
+
+out:
+    return 0;
+}
+
+static int tcp_connect(struct sock *sk, int ret)
+{
+    if (ret)
+        goto out;
+
+    struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    if (!event)
+        goto out;
+
+    if (ebpf_network_event__fill(event, sk)) {
+        bpf_ringbuf_discard(event, 0);
+        goto out;
+    }
+
+    event->hdr.type = EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED;
+    bpf_ringbuf_submit(event, 0);
 
 out:
     return 0;
@@ -70,30 +75,34 @@ out:
 SEC("fexit/tcp_v4_connect")
 int BPF_PROG(fexit__tcp_v4_connect, struct sock *sk, struct sockaddr *uaddr, int addr_len, int ret)
 {
-    if (ret)
-        goto out;
-
-    network_event_tcp__emit(EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED, sk);
-
-out:
-    return 0;
+    return tcp_connect(sk, ret);
 }
 
 SEC("fexit/tcp_v6_connect")
 int BPF_PROG(fexit__tcp_v6_connect, struct sock *sk, struct sockaddr *uaddr, int addr_len, int ret)
 {
-    if (ret)
-        goto out;
-
-    network_event_tcp__emit(EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED, sk);
-
-out:
-    return 0;
+    return tcp_connect(sk, ret);
 }
 
 SEC("fentry/tcp_close")
 int BPF_PROG(fentry__tcp_close, struct sock *sk, long timeout)
 {
-    network_event_tcp__emit(EBPF_EVENT_NETWORK_CONNECTION_CLOSED, sk);
+    struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    if (!event)
+        goto out;
+
+    if (ebpf_network_event__fill(event, sk)) {
+        bpf_ringbuf_discard(event, 0);
+        goto out;
+    }
+
+    struct tcp_sock *tp                 = (struct tcp_sock *)sk;
+    event->net.tcp.close.bytes_sent     = BPF_CORE_READ(tp, bytes_sent);
+    event->net.tcp.close.bytes_received = BPF_CORE_READ(tp, bytes_received);
+
+    event->hdr.type = EBPF_EVENT_NETWORK_CONNECTION_CLOSED;
+    bpf_ringbuf_submit(event, 0);
+
+out:
     return 0;
 }
