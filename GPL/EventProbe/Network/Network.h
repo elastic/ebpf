@@ -25,8 +25,7 @@
 #define AF_INET 2
 #define AF_INET6 10
 
-static int
-ebpf_sock_info__fill(enum ebpf_event_type typ, struct ebpf_net_info *net, struct sock *sk)
+static int ebpf_sock_info__fill(struct ebpf_net_info *net, struct sock *sk)
 {
     int err = 0;
 
@@ -74,11 +73,32 @@ ebpf_sock_info__fill(enum ebpf_event_type typ, struct ebpf_net_info *net, struct
     net->dport             = bpf_ntohs(dport);
     net->netns             = BPF_CORE_READ(sk, __sk_common.skc_net.net, ns.inum);
 
-    if (typ == EBPF_EVENT_NETWORK_CONNECTION_CLOSED) {
-        struct tcp_sock *tp           = (struct tcp_sock *)sk;
-        net->tcp.close.bytes_sent     = BPF_CORE_READ(tp, bytes_sent);
-        net->tcp.close.bytes_received = BPF_CORE_READ(tp, bytes_received);
+    switch (sk->sk_protocol) {
+    case IPPROTO_TCP:
+        net->transport = EBPF_NETWORK_EVENT_TRANSPORT_TCP;
+        break;
+    default:
+        err = -1;
+        goto out;
     }
+
+out:
+    return err;
+}
+
+static int ebpf_network_event__fill(struct ebpf_net_event *evt, struct sock *sk)
+{
+    int err = 0;
+
+    if (ebpf_sock_info__fill(&evt->net, sk)) {
+        err = -1;
+        goto out;
+    }
+
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    ebpf_pid_info__fill(&evt->pids, task);
+    bpf_get_current_comm(evt->comm, 16);
+    evt->hdr.ts = bpf_ktime_get_ns();
 
 out:
     return err;

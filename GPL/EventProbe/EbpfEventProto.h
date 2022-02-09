@@ -111,6 +111,10 @@ struct ebpf_process_setsid_event {
     struct ebpf_pid_info pids;
 } __attribute__((packed));
 
+enum ebpf_net_info_transport {
+    EBPF_NETWORK_EVENT_TRANSPORT_TCP = 1,
+};
+
 enum ebpf_net_info_af {
     EBPF_NETWORK_EVENT_AF_INET  = 1,
     EBPF_NETWORK_EVENT_AF_INET6 = 2,
@@ -122,6 +126,7 @@ struct ebpf_net_info_tcp_close {
 } __attribute__((packed));
 
 struct ebpf_net_info {
+    enum ebpf_net_info_transport transport;
     enum ebpf_net_info_af family;
     union {
         uint8_t saddr[4];

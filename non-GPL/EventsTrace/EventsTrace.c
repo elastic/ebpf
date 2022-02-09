@@ -348,7 +348,15 @@ static void out_net_info(const char *name, struct ebpf_net_event *evt)
     printf("\"%s\":", name);
     out_object_start();
 
-    if (net->family == EBPF_NETWORK_EVENT_AF_INET) {
+    switch (net->transport) {
+    case EBPF_NETWORK_EVENT_TRANSPORT_TCP:
+        out_string("transport", "TCP");
+        out_comma();
+        break;
+    }
+
+    switch (net->family) {
+    case EBPF_NETWORK_EVENT_AF_INET:
         out_string("family", "AF_INET");
         out_comma();
 
@@ -362,7 +370,8 @@ static void out_net_info(const char *name, struct ebpf_net_event *evt)
         out_comma();
 
         out_int("destination_port", net->dport);
-    } else {
+        break;
+    case EBPF_NETWORK_EVENT_AF_INET6:
         out_string("family", "AF_INET6");
 
         out_ip6_addr("source_address", &net->saddr6);
@@ -375,17 +384,20 @@ static void out_net_info(const char *name, struct ebpf_net_event *evt)
         out_comma();
 
         out_int("destination_port", net->dport);
+        break;
     }
 
     out_comma();
     out_int("network_namespace", net->netns);
 
-    if (evt->hdr.type == EBPF_EVENT_NETWORK_CONNECTION_CLOSED) {
+    switch (evt->hdr.type) {
+    case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
         out_comma();
         out_int("bytes_sent", net->tcp.close.bytes_sent);
 
         out_comma();
         out_int("bytes_received", net->tcp.close.bytes_received);
+        break;
     }
 
     out_object_end();
