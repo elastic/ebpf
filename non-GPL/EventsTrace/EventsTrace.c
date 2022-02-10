@@ -393,10 +393,10 @@ static void out_net_info(const char *name, struct ebpf_net_event *evt)
     switch (evt->hdr.type) {
     case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
         out_comma();
-        out_int("bytes_sent", net->tcp.close.bytes_sent);
+        out_uint("bytes_sent", net->tcp.close.bytes_sent);
 
         out_comma();
-        out_int("bytes_received", net->tcp.close.bytes_received);
+        out_uint("bytes_received", net->tcp.close.bytes_received);
         break;
     }
 

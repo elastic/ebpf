@@ -136,8 +136,8 @@ struct ebpf_net_info {
         uint8_t daddr[4];
         uint8_t daddr6[16];
     }; // Network byte order
-    uint16_t sport;
-    uint16_t dport;
+    uint16_t sport; // Host byte order
+    uint16_t dport; // Host byte order
     uint32_t netns;
     union {
         struct ebpf_net_info_tcp_close close;
