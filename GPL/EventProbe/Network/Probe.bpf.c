@@ -87,10 +87,6 @@ int BPF_PROG(fexit__tcp_v6_connect, struct sock *sk, struct sockaddr *uaddr, int
 SEC("fentry/tcp_close")
 int BPF_PROG(fentry__tcp_close, struct sock *sk, long timeout)
 {
-    unsigned char state = BPF_CORE_READ(sk, __sk_common.skc_state);
-    if (state == TCP_CLOSE)
-        goto out;
-
     struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;
@@ -100,9 +96,18 @@ int BPF_PROG(fentry__tcp_close, struct sock *sk, long timeout)
         goto out;
     }
 
-    struct tcp_sock *tp                 = (struct tcp_sock *)sk;
-    event->net.tcp.close.bytes_sent     = BPF_CORE_READ(tp, bytes_sent);
-    event->net.tcp.close.bytes_received = BPF_CORE_READ(tp, bytes_received);
+    struct tcp_sock *tp = (struct tcp_sock *)sk;
+    u64 bytes_sent      = BPF_CORE_READ(tp, bytes_sent);
+    u64 bytes_received  = BPF_CORE_READ(tp, bytes_received);
+
+    if (!bytes_sent && !bytes_received) {
+        // Uninteresting event, most likely unbound or unconnected socket.
+        bpf_ringbuf_discard(event, 0);
+        goto out;
+    }
+
+    event->net.tcp.close.bytes_sent     = bytes_sent;
+    event->net.tcp.close.bytes_received = bytes_received;
 
     event->hdr.type = EBPF_EVENT_NETWORK_CONNECTION_CLOSED;
     bpf_ringbuf_submit(event, 0);
