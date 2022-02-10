@@ -51,11 +51,12 @@ message(STATUS "Including: ${EVENTS_PROBE_INCLUDES}")
 set(EVENTS_PROBE_BPF_OUTPUT ${TARGET_EBPF_DIR}/EventProbe.bpf.o)
 add_custom_command(OUTPUT ${EVENTS_PROBE_BPF_OUTPUT}
                   COMMAND ${EBPF_EXTERNAL_ENV_FLAGS} ${CLANG} ${EVENTS_PROBE_CFLAGS} -c ${EVENTS_PROBE_SOURCES} -o ${EVENTS_PROBE_BPF_OUTPUT}
+                  COMMAND ${LLVM_STRIP} -d -g -S ${EVENTS_PROBE_BPF_OUTPUT}
                   DEPENDS libbpf
                   DEPFILE ${EVENTS_PROBE_DEPFILE}
                   COMMENT "[bpf] building ${EVENTS_PROBE_BPF_OUTPUT}")
 
-add_custom_target(BPFEventProbe ALL DEPENDS ${TARGET_EBPF_DIR}/EventProbe.bpf.o)
+add_custom_target(BPFEventProbe ALL DEPENDS ${EVENTS_PROBE_BPF_OUTPUT})
 
 # BPF_PROG_TEST_RUN gtests
 add_executable(BPFEventsTests BPFEventsTests.cpp ${GTEST_MAIN})

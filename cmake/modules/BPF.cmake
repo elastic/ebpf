@@ -9,6 +9,7 @@
 # Tools and defines
 set(CLANG "clang")
 set(LLC "llc")
+set(LLVM_STRIP "llvm-strip")
 set(BPFTOOL "bpftool")
 set(BTF_FILE "/sys/kernel/btf/vmlinux")
 option(USE_BUILTIN_VMLINUX "Whether or not to use the builtin vmlinux.h for building the BPF programs instead of trying to generate one from the system" False)
