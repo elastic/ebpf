@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-Elastic-License-2.0
+// SPDX-License-Identifier: GPL-2.0-only OR Elastic-2.0
 
 /*
  * Copyright 2021 Elasticsearch BV
