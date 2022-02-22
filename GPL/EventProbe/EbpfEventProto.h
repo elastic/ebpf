@@ -1,6 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0 OR LicenseRef-Elastic-License-2.0
+// SPDX-License-Identifier: GPL-2.0-only OR Elastic-2.0
 
 /*
+ * Copyright 2021 Elasticsearch BV
+ *
  * This file is dual-licensed under the GNU General Public License version 2
  * and the Elastic License 2.0. You may choose either one of them if you use
  * this file.
