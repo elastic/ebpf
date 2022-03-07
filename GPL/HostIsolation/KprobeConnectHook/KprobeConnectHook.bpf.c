@@ -17,7 +17,6 @@
  * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-
 // Host Isolation - this eBPF program hooks into tcp_v4_connect kprobe and adds
 // entries to the IP allowlist if an allowed process tries to initiate a
 // connection.

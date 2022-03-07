@@ -157,3 +157,47 @@ int tracepoint_syscalls_sys_exit_setsid(struct trace_event_raw_sys_exit *args)
 out:
     return 0;
 }
+
+SEC("fentry/commit_creds")
+int BPF_PROG(fentry__commit_creds, struct cred *new)
+{
+    const struct task_struct *task = (struct task_struct *)bpf_get_current_task_btf();
+    const struct cred *old         = task->real_cred;
+
+    // NB: We check for a changed fsuid/fsgid despite not sending it up.  This
+    // keeps this implementation in-line with the existing endpoint behaviour
+    // for the kprobes/tracefs events implementation.
+
+    if (new->uid.val != old->uid.val || new->euid.val != old->euid.val ||
+        new->suid.val != old->suid.val || new->fsuid.val != old->fsuid.val) {
+
+        struct ebpf_process_setuid_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+        if (!event)
+            goto out;
+
+        event->hdr.type = EBPF_EVENT_PROCESS_SETUID;
+        event->hdr.ts   = bpf_ktime_get_ns();
+
+        ebpf_pid_info__fill(&event->pids, task);
+        ebpf_cred_info__fill(&event->creds, task);
+        bpf_ringbuf_submit(event, 0);
+    }
+
+    if (new->gid.val != old->gid.val || new->egid.val != old->egid.val ||
+        new->sgid.val != old->sgid.val || new->fsgid.val != old->fsgid.val) {
+
+        struct ebpf_process_setuid_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+        if (!event)
+            goto out;
+
+        event->hdr.type = EBPF_EVENT_PROCESS_SETGID;
+        event->hdr.ts   = bpf_ktime_get_ns();
+
+        ebpf_pid_info__fill(&event->pids, task);
+        ebpf_cred_info__fill(&event->creds, task);
+        bpf_ringbuf_submit(event, 0);
+    }
+
+out:
+    return 0;
+}

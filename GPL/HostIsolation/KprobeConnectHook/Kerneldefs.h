@@ -17,7 +17,6 @@
  * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-
 typedef signed char __s8;
 
 typedef unsigned char __u8;
