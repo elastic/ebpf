@@ -28,7 +28,8 @@ const char argp_program_doc[] =
     "This program traces Process, Network and File Events\ncoming from the LibEbpfEvents library\n"
     "\n"
     "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename]\n"
-    "[--process-fork] [--process-exec] [--process-exit] [--process-setsid]\n"
+    "[--process-fork] [--process-exec] [--process-exit] [--process-setsid] [--process-setuid] "
+    "[--process-setgid]\n"
     "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n";
 
 static const struct argp_option opts[] = {
@@ -47,6 +48,10 @@ static const struct argp_option opts[] = {
      "Whether or not to consider process exit events", 1},
     {"process-setsid", EBPF_EVENT_PROCESS_SETSID, NULL, false,
      "Whether or not to consider process setsid events", 1},
+    {"process-setuid", EBPF_EVENT_PROCESS_SETUID, NULL, false,
+     "Whether or not to consider process setuid events", 1},
+    {"process-setgid", EBPF_EVENT_PROCESS_SETGID, NULL, false,
+     "Whether or not to consider process setgid events", 1},
     {"net-conn-accept", EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED, NULL, false,
      "Whether or not to consider network connection accepted events", 1},
     {"net-conn-attempt", EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED, NULL, false,
@@ -71,6 +76,8 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case EBPF_EVENT_PROCESS_EXEC:
     case EBPF_EVENT_PROCESS_EXIT:
     case EBPF_EVENT_PROCESS_SETSID:
+    case EBPF_EVENT_PROCESS_SETUID:
+    case EBPF_EVENT_PROCESS_SETGID:
     case EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED:
     case EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED:
     case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
@@ -312,6 +319,34 @@ static void out_process_setsid(struct ebpf_process_setsid_event *evt)
     out_newline();
 }
 
+static void out_process_setuid(struct ebpf_process_setuid_event *evt)
+{
+    out_object_start();
+    out_event_type("PROCESS_SETUID");
+    out_comma();
+
+    out_pid_info("pids", &evt->pids);
+    out_comma();
+    out_cred_info("cred", &evt->creds);
+
+    out_object_end();
+    out_newline();
+}
+
+static void out_process_setgid(struct ebpf_process_setgid_event *evt)
+{
+    out_object_start();
+    out_event_type("PROCESS_SETGID");
+    out_comma();
+
+    out_pid_info("pids", &evt->pids);
+    out_comma();
+    out_cred_info("cred", &evt->creds);
+
+    out_object_end();
+    out_newline();
+}
+
 static void out_process_exit(struct ebpf_process_exit_event *evt)
 {
     out_object_start();
@@ -450,6 +485,12 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         break;
     case EBPF_EVENT_PROCESS_SETSID:
         out_process_setsid((struct ebpf_process_setsid_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_PROCESS_SETUID:
+        out_process_setuid((struct ebpf_process_setuid_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_PROCESS_SETGID:
+        out_process_setgid((struct ebpf_process_setgid_event *)evt_hdr);
         break;
     case EBPF_EVENT_FILE_DELETE:
         out_file_delete((struct ebpf_file_delete_event *)evt_hdr);

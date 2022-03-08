@@ -135,7 +135,7 @@ out:
 SEC("tracepoint/syscalls/sys_exit_setsid")
 int tracepoint_syscalls_sys_exit_setsid(struct trace_event_raw_sys_exit *args)
 {
-    const struct task_struct *task = (struct task_struct *)bpf_get_current_task_btf();
+    const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
     if (is_kernel_thread(task))
         goto out;
@@ -153,6 +153,54 @@ int tracepoint_syscalls_sys_exit_setsid(struct trace_event_raw_sys_exit *args)
     ebpf_pid_info__fill(&event->pids, task);
 
     bpf_ringbuf_submit(event, 0);
+
+out:
+    return 0;
+}
+
+SEC("fentry/commit_creds")
+int BPF_PROG(fentry__commit_creds, struct cred *new)
+{
+    const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    const struct cred *old         = BPF_CORE_READ(task, real_cred);
+
+    // NB: We check for a changed fsuid/fsgid despite not sending it up.  This
+    // keeps this implementation in-line with the existing endpoint behaviour
+    // for the kprobes/tracefs events implementation.
+
+    if (BPF_CORE_READ(new, uid.val) != BPF_CORE_READ(old, uid.val) ||
+        BPF_CORE_READ(new, euid.val) != BPF_CORE_READ(old, euid.val) ||
+        BPF_CORE_READ(new, suid.val) != BPF_CORE_READ(old, suid.val) ||
+        BPF_CORE_READ(new, fsuid.val) != BPF_CORE_READ(old, fsuid.val)) {
+
+        struct ebpf_process_setuid_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+        if (!event)
+            goto out;
+
+        event->hdr.type = EBPF_EVENT_PROCESS_SETUID;
+        event->hdr.ts   = bpf_ktime_get_ns();
+
+        ebpf_pid_info__fill(&event->pids, task);
+        ebpf_cred_info__fill(&event->creds, task);
+        bpf_ringbuf_submit(event, 0);
+    }
+
+    if (BPF_CORE_READ(new, gid.val) != BPF_CORE_READ(old, gid.val) ||
+        BPF_CORE_READ(new, egid.val) != BPF_CORE_READ(old, egid.val) ||
+        BPF_CORE_READ(new, sgid.val) != BPF_CORE_READ(old, sgid.val) ||
+        BPF_CORE_READ(new, fsgid.val) != BPF_CORE_READ(old, fsgid.val)) {
+
+        struct ebpf_process_setgid_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+        if (!event)
+            goto out;
+
+        event->hdr.type = EBPF_EVENT_PROCESS_SETGID;
+        event->hdr.ts   = bpf_ktime_get_ns();
+
+        ebpf_pid_info__fill(&event->pids, task);
+        ebpf_cred_info__fill(&event->creds, task);
+        bpf_ringbuf_submit(event, 0);
+    }
 
 out:
     return 0;

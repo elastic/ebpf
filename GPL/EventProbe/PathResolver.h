@@ -65,15 +65,6 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
     long size      = 0;
     bool truncated = true;
 
-    // This function uses BPF_CORE_READ instead of raw kernel memory accesses
-    // throughout. This is due to the pointer arithmentic below with
-    // container_of (see note about struct mount below). BTF type information
-    // is lost when we use container_of to access the struct mount, so we can't
-    // use raw kernel memory dereferences.
-    //
-    // While we still have BTF information for task and other structs in this
-    // function, BPF_CORE_READ is used for all of them too for uniformity and
-    // simplicity.
     struct fs_struct *fs_struct    = BPF_CORE_READ(task, fs);
     struct path root               = BPF_CORE_READ(fs_struct, root);
     struct vfsmount *curr_vfsmount = BPF_CORE_READ(path, mnt);

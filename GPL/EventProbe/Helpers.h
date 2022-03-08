@@ -110,18 +110,18 @@ static void ebpf_pid_info__fill(struct ebpf_pid_info *pi, const struct task_stru
 
 static void ebpf_cred_info__fill(struct ebpf_cred_info *ci, const struct task_struct *task)
 {
-    ci->ruid = task->cred->uid.val;
-    ci->euid = task->cred->euid.val;
-    ci->suid = task->cred->suid.val;
-    ci->rgid = task->cred->gid.val;
-    ci->egid = task->cred->egid.val;
-    ci->sgid = task->cred->sgid.val;
+    ci->ruid = BPF_CORE_READ(task, cred, uid.val);
+    ci->euid = BPF_CORE_READ(task, cred, euid.val);
+    ci->suid = BPF_CORE_READ(task, cred, suid.val);
+    ci->rgid = BPF_CORE_READ(task, cred, gid.val);
+    ci->egid = BPF_CORE_READ(task, cred, egid.val);
+    ci->sgid = BPF_CORE_READ(task, cred, sgid.val);
 }
 
 static bool is_kernel_thread(const struct task_struct *task)
 {
     // Session ID is 0 for all kernel threads
-    return task->group_leader->signal->pids[PIDTYPE_SID]->numbers[0].nr == 0;
+    return BPF_CORE_READ(task, group_leader, signal, pids[PIDTYPE_SID], numbers[0].nr) == 0;
 }
 
 static bool is_thread_group_leader(const struct task_struct *task)
