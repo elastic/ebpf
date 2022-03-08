@@ -135,7 +135,7 @@ out:
 SEC("tracepoint/syscalls/sys_exit_setsid")
 int tracepoint_syscalls_sys_exit_setsid(struct trace_event_raw_sys_exit *args)
 {
-    const struct task_struct *task = (struct task_struct *)bpf_get_current_task_btf();
+    const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
     if (is_kernel_thread(task))
         goto out;
@@ -161,15 +161,17 @@ out:
 SEC("fentry/commit_creds")
 int BPF_PROG(fentry__commit_creds, struct cred *new)
 {
-    const struct task_struct *task = (struct task_struct *)bpf_get_current_task_btf();
-    const struct cred *old         = task->real_cred;
+    const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    const struct cred *old         = BPF_CORE_READ(task, real_cred);
 
     // NB: We check for a changed fsuid/fsgid despite not sending it up.  This
     // keeps this implementation in-line with the existing endpoint behaviour
     // for the kprobes/tracefs events implementation.
 
-    if (new->uid.val != old->uid.val || new->euid.val != old->euid.val ||
-        new->suid.val != old->suid.val || new->fsuid.val != old->fsuid.val) {
+    if (BPF_CORE_READ(new, uid.val) != BPF_CORE_READ(old, uid.val) ||
+        BPF_CORE_READ(new, euid.val) != BPF_CORE_READ(old, euid.val) ||
+        BPF_CORE_READ(new, suid.val) != BPF_CORE_READ(old, suid.val) ||
+        BPF_CORE_READ(new, fsuid.val) != BPF_CORE_READ(old, fsuid.val)) {
 
         struct ebpf_process_setuid_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
         if (!event)
@@ -183,8 +185,10 @@ int BPF_PROG(fentry__commit_creds, struct cred *new)
         bpf_ringbuf_submit(event, 0);
     }
 
-    if (new->gid.val != old->gid.val || new->egid.val != old->egid.val ||
-        new->sgid.val != old->sgid.val || new->fsgid.val != old->fsgid.val) {
+    if (BPF_CORE_READ(new, gid.val) != BPF_CORE_READ(old, gid.val) ||
+        BPF_CORE_READ(new, egid.val) != BPF_CORE_READ(old, egid.val) ||
+        BPF_CORE_READ(new, sgid.val) != BPF_CORE_READ(old, sgid.val) ||
+        BPF_CORE_READ(new, fsgid.val) != BPF_CORE_READ(old, fsgid.val)) {
 
         struct ebpf_process_setuid_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
         if (!event)
