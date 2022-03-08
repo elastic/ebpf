@@ -190,7 +190,7 @@ int BPF_PROG(fentry__commit_creds, struct cred *new)
         BPF_CORE_READ(new, sgid.val) != BPF_CORE_READ(old, sgid.val) ||
         BPF_CORE_READ(new, fsgid.val) != BPF_CORE_READ(old, fsgid.val)) {
 
-        struct ebpf_process_setuid_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+        struct ebpf_process_setgid_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
         if (!event)
             goto out;
 
