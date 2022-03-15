@@ -28,7 +28,24 @@ static int ebpf_update_map(const char *map_path,
 static int ebpf_create_map(enum ebpf_hostisolation_map map_id, int *map_fd);
 static int ebpf_clear_map(const char *map_path, enum ebpf_hostisolation_map map_id);
 
-int ebpf_map_allowed_IPs_add(uint32_t IPaddr)
+static int
+ebpf_update_map(const char *map_path,
+                enum ebpf_hostisolation_map map_id,
+                const void *key,
+                const void *val);
+static int
+ebpf_create_map(enum ebpf_hostisolation_map map_id,
+                int *map_fd);
+static int
+ebpf_clear_map(const char *map_path,
+                enum ebpf_hostisolation_map map_id);
+
+static int
+ebpf_map_delete_key(const char *map_path,
+                    const void *key);
+
+int
+ebpf_map_allowed_IPs_add(uint32_t IPaddr)
 {
     uint32_t key = IPaddr;
     uint32_t val = 1; // values are not used in the hash map
@@ -36,7 +53,16 @@ int ebpf_map_allowed_IPs_add(uint32_t IPaddr)
     return ebpf_update_map(EBPF_ALLOWED_IPS_MAP_PATH, EBPF_MAP_ALLOWED_IPS, &key, &val);
 }
 
-int ebpf_map_allowed_subnets_add(uint32_t IPaddr, uint32_t netmask)
+int
+ebpf_map_allowed_IPs_delete(uint32_t IPaddr)
+{
+    uint32_t key = IPaddr;
+
+    return ebpf_map_delete_key(EBPF_ALLOWED_IPS_MAP_PATH, &key);
+}
+
+int
+ebpf_map_allowed_subnets_add(uint32_t IPaddr, uint32_t netmask)
 {
     struct lpm_key {
         uint32_t prefix;
@@ -50,7 +76,24 @@ int ebpf_map_allowed_subnets_add(uint32_t IPaddr, uint32_t netmask)
     return ebpf_update_map(EBPF_ALLOWED_SUBNETS_MAP_PATH, EBPF_MAP_ALLOWED_SUBNETS, &key, &val);
 }
 
-int ebpf_map_allowed_pids_add(uint32_t pid)
+int
+ebpf_map_allowed_subnets_delete(uint32_t IPaddr, uint32_t netmask)
+{
+    struct lpm_key
+    {
+        uint32_t prefix;
+        uint32_t IP;
+    } key =
+    {
+        .prefix = netmask,
+        .IP = IPaddr,
+    };
+
+    return ebpf_map_delete_key(EBPF_ALLOWED_SUBNETS_MAP_PATH, &key);
+}
+
+int
+ebpf_map_allowed_pids_add(uint32_t pid)
 {
     uint32_t key = pid;
     uint32_t val = 1; // values are not used in the hash map
@@ -58,7 +101,16 @@ int ebpf_map_allowed_pids_add(uint32_t pid)
     return ebpf_update_map(EBPF_ALLOWED_PIDS_MAP_PATH, EBPF_MAP_ALLOWED_PIDS, &key, &val);
 }
 
-int ebpf_map_allowed_IPs_clear()
+int
+ebpf_map_allowed_pids_delete(uint32_t pid)
+{
+    uint32_t key = pid;
+
+    return ebpf_map_delete_key(EBPF_ALLOWED_PIDS_MAP_PATH, &key);
+}
+
+int
+ebpf_map_allowed_IPs_clear()
 {
     return ebpf_clear_map(EBPF_ALLOWED_IPS_MAP_PATH, EBPF_MAP_ALLOWED_IPS);
 }
@@ -100,10 +152,41 @@ cleanup:
     return rv;
 }
 
-static int ebpf_update_map(const char *map_path,
-                           enum ebpf_hostisolation_map map_id,
-                           const void *key,
-                           const void *val)
+static int
+ebpf_map_delete_key(const char *map_path, const void *key)
+{
+    int rv = 0;
+    int map_fd = -1;
+
+    if (map_path == NULL) {
+        ebpf_log("Error: map_path is NULL\n");
+        rv = -1;
+        goto cleanup;
+    }
+
+    map_fd = bpf_obj_get(map_path);
+    if (map_fd < 0) {
+        ebpf_log("Error: map not found\n");
+        rv = -1;
+        goto cleanup;
+    }
+
+    rv = bpf_map_delete_elem(map_fd, key);
+    if (rv) {
+        ebpf_log("Error: failed to delete key in map: %s, errno=%d\n", map_path, errno);
+        goto cleanup;
+    }
+
+cleanup:
+    if (map_fd >= 0) {
+        close(map_fd);
+    }
+
+    return rv;
+}
+
+static int
+ebpf_update_map(const char *map_path, enum ebpf_hostisolation_map map_id, const void *key, const void *val)
 {
     int rv     = 0;
     int map_fd = -1;
@@ -168,8 +251,16 @@ static int ebpf_clear_map(const char *map_path, enum ebpf_hostisolation_map map_
 
     // get the first key
     if (bpf_map_get_next_key(map_fd, NULL, key_buf) < 0) {
-        // map is already empty
-        goto cleanup;
+        if (errno == ENOENT) {
+            // map is already empty
+            rv = 0;
+            goto cleanup;
+        } else {
+            // failure (perhaps not supported)
+            rv = -1;
+            ebpf_log("Error getting next key while clearing map, errno=%d\n", errno);
+            goto cleanup;
+        }
     }
 
     // iterate over map
