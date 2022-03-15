@@ -1,21 +1,20 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 
 /*
- * Elastic eBPF
- * Copyright 2021 Elasticsearch BV
+ * Copyright (C) 2021 Elasticsearch BV
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; version 2.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #ifndef EBPF_EVENTPROBE_HELPERS_H
@@ -111,18 +110,18 @@ static void ebpf_pid_info__fill(struct ebpf_pid_info *pi, const struct task_stru
 
 static void ebpf_cred_info__fill(struct ebpf_cred_info *ci, const struct task_struct *task)
 {
-    ci->ruid = task->cred->uid.val;
-    ci->euid = task->cred->euid.val;
-    ci->suid = task->cred->suid.val;
-    ci->rgid = task->cred->gid.val;
-    ci->egid = task->cred->egid.val;
-    ci->sgid = task->cred->sgid.val;
+    ci->ruid = BPF_CORE_READ(task, cred, uid.val);
+    ci->euid = BPF_CORE_READ(task, cred, euid.val);
+    ci->suid = BPF_CORE_READ(task, cred, suid.val);
+    ci->rgid = BPF_CORE_READ(task, cred, gid.val);
+    ci->egid = BPF_CORE_READ(task, cred, egid.val);
+    ci->sgid = BPF_CORE_READ(task, cred, sgid.val);
 }
 
 static bool is_kernel_thread(const struct task_struct *task)
 {
     // Session ID is 0 for all kernel threads
-    return task->group_leader->signal->pids[PIDTYPE_SID]->numbers[0].nr == 0;
+    return BPF_CORE_READ(task, group_leader, signal, pids[PIDTYPE_SID], numbers[0].nr) == 0;
 }
 
 static bool is_thread_group_leader(const struct task_struct *task)

@@ -1,22 +1,19 @@
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 
+# Copyright (C) 2021 Elasticsearch BV
 #
-# Elastic eBPF
-# Copyright 2021 Elasticsearch BV
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation; version 2.
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+# more details.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 51
+# Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # BPF program
 
@@ -55,7 +52,15 @@ add_custom_command(OUTPUT ${EVENTS_PROBE_BPF_OUTPUT}
                   DEPFILE ${EVENTS_PROBE_DEPFILE}
                   COMMENT "[bpf] building ${EVENTS_PROBE_BPF_OUTPUT}")
 
-add_custom_target(BPFEventProbe ALL DEPENDS ${TARGET_EBPF_DIR}/EventProbe.bpf.o)
+add_custom_target(BPFEventProbe ALL DEPENDS ${EVENTS_PROBE_BPF_OUTPUT})
+
+if (NOT CMAKE_BUILD_TYPE STREQUAL Debug)
+    add_custom_command(TARGET BPFEventProbe
+        POST_BUILD
+        COMMAND ${LLVM_STRIP} -d -g -S ${EVENTS_PROBE_BPF_OUTPUT}
+        COMMENT "[bpf] stripping ${EVENTS_PROBE_BPF_OUTPUT}")
+endif()
+
 
 # BPF_PROG_TEST_RUN gtests
 add_executable(BPFEventsTests BPFEventsTests.cpp ${GTEST_MAIN})

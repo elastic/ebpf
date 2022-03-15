@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Elastic-License-2.0
+// SPDX-License-Identifier: Elastic-2.0
 
 /*
  * Copyright 2021 Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under
@@ -14,6 +14,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+
 #define __aligned_u64 __u64 __attribute__((aligned(8)))
 #include <LibEbpfEvents.h>
 
@@ -25,7 +28,9 @@ const char argp_program_doc[] =
     "This program traces Process, Network and File Events\ncoming from the LibEbpfEvents library\n"
     "\n"
     "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename]\n"
-    "[--process-fork] [--process-exec] [--process-exit] [--process-setsid]\n";
+    "[--process-fork] [--process-exec] [--process-exit] [--process-setsid] [--process-setuid] "
+    "[--process-setgid]\n"
+    "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n";
 
 static const struct argp_option opts[] = {
     {"all", 'a', NULL, false, "Whether or not to consider all the events", 0},
@@ -43,6 +48,16 @@ static const struct argp_option opts[] = {
      "Whether or not to consider process exit events", 1},
     {"process-setsid", EBPF_EVENT_PROCESS_SETSID, NULL, false,
      "Whether or not to consider process setsid events", 1},
+    {"process-setuid", EBPF_EVENT_PROCESS_SETUID, NULL, false,
+     "Whether or not to consider process setuid events", 1},
+    {"process-setgid", EBPF_EVENT_PROCESS_SETGID, NULL, false,
+     "Whether or not to consider process setgid events", 1},
+    {"net-conn-accept", EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED, NULL, false,
+     "Whether or not to consider network connection accepted events", 1},
+    {"net-conn-attempt", EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED, NULL, false,
+     "Whether or not to consider network connection attempted events", 1},
+    {"net-conn-closed", EBPF_EVENT_NETWORK_CONNECTION_CLOSED, NULL, false,
+     "Whether or not to consider network connection closed events", 1},
     {},
 };
 
@@ -61,6 +76,11 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case EBPF_EVENT_PROCESS_EXEC:
     case EBPF_EVENT_PROCESS_EXIT:
     case EBPF_EVENT_PROCESS_SETSID:
+    case EBPF_EVENT_PROCESS_SETUID:
+    case EBPF_EVENT_PROCESS_SETGID:
+    case EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED:
+    case EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED:
+    case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
         g_events_env |= key;
         break;
     case ARGP_KEY_ARG:
@@ -299,6 +319,34 @@ static void out_process_setsid(struct ebpf_process_setsid_event *evt)
     out_newline();
 }
 
+static void out_process_setuid(struct ebpf_process_setuid_event *evt)
+{
+    out_object_start();
+    out_event_type("PROCESS_SETUID");
+    out_comma();
+
+    out_pid_info("pids", &evt->pids);
+    out_comma();
+    out_cred_info("cred", &evt->creds);
+
+    out_object_end();
+    out_newline();
+}
+
+static void out_process_setgid(struct ebpf_process_setgid_event *evt)
+{
+    out_object_start();
+    out_event_type("PROCESS_SETGID");
+    out_comma();
+
+    out_pid_info("pids", &evt->pids);
+    out_comma();
+    out_cred_info("cred", &evt->creds);
+
+    out_object_end();
+    out_newline();
+}
+
 static void out_process_exit(struct ebpf_process_exit_event *evt)
 {
     out_object_start();
@@ -312,6 +360,115 @@ static void out_process_exit(struct ebpf_process_exit_event *evt)
 
     out_object_end();
     out_newline();
+}
+
+static void out_ip_addr(const char *name, const void *addr)
+{
+    char buf[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, addr, buf, sizeof(buf));
+    printf("\"%s\":\"%s\"", name, buf);
+}
+
+static void out_ip6_addr(const char *name, const void *addr)
+{
+    char buf[INET6_ADDRSTRLEN];
+    inet_ntop(AF_INET6, addr, buf, sizeof(buf));
+    printf("\"%s\":\"%s\"", name, buf);
+}
+
+static void out_net_info(const char *name, struct ebpf_net_event *evt)
+{
+    struct ebpf_net_info *net = &evt->net;
+
+    printf("\"%s\":", name);
+    out_object_start();
+
+    switch (net->transport) {
+    case EBPF_NETWORK_EVENT_TRANSPORT_TCP:
+        out_string("transport", "TCP");
+        out_comma();
+        break;
+    }
+
+    switch (net->family) {
+    case EBPF_NETWORK_EVENT_AF_INET:
+        out_string("family", "AF_INET");
+        out_comma();
+
+        out_ip_addr("source_address", &net->saddr);
+        out_comma();
+
+        out_int("source_port", net->sport);
+        out_comma();
+
+        out_ip_addr("destination_address", &net->daddr);
+        out_comma();
+
+        out_int("destination_port", net->dport);
+        break;
+    case EBPF_NETWORK_EVENT_AF_INET6:
+        out_string("family", "AF_INET6");
+
+        out_ip6_addr("source_address", &net->saddr6);
+        out_comma();
+
+        out_int("source_port", net->sport);
+        out_comma();
+
+        out_ip6_addr("destination_address", &net->daddr6);
+        out_comma();
+
+        out_int("destination_port", net->dport);
+        break;
+    }
+
+    out_comma();
+    out_int("network_namespace", net->netns);
+
+    switch (evt->hdr.type) {
+    case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
+        out_comma();
+        out_uint("bytes_sent", net->tcp.close.bytes_sent);
+
+        out_comma();
+        out_uint("bytes_received", net->tcp.close.bytes_received);
+        break;
+    }
+
+    out_object_end();
+}
+
+static void out_network_event(const char *name, struct ebpf_net_event *evt)
+{
+    out_object_start();
+    out_event_type(name);
+    out_comma();
+
+    out_pid_info("pids", &evt->pids);
+    out_comma();
+
+    out_net_info("net", evt);
+    out_comma();
+
+    out_string("comm", (const char *)&evt->comm);
+
+    out_object_end();
+    out_newline();
+}
+
+static void out_network_connection_accepted_event(struct ebpf_net_event *evt)
+{
+    out_network_event("NETWORK_CONNECTION_ACCEPTED", evt);
+}
+
+static void out_network_connection_attempted_event(struct ebpf_net_event *evt)
+{
+    out_network_event("NETWORK_CONNECTION_ATTEMPTED", evt);
+}
+
+static void out_network_connection_closed_event(struct ebpf_net_event *evt)
+{
+    out_network_event("NETWORK_CONNECTION_CLOSED", evt);
 }
 
 static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
@@ -329,6 +486,12 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
     case EBPF_EVENT_PROCESS_SETSID:
         out_process_setsid((struct ebpf_process_setsid_event *)evt_hdr);
         break;
+    case EBPF_EVENT_PROCESS_SETUID:
+        out_process_setuid((struct ebpf_process_setuid_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_PROCESS_SETGID:
+        out_process_setgid((struct ebpf_process_setgid_event *)evt_hdr);
+        break;
     case EBPF_EVENT_FILE_DELETE:
         out_file_delete((struct ebpf_file_delete_event *)evt_hdr);
         break;
@@ -337,6 +500,15 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         break;
     case EBPF_EVENT_FILE_RENAME:
         out_file_rename((struct ebpf_file_rename_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED:
+        out_network_connection_accepted_event((struct ebpf_net_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED:
+        out_network_connection_attempted_event((struct ebpf_net_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
+        out_network_connection_closed_event((struct ebpf_net_event *)evt_hdr);
         break;
     }
 
