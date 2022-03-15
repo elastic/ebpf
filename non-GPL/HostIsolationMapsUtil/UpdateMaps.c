@@ -28,24 +28,16 @@ static int ebpf_update_map(const char *map_path,
 static int ebpf_create_map(enum ebpf_hostisolation_map map_id, int *map_fd);
 static int ebpf_clear_map(const char *map_path, enum ebpf_hostisolation_map map_id);
 
-static int
-ebpf_update_map(const char *map_path,
-                enum ebpf_hostisolation_map map_id,
-                const void *key,
-                const void *val);
-static int
-ebpf_create_map(enum ebpf_hostisolation_map map_id,
-                int *map_fd);
-static int
-ebpf_clear_map(const char *map_path,
-                enum ebpf_hostisolation_map map_id);
+static int ebpf_update_map(const char *map_path,
+                           enum ebpf_hostisolation_map map_id,
+                           const void *key,
+                           const void *val);
+static int ebpf_create_map(enum ebpf_hostisolation_map map_id, int *map_fd);
+static int ebpf_clear_map(const char *map_path, enum ebpf_hostisolation_map map_id);
 
-static int
-ebpf_map_delete_key(const char *map_path,
-                    const void *key);
+static int ebpf_map_delete_key(const char *map_path, const void *key);
 
-int
-ebpf_map_allowed_IPs_add(uint32_t IPaddr)
+int ebpf_map_allowed_IPs_add(uint32_t IPaddr)
 {
     uint32_t key = IPaddr;
     uint32_t val = 1; // values are not used in the hash map
@@ -53,47 +45,39 @@ ebpf_map_allowed_IPs_add(uint32_t IPaddr)
     return ebpf_update_map(EBPF_ALLOWED_IPS_MAP_PATH, EBPF_MAP_ALLOWED_IPS, &key, &val);
 }
 
-int
-ebpf_map_allowed_IPs_delete(uint32_t IPaddr)
+int ebpf_map_allowed_IPs_delete(uint32_t IPaddr)
 {
     uint32_t key = IPaddr;
 
     return ebpf_map_delete_key(EBPF_ALLOWED_IPS_MAP_PATH, &key);
 }
 
-int
-ebpf_map_allowed_subnets_add(uint32_t IPaddr, uint32_t netmask)
+int ebpf_map_allowed_subnets_add(uint32_t IPaddr, uint32_t netmask)
 {
     struct lpm_key {
         uint32_t prefix;
         uint32_t IP;
     } key = {
-        .prefix = netmask,
-        .IP     = IPaddr,
+        .prefix = netmask, .IP = IPaddr,
     };
     uint32_t val = 1; // values are not used in the lpm trie map
 
     return ebpf_update_map(EBPF_ALLOWED_SUBNETS_MAP_PATH, EBPF_MAP_ALLOWED_SUBNETS, &key, &val);
 }
 
-int
-ebpf_map_allowed_subnets_delete(uint32_t IPaddr, uint32_t netmask)
+int ebpf_map_allowed_subnets_delete(uint32_t IPaddr, uint32_t netmask)
 {
-    struct lpm_key
-    {
+    struct lpm_key {
         uint32_t prefix;
         uint32_t IP;
-    } key =
-    {
-        .prefix = netmask,
-        .IP = IPaddr,
+    } key = {
+        .prefix = netmask, .IP = IPaddr,
     };
 
     return ebpf_map_delete_key(EBPF_ALLOWED_SUBNETS_MAP_PATH, &key);
 }
 
-int
-ebpf_map_allowed_pids_add(uint32_t pid)
+int ebpf_map_allowed_pids_add(uint32_t pid)
 {
     uint32_t key = pid;
     uint32_t val = 1; // values are not used in the hash map
@@ -101,16 +85,14 @@ ebpf_map_allowed_pids_add(uint32_t pid)
     return ebpf_update_map(EBPF_ALLOWED_PIDS_MAP_PATH, EBPF_MAP_ALLOWED_PIDS, &key, &val);
 }
 
-int
-ebpf_map_allowed_pids_delete(uint32_t pid)
+int ebpf_map_allowed_pids_delete(uint32_t pid)
 {
     uint32_t key = pid;
 
     return ebpf_map_delete_key(EBPF_ALLOWED_PIDS_MAP_PATH, &key);
 }
 
-int
-ebpf_map_allowed_IPs_clear()
+int ebpf_map_allowed_IPs_clear()
 {
     return ebpf_clear_map(EBPF_ALLOWED_IPS_MAP_PATH, EBPF_MAP_ALLOWED_IPS);
 }
@@ -152,10 +134,9 @@ cleanup:
     return rv;
 }
 
-static int
-ebpf_map_delete_key(const char *map_path, const void *key)
+static int ebpf_map_delete_key(const char *map_path, const void *key)
 {
-    int rv = 0;
+    int rv     = 0;
     int map_fd = -1;
 
     if (map_path == NULL) {
@@ -185,8 +166,10 @@ cleanup:
     return rv;
 }
 
-static int
-ebpf_update_map(const char *map_path, enum ebpf_hostisolation_map map_id, const void *key, const void *val)
+static int ebpf_update_map(const char *map_path,
+                           enum ebpf_hostisolation_map map_id,
+                           const void *key,
+                           const void *val)
 {
     int rv     = 0;
     int map_fd = -1;
