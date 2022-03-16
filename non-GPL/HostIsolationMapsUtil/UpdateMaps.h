@@ -25,6 +25,14 @@
 int ebpf_map_allowed_IPs_add(uint32_t IPaddr);
 
 /**
+ * @brief Delete a single IP from the IP allowlist
+ *
+ * @param[in] IPaddr IP address in uint format
+ * @return Error value (0 for success)
+ */
+int ebpf_map_allowed_IPs_delete(uint32_t IPaddr);
+
+/**
  * @brief Add an IP subnet to the subnet allowlist
  *
  * @param[in] IPaddr IP address in uint format
@@ -34,12 +42,29 @@ int ebpf_map_allowed_IPs_add(uint32_t IPaddr);
 int ebpf_map_allowed_subnets_add(uint32_t IPaddr, uint32_t netmask);
 
 /**
+ * @brief Delete an IP subnet from the subnet allowlist
+ *
+ * @param[in] IPaddr IP address in uint format
+ * @param[in] netmask subnet mask in uint format (0-32)
+ * @return Error value (0 for success)
+ */
+int ebpf_map_allowed_subnets_delete(uint32_t IPaddr, uint32_t netmask);
+
+/**
  * @brief Add a single PID (process ID) to the PID allowlist
  *
  * @param[in] pid PID number
  * @return Error value (0 for success)
  */
 int ebpf_map_allowed_pids_add(uint32_t pid);
+
+/**
+ * @brief Delete a single PID (process ID) from the PID allowlist
+ *
+ * @param[in] pid PID number
+ * @return Error value (0 for success)
+ */
+int ebpf_map_allowed_pids_delete(uint32_t pid);
 
 /**
  * @brief Clear IP allowlist
