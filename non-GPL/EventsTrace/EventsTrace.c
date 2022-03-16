@@ -13,6 +13,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/resource.h>
+#include <sys/time.h>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -35,7 +37,6 @@ const char argp_program_doc[] =
 static const struct argp_option opts[] = {
     {"print-initialized", 'i', NULL, false,
      "Whether or not to print a message when probes have been successfully loaded", 1},
-     "Print a message when probes have been successfully loaded", 1},
     {"unbuffer-stdout", 'u', NULL, false, "Don't buffer stdout in userspace at all", 1},
     {"libbpf-verbose", 'v', NULL, false, "Log verobse libbpf logs to stderr", 1},
     {"all", 'a', NULL, false, "Whether or not to consider all the events", 0},
@@ -546,12 +547,29 @@ int main(int argc, char **argv)
 
     if (signal(SIGINT, sig_int) == SIG_ERR) {
         fprintf(stderr, "Failed to register SIGINT handler\n");
-        goto cleanup;
+        goto out;
     }
 
     err = argp_parse(&argp, argc, argv, 0, NULL, NULL);
     if (err)
-        goto cleanup;
+        goto out;
+
+    struct rlimit lim;
+    lim.rlim_cur = RLIM_INFINITY;
+    lim.rlim_max = RLIM_INFINITY;
+    err          = setrlimit(RLIMIT_MEMLOCK, &lim);
+    if (err < 0) {
+        fprintf(stderr, "Could not set RLIMIT_MEMLOCK: %d %s\n", err, strerror(-err));
+        goto out;
+    }
+
+    if (g_unbuffer_stdout) {
+        err = setvbuf(stdout, NULL, _IONBF, 0);
+        if (err < 0) {
+            fprintf(stderr, "Could not turn off stdout buffering: %d %s\n", err, strerror(err));
+            goto out;
+        }
+    }
 
     if (g_libbpf_verbose)
         ebpf_set_verbose_logging();
@@ -564,7 +582,7 @@ int main(int argc, char **argv)
 
     if (err < 0) {
         fprintf(stderr, "Could not create event context: %d %s\n", err, strerror(-err));
-        goto cleanup;
+        goto out;
     }
 
     if (g_print_initialized) {
@@ -578,7 +596,8 @@ int main(int argc, char **argv)
         }
     }
 
-cleanup:
     ebpf_event_ctx__destroy(&ctx);
+
+out:
     return err != 0;
 }

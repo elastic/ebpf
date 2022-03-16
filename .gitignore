@@ -5,3 +5,15 @@
 /non-GPL/HostIsolation/KprobeConnectHook/build/
 /non-GPL/HostIsolationMapsUtil/build/
 /non-GPL/TcLoader/build/
+
+# Test results and other stuff in testing/
+testing/bpf-check-summary.txt
+testing/*.cpio
+testing/*.tar
+testing/mainline-kernels
+testing/results/
+testing/testrunner/testrunner
+testing/test_bins/bin/*
+testing/init/bin/*
+testing/kernels
+testing/virtme
