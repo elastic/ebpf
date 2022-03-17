@@ -11,6 +11,7 @@
 #define EBPF_EVENTS_H_
 
 #include <stddef.h>
+#include <stdbool.h>
 
 #include "EbpfEventProto.h"
 
@@ -27,13 +28,16 @@ typedef int (*ebpf_event_handler_fn)(struct ebpf_event_header *);
 
 /* Allocates a new context based on requested events and capabilities.
  *
- * returns a positive int that represents an fd, which can be used with epoll
- * on success. returns an error on failure.
+ * If `poke_load_attach` is set, the probe is destroyed right after being loaded.
+ *
+ * Returns a positive int that represents an fd, which can be used with epoll
+ * on success. Returns an error on failure.
  */
 int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         ebpf_event_handler_fn cb,
                         uint64_t features,
-                        uint64_t events);
+                        uint64_t events,
+                        bool poke_load_attach);
 
 /* Consumes as many events as possible from the event context and returns the
  * number consumed.
