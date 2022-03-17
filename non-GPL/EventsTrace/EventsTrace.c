@@ -33,6 +33,8 @@ const char argp_program_doc[] =
     "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n";
 
 static const struct argp_option opts[] = {
+    {"print-initialized", 'i', NULL, false,
+     "Whether or not to print a message when probes have been successfully loaded", 1},
     {"all", 'a', NULL, false, "Whether or not to consider all the events", 0},
     {"file-delete", EBPF_EVENT_FILE_DELETE, NULL, false,
      "Whether or not to consider file delete events", 1},
@@ -66,9 +68,13 @@ static const struct argp_option opts[] = {
 uint64_t g_events_env   = 0;
 uint64_t g_features_env = 0;
 
+bool g_print_initialized = 0;
+
 static error_t parse_arg(int key, char *arg, struct argp_state *state)
 {
     switch (key) {
+    case 'i':
+        g_print_initialized = 1;
     case 'a':
         g_events_env = UINT64_MAX;
         break;
@@ -545,6 +551,9 @@ int main(int argc, char **argv)
         goto cleanup;
     }
 
+    if (g_print_initialized) {
+        printf("{ \"eventstrace_message\": \"probes initialized\"}\n");
+    }
     while (!exiting) {
         err = ebpf_event_ctx__next(ctx, 10);
         if (err < 0) {
