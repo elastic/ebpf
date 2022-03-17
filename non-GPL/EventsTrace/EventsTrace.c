@@ -531,7 +531,7 @@ int main(int argc, char **argv)
 
     uint64_t features = EBPF_KERNEL_FEATURE_BPF;
     uint64_t events   = g_events_env;
-    err               = ebpf_event_ctx__new(&ctx, event_ctx_callback, features, events);
+    err               = ebpf_event_ctx__new(&ctx, event_ctx_callback, features, events, false);
     if (err < 0) {
         fprintf(stderr, "Could not create event context: %d %s\n", err, strerror(-err));
         goto cleanup;
