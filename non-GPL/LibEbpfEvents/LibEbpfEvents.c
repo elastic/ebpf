@@ -145,19 +145,17 @@ out:
         __r;                                                                                       \
     })
 
+/* Given a function name, returns whether it exists in the provided BTF. */
+#define BTF_FUNC_EXISTS(btf, func) ({ (bool)resolve_btf_type_by_func(btf, #func); })
+
 /* Fill context relocations for kernel functions
  * You can add additional functions here by using the macros defined above.
  *
  * Rodata constants must be declared in `EventProbe.bpf.c` via the relative helper macros.
  */
-static int fill_ctx_relos(struct ebpf_event_ctx **ctx)
+static int fill_ctx_relos(struct btf *btf, struct ebpf_event_ctx **ctx)
 {
     int err = -1;
-
-    struct btf *btf;
-    btf = btf__load_vmlinux_btf();
-    if (libbpf_get_error(btf))
-        goto out;
 
     err = FILL_FUNC_ARG_IDX(ctx, btf, vfs_unlink, dentry);
     if (err)
@@ -181,7 +179,35 @@ static int fill_ctx_relos(struct ebpf_event_ctx **ctx)
         goto out;
 
 out:
-    btf__free(btf);
+    return err;
+}
+
+/* Certain programs are available only if certain requirements are met.
+ *
+ * E.g. `do_renameat2` is not present in a 5.10 BTF, so tracepoints for the rename
+ * syscalls will be loaded instead.
+ */
+static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj)
+{
+    int err = 0;
+
+    if (BTF_FUNC_EXISTS(btf, do_renameat2)) {
+        err = bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_rename, false);
+        if (err)
+            goto out;
+        err = bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_renameat, false);
+        if (err)
+            goto out;
+        err = bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_renameat2, false);
+        if (err)
+            goto out;
+    } else {
+        err = bpf_program__set_autoload(obj->progs.fentry__do_renameat2, false);
+        if (err)
+            goto out;
+    }
+
+out:
     return err;
 }
 
@@ -206,8 +232,17 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
         goto out_destroy_probe;
     }
 
-    err = fill_ctx_relos(ctx);
+    struct btf *btf;
+    btf = btf__load_vmlinux_btf();
+    if (libbpf_get_error(btf))
+        goto out_destroy_probe;
+
+    err = fill_ctx_relos(btf, ctx);
     if (err < 0)
+        goto out_destroy_probe;
+
+    err = probe_set_autoload(btf, (*ctx)->probe);
+    if (err != 0)
         goto out_destroy_probe;
 
     err = EventProbe_bpf__load((*ctx)->probe);
@@ -245,6 +280,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
 
 out_destroy_probe:
     ebpf_event_ctx__destroy(ctx);
+    btf__free(btf);
     return err;
 }
 
