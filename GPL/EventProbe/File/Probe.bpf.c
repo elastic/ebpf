@@ -142,8 +142,7 @@ out:
     return 0;
 }
 
-SEC("fentry/do_renameat2")
-int BPF_PROG(fentry__do_renameat2)
+int rename_state__init()
 {
     struct ebpf_fileevents_state state = {.rename = {.step = RENAME_STATE_INIT}};
     ebpf_fileevents_state__set(EBPF_FILEEVENTS_STATE_RENAME, &state);
@@ -157,6 +156,30 @@ int BPF_PROG(fentry__do_renameat2)
 
 out:
     return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_rename")
+int tracepoint_sys_enter_rename(struct trace_event_raw_sys_enter *ctx)
+{
+    return rename_state__init();
+}
+
+SEC("tracepoint/syscalls/sys_enter_renameat")
+int tracepoint_sys_enter_renameat(struct trace_event_raw_sys_enter *ctx)
+{
+    return rename_state__init();
+}
+
+SEC("tracepoint/syscalls/sys_enter_renameat2")
+int tracepoint_sys_enter_renameat2(struct trace_event_raw_sys_enter *ctx)
+{
+    return rename_state__init();
+}
+
+SEC("fentry/do_renameat2")
+int BPF_PROG(fentry__do_renameat2)
+{
+    return rename_state__init();
 }
 
 SEC("fentry/vfs_rename")
