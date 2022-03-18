@@ -6,7 +6,7 @@
 
 add_executable(EventsTrace EventsTrace.c)
 add_dependencies(EventsTrace LibEbpfEvents EventProbe_skeleton libbpf libelf)
-target_link_libraries(EventsTrace LibEbpfEvents ${LIBBPF_LIB} ${LIBELF_LIB} -lz -static)
+target_link_libraries(EventsTrace LibEbpfEvents ${LIBBPF_LIB} ${LIBELF_LIB} -lz)
 
 target_include_directories(EventsTrace PRIVATE
     "${LIBBPF_TARGET_INCLUDE_DIR}"

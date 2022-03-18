@@ -10,8 +10,8 @@
 #ifndef EBPF_EVENTS_H_
 #define EBPF_EVENTS_H_
 
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #include "EbpfEventProto.h"
 

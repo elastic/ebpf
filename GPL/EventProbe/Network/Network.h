@@ -72,7 +72,8 @@ static int ebpf_sock_info__fill(struct ebpf_net_info *net, struct sock *sk)
     net->dport             = bpf_ntohs(dport);
     net->netns             = BPF_CORE_READ(sk, __sk_common.skc_net.net, ns.inum);
 
-    switch (sk->sk_protocol) {
+    u16 proto = BPF_CORE_READ(sk, sk_protocol);
+    switch (proto) {
     case IPPROTO_TCP:
         net->transport = EBPF_NETWORK_EVENT_TRANSPORT_TCP;
         break;

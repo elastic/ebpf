@@ -21,9 +21,10 @@
 #define EBPF_EVENTPROBE_EVENTS_STATE_H
 
 enum ebpf_events_state_op {
-    EBPF_EVENTS_STATE_UNKNOWN = 0,
-    EBPF_EVENTS_STATE_UNLINK  = 1,
-    EBPF_EVENTS_STATE_RENAME  = 2,
+    EBPF_EVENTS_STATE_UNKNOWN        = 0,
+    EBPF_EVENTS_STATE_UNLINK         = 1,
+    EBPF_EVENTS_STATE_RENAME         = 2,
+    EBPF_EVENTS_STATE_TCP_V6_CONNECT = 3,
 };
 
 struct ebpf_events_key {
@@ -46,10 +47,15 @@ struct ebpf_events_rename_state {
     struct vfsmount *mnt;
 };
 
+struct ebpf_events_tcp_v6_connect_state {
+    struct sock *sk;
+};
+
 struct ebpf_events_state {
     union {
         struct ebpf_events_unlink_state unlink;
         struct ebpf_events_rename_state rename;
+        struct ebpf_events_tcp_v6_connect_state tcp_v6_connect;
     };
 };
 
@@ -74,8 +80,7 @@ static struct ebpf_events_state *ebpf_events_state__get(enum ebpf_events_state_o
     return bpf_map_lookup_elem(&elastic_ebpf_events_state, &key);
 }
 
-static long ebpf_events_state__set(enum ebpf_events_state_op op,
-                                       struct ebpf_events_state *state)
+static long ebpf_events_state__set(enum ebpf_events_state_op op, struct ebpf_events_state *state)
 {
     struct ebpf_events_key key = ebpf_events_state__key(op);
     return bpf_map_update_elem(&elastic_ebpf_events_state, &key, state, BPF_ANY);
@@ -120,7 +125,7 @@ ebpf_events_scratch_space__get(enum ebpf_events_state_op op)
 }
 
 static long ebpf_events_scratch_space__set(enum ebpf_events_state_op op,
-                                               struct ebpf_events_scratch_space *ss)
+                                           struct ebpf_events_scratch_space *ss)
 {
     struct ebpf_events_key key = ebpf_events_state__key(op);
     return bpf_map_update_elem(&elastic_ebpf_events_scratch_space, &key, ss, BPF_ANY);

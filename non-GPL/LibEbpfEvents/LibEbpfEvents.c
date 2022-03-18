@@ -192,22 +192,20 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
     int err = 0;
 
     if (BTF_FUNC_EXISTS(btf, do_renameat2)) {
-        err = bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_rename, false);
-        if (err)
-            goto out;
-        err = bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_renameat, false);
-        if (err)
-            goto out;
-        err = bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_renameat2, false);
-        if (err)
-            goto out;
+        err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_rename, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_renameat, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_renameat2, false);
     } else {
-        err = bpf_program__set_autoload(obj->progs.fentry__do_renameat2, false);
-        if (err)
-            goto out;
+        err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_renameat2, false);
     }
 
-out:
+    if (BTF_FUNC_EXISTS(btf, tcp_v6_connect)) {
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tcp_v6_connect, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__tcp_v6_connect, false);
+    } else {
+        err = err ?: bpf_program__set_autoload(obj->progs.fexit__tcp_v6_connect, false);
+    }
+
     return err;
 }
 
@@ -223,7 +221,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
     if (libbpf_get_error(btf))
         goto out_destroy_probe;
 
-    *ctx    = calloc(1, sizeof(struct ebpf_event_ctx));
+    *ctx = calloc(1, sizeof(struct ebpf_event_ctx));
     if (*ctx == NULL) {
         err = -ENOMEM;
         goto out_destroy_probe;
