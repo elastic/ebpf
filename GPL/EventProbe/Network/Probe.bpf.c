@@ -26,6 +26,7 @@
 
 #include "Helpers.h"
 #include "Network.h"
+#include "State.h"
 
 SEC("fexit/inet_csk_accept")
 int BPF_PROG(
@@ -84,16 +85,23 @@ int BPF_PROG(fexit__tcp_v6_connect, struct sock *sk, struct sockaddr *uaddr, int
 }
 
 SEC("kprobe/tcp_v6_connect")
-int BPF_KPROBE(kprobe__tcp_v6_connect, struct sock *sk, struct sockaddr *uaddr, int addr_len)
+int BPF_KPROBE(kprobe__tcp_v6_connect, struct sock *sk)
 {
-    // TODO
+    struct ebpf_events_state state = { .tcp_v6_connect = {.sk = sk}};
+    ebpf_events_state__set(EBPF_EVENTS_STATE_TCP_V6_CONNECT, &state);
+    return 0;
 }
 
 SEC("kretprobe/tcp_v6_connect")
 int BPF_KRETPROBE(kretprobe__tcp_v6_connect, int ret)
 {
-    // TODO
-    //return tcp_connect(sk, ret);
+    struct ebpf_events_state *state;
+
+    state = ebpf_events_state__get(EBPF_EVENTS_STATE_TCP_V6_CONNECT);
+    if (!state)
+        return 0;
+
+    return tcp_connect(state->tcp_v6_connect.sk, ret);
 }
 
 SEC("fentry/tcp_close")
