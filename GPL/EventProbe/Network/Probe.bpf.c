@@ -83,6 +83,19 @@ int BPF_PROG(fexit__tcp_v6_connect, struct sock *sk, struct sockaddr *uaddr, int
     return tcp_connect(sk, ret);
 }
 
+SEC("kprobe/tcp_v6_connect")
+int BPF_KPROBE(kprobe__tcp_v6_connect, struct sock *sk, struct sockaddr *uaddr, int addr_len)
+{
+    // TODO
+}
+
+SEC("kretprobe/tcp_v6_connect")
+int BPF_KRETPROBE(kretprobe__tcp_v6_connect, int ret)
+{
+    // TODO
+    //return tcp_connect(sk, ret);
+}
+
 SEC("fentry/tcp_close")
 int BPF_PROG(fentry__tcp_close, struct sock *sk, long timeout)
 {

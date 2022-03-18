@@ -211,19 +211,6 @@ out:
     return err;
 }
 
-// TODO: remove me
-static inline void *probe_log_failing_objects(struct btf *btf, struct EventProbe_bpf *obj)
-{
-    if (!BTF_FUNC_EXISTS(btf, tcp_v6_connect))
-        printf("GREPME: tcp_v6_connect");
-    if (!BTF_FUNC_EXISTS(btf, tcp_close))
-        printf("GREPME: tcp_close");
-    if (!BTF_FUNC_EXISTS(btf, taskstats_exit))
-        printf("GREPME: taskstats_exit");
-    if (!BTF_FUNC_EXISTS(btf, commit_creds))
-        printf("GREPME: commit_creds");
-}
-
 int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         ebpf_event_handler_fn cb,
                         uint64_t features,
@@ -254,8 +241,6 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
     err = fill_ctx_relos(btf, ctx);
     if (err < 0)
         goto out_destroy_probe;
-
-    probe_log_failing_objects(btf, (*ctx)->probe);
 
     err = probe_set_autoload(btf, (*ctx)->probe);
     if (err != 0)
