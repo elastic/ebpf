@@ -76,8 +76,7 @@ int BPF_PROG(fexit__vfs_unlink)
     struct dentry *de        = NULL;
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
-    struct ebpf_events_state *state = NULL;
-    state                           = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
+    struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
     if (state == NULL) {
         bpf_printk("fexit__vfs_unlink: no state\n");
         goto out;
@@ -231,8 +230,7 @@ int BPF_PROG(fexit__vfs_rename)
     if (ret)
         goto out;
 
-    struct ebpf_events_state *state = NULL;
-    state                           = ebpf_events_state__get(EBPF_EVENTS_STATE_RENAME);
+    struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_RENAME);
     if (!state || state->rename.step != RENAME_STATE_PATHS_SET) {
         bpf_printk("fexit__vfs_rename: state missing or incomplete\n");
         goto out;

@@ -34,7 +34,7 @@ if(NOT USE_BUILTIN_VMLINUX)
         message(FATAL_ERROR "Failed to dump vmlinux.h with bpftool: ${BPFTOOL_VMLINUX_ERROR}")
     endif()
 else()
-    set(VMLINUX_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/contrib/vmlinux)
+    set(VMLINUX_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/contrib/vmlinux/${ARCH})
 endif()
 
 # Skeleton generation
