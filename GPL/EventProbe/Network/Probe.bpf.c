@@ -87,7 +87,7 @@ int BPF_PROG(fexit__tcp_v6_connect, struct sock *sk, struct sockaddr *uaddr, int
 SEC("kprobe/tcp_v6_connect")
 int BPF_KPROBE(kprobe__tcp_v6_connect, struct sock *sk)
 {
-    struct ebpf_events_state state = { .tcp_v6_connect = {.sk = sk}};
+    struct ebpf_events_state state = {.tcp_v6_connect = {.sk = sk}};
     ebpf_events_state__set(EBPF_EVENTS_STATE_TCP_V6_CONNECT, &state);
     return 0;
 }

@@ -272,9 +272,10 @@ def buildAndStash(arch)
             // Copy and archive the build dir
             sh "mkdir -p target-archive/${arch}"
             sh "cp -r target target-archive/${arch}"
+            sh "mkdir -p target-archive/${arch}/_debug"
+            sh "cp non-GPL/EventsTrace/EventsTrace target-archive/${arch}/_debug/EventsTrace"
             archiveArtifacts "target-archive/**"
         }
-
 
         // Clean the build
         sh "rm -Rf build-${arch}"
