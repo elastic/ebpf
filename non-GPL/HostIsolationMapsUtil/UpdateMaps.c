@@ -58,7 +58,8 @@ int ebpf_map_allowed_subnets_add(uint32_t IPaddr, uint32_t netmask)
         uint32_t prefix;
         uint32_t IP;
     } key = {
-        .prefix = netmask, .IP = IPaddr,
+        .prefix = netmask,
+        .IP     = IPaddr,
     };
     uint32_t val = 1; // values are not used in the lpm trie map
 
@@ -71,7 +72,8 @@ int ebpf_map_allowed_subnets_delete(uint32_t IPaddr, uint32_t netmask)
         uint32_t prefix;
         uint32_t IP;
     } key = {
-        .prefix = netmask, .IP = IPaddr,
+        .prefix = netmask,
+        .IP     = IPaddr,
     };
 
     return ebpf_map_delete_key(EBPF_ALLOWED_SUBNETS_MAP_PATH, &key);
