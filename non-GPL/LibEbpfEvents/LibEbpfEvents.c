@@ -34,8 +34,17 @@ struct ebpf_event_ctx {
 static int ring_buf_cb(void *ctx, void *data, size_t size)
 {
     struct ring_buf_cb_ctx *cb_ctx = ctx;
+    if (cb_ctx == NULL) {
+        return 0;
+    }
     ebpf_event_handler_fn cb       = cb_ctx->cb;
+    if (cb == NULL) {
+        return 0;
+    }
     struct ebpf_event_header *evt  = data;
+    if (evt == NULL) {
+        return 0;
+    }
     if (evt->type & cb_ctx->events_mask) {
         return cb(evt);
     }
@@ -44,6 +53,10 @@ static int ring_buf_cb(void *ctx, void *data, size_t size)
 
 const struct btf_type *resolve_btf_type_by_func(struct btf *btf, const char *func)
 {
+    if (func == NULL) {
+        goto out;
+    }
+
     for (int i = 0; i < btf__type_cnt(btf); i++) {
         int btf_type = btf__resolve_type(btf, i);
         if (btf_type < 0)
@@ -55,6 +68,8 @@ const struct btf_type *resolve_btf_type_by_func(struct btf *btf, const char *fun
             continue;
 
         const char *name = btf__name_by_offset(btf, btf_type_ptr->name_off);
+        if (name == NULL)
+            continue;
         if (strcmp(name, func))
             continue;
 
@@ -80,10 +95,15 @@ static int resolve_btf_func_arg_idx(struct btf *btf, const char *func, const cha
     const struct btf_type *proto_btf_type_ptr = resolve_btf_type_by_func(btf, func);
     if (!proto_btf_type_ptr)
         goto out;
+    if (!arg)
+        goto out;
 
     struct btf_param *params = btf_params(proto_btf_type_ptr);
     for (int j = 0; j < btf_vlen(proto_btf_type_ptr); j++) {
         const char *cur_name = btf__name_by_offset(btf, params[j].name_off);
+        if (cur_name == NULL) {
+            continue;
+        }
         if (strcmp(cur_name, arg) == 0) {
             ret = j;
             goto out;
@@ -234,6 +254,9 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
 
 static void probe_set_features(uint64_t *features)
 {
+    if (!features)
+        return;
+
     // default attach type for BPF_PROG_TYPE_TRACING is
     // BPF_TRACE_FENTRY.
     if (!libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_TRACING, NULL))
@@ -336,6 +359,9 @@ out_destroy_probe:
 
 int ebpf_event_ctx__next(struct ebpf_event_ctx *ctx, int timeout)
 {
+    if (!ctx)
+        return -1;
+
     int consumed = ring_buffer__poll(ctx->ringbuf, timeout);
     return consumed > 0 ? 0 : consumed;
 }
