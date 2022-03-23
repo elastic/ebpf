@@ -110,37 +110,37 @@ out:
 /* Given a function name and an argument name, returns the argument index
  * in the function signature.
  */
-#define FILL_FUNC_ARG_IDX(ctx, btf, func, arg)                                                     \
+#define FILL_FUNC_ARG_IDX(obj, btf, func, arg)                                                     \
     ({                                                                                             \
         int __r = -1;                                                                              \
         int r   = resolve_btf_func_arg_idx(btf, #func, #arg);                                      \
         if (r >= 0)                                                                                \
             __r = 0;                                                                               \
-        (*ctx)->probe->rodata->arg__##func##__##arg##__ = r;                                       \
+        obj->rodata->arg__##func##__##arg##__ = r;                                                 \
         __r;                                                                                       \
     })
 
 /* Given a function name, returns the "ret" argument index. */
-#define FILL_FUNC_RET_IDX(ctx, btf, func)                                                          \
+#define FILL_FUNC_RET_IDX(obj, btf, func)                                                          \
     ({                                                                                             \
         int __r = -1;                                                                              \
         int r   = resolve_btf_func_ret_idx(btf, #func);                                            \
         if (r >= 0)                                                                                \
             __r = 0;                                                                               \
-        (*ctx)->probe->rodata->ret__##func##__ = r;                                                \
+        obj->rodata->ret__##func##__ = r;                                                          \
         __r;                                                                                       \
     })
 
 /* Given a function name and an argument name, returns whether the argument
  * exists or not.
  */
-#define FILL_FUNC_ARG_EXISTS(ctx, btf, func, arg)                                                  \
+#define FILL_FUNC_ARG_EXISTS(obj, btf, func, arg)                                                  \
     ({                                                                                             \
         int __r = -1;                                                                              \
         int r   = resolve_btf_func_arg_idx(btf, #func, #arg);                                      \
         if (r >= 0) {                                                                              \
-            (*ctx)->probe->rodata->exists__##func##__##arg##__ = true;                             \
-            __r                                                = 0;                                \
+            obj->rodata->exists__##func##__##arg##__ = true;                                       \
+            __r                                      = 0;                                          \
         }                                                                                          \
         __r;                                                                                       \
     })
@@ -153,32 +153,20 @@ out:
  *
  * Rodata constants must be declared in `EventProbe.bpf.c` via the relative helper macros.
  */
-static int fill_ctx_relos(struct btf *btf, struct ebpf_event_ctx **ctx)
+static int probe_fill_relos(struct btf *btf, struct EventProbe_bpf *obj)
 {
-    int err = -1;
+    int err = 0;
 
-    err = FILL_FUNC_ARG_IDX(ctx, btf, vfs_unlink, dentry);
-    if (err)
-        goto out;
+    err = err ?: FILL_FUNC_ARG_IDX(obj, btf, vfs_unlink, dentry);
+    err = err ?: FILL_FUNC_RET_IDX(obj, btf, vfs_unlink);
 
-    err = FILL_FUNC_RET_IDX(ctx, btf, vfs_unlink);
-    if (err)
-        goto out;
-
-    if (FILL_FUNC_ARG_EXISTS(ctx, btf, vfs_rename, rd)) {
+    if (FILL_FUNC_ARG_EXISTS(obj, btf, vfs_rename, rd)) {
         /* We are on a 5.12- kernel */
-        err = FILL_FUNC_ARG_IDX(ctx, btf, vfs_rename, old_dentry);
-        if (err)
-            goto out;
-        err = FILL_FUNC_ARG_IDX(ctx, btf, vfs_rename, new_dentry);
-        if (err)
-            goto out;
+        err = err ?: FILL_FUNC_ARG_IDX(obj, btf, vfs_rename, old_dentry);
+        err = err ?: FILL_FUNC_ARG_IDX(obj, btf, vfs_rename, new_dentry);
     }
-    err = FILL_FUNC_RET_IDX(ctx, btf, vfs_rename);
-    if (err)
-        goto out;
+    err = err ?: FILL_FUNC_RET_IDX(obj, btf, vfs_rename);
 
-out:
     return err;
 }
 
@@ -215,23 +203,17 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
 int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         ebpf_event_handler_fn cb,
                         uint64_t features,
-                        uint64_t events,
-                        bool poke_load_attach)
+                        uint64_t events)
 {
     int err = 0;
+    struct EventProbe_bpf *probe;
 
     struct btf *btf = btf__load_vmlinux_btf();
     if (libbpf_get_error(btf))
         goto out_destroy_probe;
 
-    *ctx = calloc(1, sizeof(struct ebpf_event_ctx));
-    if (*ctx == NULL) {
-        err = -ENOMEM;
-        goto out_destroy_probe;
-    }
-
-    (*ctx)->probe = EventProbe_bpf__open();
-    if ((*ctx)->probe == NULL) {
+    probe = EventProbe_bpf__open();
+    if (probe == NULL) {
         /* EventProbe_bpf__open doesn't report errors, hard to find something
          * that fits perfect here
          */
@@ -239,24 +221,31 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
         goto out_destroy_probe;
     }
 
-    err = fill_ctx_relos(btf, ctx);
-    if (err < 0)
-        goto out_destroy_probe;
-
-    err = probe_set_autoload(btf, (*ctx)->probe);
+    err = probe_fill_relos(btf, probe);
     if (err != 0)
         goto out_destroy_probe;
 
-    err = EventProbe_bpf__load((*ctx)->probe);
+    err = probe_set_autoload(btf, probe);
     if (err != 0)
         goto out_destroy_probe;
 
-    err = EventProbe_bpf__attach((*ctx)->probe);
+    err = EventProbe_bpf__load(probe);
     if (err != 0)
         goto out_destroy_probe;
 
-    if (poke_load_attach)
+    err = EventProbe_bpf__attach(probe);
+    if (err != 0)
         goto out_destroy_probe;
+
+    if (!ctx)
+        goto out_destroy_probe;
+
+    *ctx = calloc(1, sizeof(struct ebpf_event_ctx));
+    if (*ctx == NULL) {
+        err = -ENOMEM;
+        goto out_destroy_probe;
+    }
+    (*ctx)->probe = probe;
 
     struct ring_buffer_opts opts;
     opts.sz = sizeof(opts);
@@ -297,6 +286,9 @@ int ebpf_event_ctx__next(struct ebpf_event_ctx *ctx, int timeout)
 
 void ebpf_event_ctx__destroy(struct ebpf_event_ctx **ctx)
 {
+    if (!ctx)
+        return;
+
     if (*ctx) {
         if ((*ctx)->ringbuf) {
             ring_buffer__free((*ctx)->ringbuf);
