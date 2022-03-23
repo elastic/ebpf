@@ -182,15 +182,15 @@ out:
     return err;
 }
 
-/* Certain programs are available only if certain requirements are met.
- *
- * E.g. `do_renameat2` is not present in a 5.10 BTF, so tracepoints for the rename
- * syscalls will be loaded instead.
+/* Some programs in the skeleton are mutually exclusive, based on local kernel features.
  */
 static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj)
 {
     int err = 0;
 
+    // rename syscall tracepoints and do_renameat2 are mutually exclusive.
+    // disable autoload of tracepoints if `do_renameat2` exists in BTF,
+    // and vice-versa.
     if (BTF_FUNC_EXISTS(btf, do_renameat2)) {
         err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_rename, false);
         err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_renameat, false);
@@ -199,6 +199,9 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_renameat2, false);
     }
 
+    // tcp_v6_connect kprobes and fentry probes are mutually exclusive.
+    // disable auto-loading of kprobes if `tcp_v6_connect` exists in BTF,
+    // and vice-versa.
     if (BTF_FUNC_EXISTS(btf, tcp_v6_connect)) {
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tcp_v6_connect, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__tcp_v6_connect, false);
