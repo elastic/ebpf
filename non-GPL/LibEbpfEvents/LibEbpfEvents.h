@@ -10,7 +10,6 @@
 #ifndef EBPF_EVENTS_H_
 #define EBPF_EVENTS_H_
 
-#include <stdbool.h>
 #include <stddef.h>
 
 #include "EbpfEventProto.h"
@@ -28,19 +27,17 @@ typedef int (*ebpf_event_handler_fn)(struct ebpf_event_header *);
 
 /* Allocates a new context based on requested events and capabilities.
  *
- * If `poke_load_attach` is true, the probe is destroyed right after being loaded.
+ * If ctx is NULL, the function returns right after loading and attaching the
+ * libbpf skeleton.
  *
  * Returns a positive int that represents an fd, which can be used with epoll
- * on success. Returns an error on failure. If `poke_load_attach` is true,
+ * on success. Returns an error on failure. If ctx is NULL,
  * returns 0 on success or less than 0 on failure.
- *
- * TODO: add `ebpf_event_ctx__load_attach` to API?
  */
 int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         ebpf_event_handler_fn cb,
                         uint64_t features,
-                        uint64_t events,
-                        bool poke_load_attach);
+                        uint64_t events);
 
 /* Consumes as many events as possible from the event context and returns the
  * number consumed.
