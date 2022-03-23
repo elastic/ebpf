@@ -206,7 +206,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         uint64_t events)
 {
     int err = 0;
-    struct EventProbe_bpf *probe;
+    struct EventProbe_bpf *probe = NULL;
 
     struct btf *btf = btf__load_vmlinux_btf();
     if (libbpf_get_error(btf))
@@ -274,6 +274,8 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
 
 out_destroy_probe:
     btf__free(btf);
+    if (probe)
+        EventProbe_bpf__destroy(probe);
     ebpf_event_ctx__destroy(ctx);
     return err;
 }
