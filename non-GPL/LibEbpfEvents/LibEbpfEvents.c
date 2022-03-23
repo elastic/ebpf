@@ -246,6 +246,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
         goto out_destroy_probe;
     }
     (*ctx)->probe = probe;
+    probe = NULL;
 
     struct ring_buffer_opts opts;
     opts.sz = sizeof(opts);
