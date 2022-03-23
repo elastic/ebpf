@@ -28,10 +28,13 @@ typedef int (*ebpf_event_handler_fn)(struct ebpf_event_header *);
 
 /* Allocates a new context based on requested events and capabilities.
  *
- * If `poke_load_attach` is set, the probe is destroyed right after being loaded.
+ * If `poke_load_attach` is true, the probe is destroyed right after being loaded.
  *
  * Returns a positive int that represents an fd, which can be used with epoll
- * on success. Returns an error on failure.
+ * on success. Returns an error on failure. If `poke_load_attach` is true,
+ * returns 0 on success or less than 0 on failure.
+ *
+ * TODO: add `ebpf_event_ctx__load_attach` to API?
  */
 int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         ebpf_event_handler_fn cb,
