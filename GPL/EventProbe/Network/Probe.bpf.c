@@ -28,6 +28,7 @@
 #include "Network.h"
 #include "State.h"
 
+// TODO: aarch64
 SEC("fexit/inet_csk_accept")
 int BPF_PROG(
     fexit__inet_csk_accept, struct sock *sk, int flags, int *err, bool kern, struct sock *ret)
@@ -72,6 +73,7 @@ out:
     return 0;
 }
 
+// TODO: aarch64
 SEC("fexit/tcp_v4_connect")
 int BPF_PROG(fexit__tcp_v4_connect, struct sock *sk, struct sockaddr *uaddr, int addr_len, int ret)
 {
@@ -87,7 +89,8 @@ int BPF_PROG(fexit__tcp_v6_connect, struct sock *sk, struct sockaddr *uaddr, int
 SEC("kprobe/tcp_v6_connect")
 int BPF_KPROBE(kprobe__tcp_v6_connect, struct sock *sk)
 {
-    struct ebpf_events_state state = {.tcp_v6_connect = {.sk = sk}};
+    struct ebpf_events_state state = {};
+    state.tcp_v6_connect.sk        = sk;
     ebpf_events_state__set(EBPF_EVENTS_STATE_TCP_V6_CONNECT, &state);
     return 0;
 }
@@ -104,6 +107,7 @@ int BPF_KRETPROBE(kretprobe__tcp_v6_connect, int ret)
     return tcp_connect(state->tcp_v6_connect.sk, ret);
 }
 
+// TODO: aarch64
 SEC("fentry/tcp_close")
 int BPF_PROG(fentry__tcp_close, struct sock *sk, long timeout)
 {

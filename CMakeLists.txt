@@ -52,6 +52,12 @@ add_subdirectory(non-GPL/TcLoader)
 # the header is being finalized.
 add_subdirectory(non-GPL/EventsTrace)
 
+# LibEbpfEventsTestLoader
+# Include an executable that loads the probe with different combination
+# of features, to have a quick feedback in case something breaks during
+# development.
+add_subdirectory(non-GPL/LibEbpfEventsTestLoader)
+
 # libeBPF
 add_custom_command(OUTPUT ${LIBEBPF_LIB}
                   WORKING_DIRECTORY ${TARGET_TMP_DIR}

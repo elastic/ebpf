@@ -34,6 +34,7 @@ struct ebpf_events_key {
 
 struct ebpf_events_unlink_state {
     struct vfsmount *mnt;
+    struct dentry de;
 };
 
 enum ebpf_events_rename_state_step {

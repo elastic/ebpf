@@ -14,10 +14,8 @@
 
 #include "EbpfEventProto.h"
 
-enum ebpf_kernel_features {
-    EBPF_KERNEL_FEATURE_BPF     = (1 << 0),
-    EBPF_KERNEL_FEATURE_RINGBUF = (1 << 1),
-    EBPF_KERNEL_FEATURE_BTF     = (1 << 2),
+enum ebpf_kernel_feature {
+    EBPF_FEATURE_BPF_TRAMP = (1 << 0),
 };
 
 /* Opaque context */
