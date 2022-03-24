@@ -78,8 +78,8 @@ static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct
 {
     unsigned long start, end, size;
 
-    start = task->mm->arg_start;
-    end   = task->mm->arg_end;
+    start = BPF_CORE_READ(task, mm, arg_start);
+    end   = BPF_CORE_READ(task, mm, arg_end);
 
     size = end - start;
     size = size > buf_size ? buf_size : size;
@@ -93,9 +93,9 @@ static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct
 
 static void ebpf_ctty__fill(struct ebpf_tty_dev *ctty, const struct task_struct *task)
 {
-    ctty->major = task->signal->tty->driver->major;
-    ctty->minor = task->signal->tty->driver->minor_start;
-    ctty->minor += task->signal->tty->index;
+    ctty->major = BPF_CORE_READ(task, signal, tty, driver, major);
+    ctty->minor = BPF_CORE_READ(task, signal, tty, driver, minor_start);
+    ctty->minor += BPF_CORE_READ(task, signal, tty, index);
 }
 
 static void ebpf_pid_info__fill(struct ebpf_pid_info *pi, const struct task_struct *task)
@@ -126,7 +126,7 @@ static bool is_kernel_thread(const struct task_struct *task)
 
 static bool is_thread_group_leader(const struct task_struct *task)
 {
-    return task->pid == task->tgid;
+    return BPF_CORE_READ(task, pid) == BPF_CORE_READ(task, tgid);
 }
 
 #endif // EBPF_EVENTPROBE_HELPERS_H
