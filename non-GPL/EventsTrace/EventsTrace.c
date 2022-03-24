@@ -58,10 +58,13 @@ static const struct argp_option opts[] = {
      "Whether or not to consider network connection attempted events", 1},
     {"net-conn-closed", EBPF_EVENT_NETWORK_CONNECTION_CLOSED, NULL, false,
      "Whether or not to consider network connection closed events", 1},
+    {"set-bpf-tramp", EBPF_FEATURE_BPF_TRAMP, NULL, false,
+     "Set feature supported: bpf trampoline", 2},
     {},
 };
 
 uint64_t g_events_env = 0;
+uint64_t g_features_env = 0;
 
 static error_t parse_arg(int key, char *arg, struct argp_state *state)
 {
@@ -82,6 +85,9 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED:
     case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
         g_events_env |= key;
+        break;
+    case EBPF_FEATURE_BPF_TRAMP:
+        g_features_env |= key;
         break;
     case ARGP_KEY_ARG:
         argp_usage(state);
@@ -529,9 +535,7 @@ int main(int argc, char **argv)
     if (err)
         goto cleanup;
 
-    uint64_t features = EBPF_KERNEL_FEATURE_BPF;
-    uint64_t events   = g_events_env;
-    err               = ebpf_event_ctx__new(&ctx, event_ctx_callback, features, events);
+    err = ebpf_event_ctx__new(&ctx, event_ctx_callback, g_features_env, g_events_env);
     if (err < 0) {
         fprintf(stderr, "Could not create event context: %d %s\n", err, strerror(-err));
         goto cleanup;

@@ -27,12 +27,41 @@
 #define bpf_printk(fmt, ...)
 #endif
 
+// Compiler barrier, used to prevent compile-time insns reordering and optimizations.
+#define barrier() asm volatile("" ::: "memory")
+
 #define DECL_FUNC_ARG(func, arg) const volatile int arg__##func##__##arg##__ = 0;
 #define FUNC_ARG_READ(type, func, arg)                                                             \
     ({                                                                                             \
         type _ret;                                                                                 \
         bpf_core_read(&_ret, sizeof(_ret), ctx + arg__##func##__##arg##__);                        \
         _ret;                                                                                      \
+    })
+
+#define FUNC_ARG_READ_PTREGS(dst, func, arg)                                                       \
+    ({                                                                                             \
+        int ret = 0;                                                                               \
+        switch (arg__##func##__##arg##__) {                                                        \
+        case 0:                                                                                    \
+            bpf_core_read(&dst, sizeof(dst), (void *)PT_REGS_PARM1(ctx));                          \
+            break;                                                                                 \
+        case 1:                                                                                    \
+            bpf_core_read(&dst, sizeof(dst), (void *)PT_REGS_PARM2(ctx));                          \
+            break;                                                                                 \
+        case 2:                                                                                    \
+            bpf_core_read(&dst, sizeof(dst), (void *)PT_REGS_PARM3(ctx));                          \
+            break;                                                                                 \
+        case 3:                                                                                    \
+            bpf_core_read(&dst, sizeof(dst), (void *)PT_REGS_PARM4(ctx));                          \
+            break;                                                                                 \
+        case 4:                                                                                    \
+            bpf_core_read(&dst, sizeof(dst), (void *)PT_REGS_PARM5(ctx));                          \
+            break;                                                                                 \
+        default:                                                                                   \
+            ret = -1;                                                                              \
+        };                                                                                         \
+        barrier();                                                                                 \
+        ret;                                                                                       \
     })
 
 #define DECL_FUNC_RET(func) const volatile int ret__##func##__ = 0;

@@ -36,16 +36,26 @@ DECL_FUNC_ARG(vfs_rename, new_dentry);
 DECL_FUNC_RET(vfs_rename);
 DECL_FUNC_ARG_EXISTS(vfs_rename, rd);
 
-SEC("fentry/do_unlinkat")
-int BPF_PROG(fentry__do_unlinkat)
+static int do_unlinkat__enter()
 {
     struct ebpf_events_state state = {};
     ebpf_events_state__set(EBPF_EVENTS_STATE_UNLINK, &state);
     return 0;
 }
 
-SEC("fentry/mnt_want_write")
-int BPF_PROG(fentry__mnt_want_write, struct vfsmount *mnt)
+SEC("fentry/do_unlinkat")
+int BPF_PROG(fentry__do_unlinkat)
+{
+    return do_unlinkat__enter();
+}
+
+SEC("kprobe/do_unlinkat")
+int BPF_KPROBE(kprobe__do_unlinkat)
+{
+    return do_unlinkat__enter();
+}
+
+static int mnt_want_write__enter(struct vfsmount *mnt)
 {
     struct ebpf_events_state *state = NULL;
 
@@ -66,27 +76,34 @@ out:
     return 0;
 }
 
-SEC("fexit/vfs_unlink")
-int BPF_PROG(fexit__vfs_unlink)
+SEC("fentry/mnt_want_write")
+int BPF_PROG(fentry__mnt_want_write, struct vfsmount *mnt)
 {
-    int ret = FUNC_RET_READ(___type(ret), vfs_unlink);
+    return mnt_want_write__enter(mnt);
+}
+
+SEC("kprobe/mnt_want_write")
+int BPF_KPROBE(kprobe__mnt_want_write, struct vfsmount *mnt)
+{
+    return mnt_want_write__enter(mnt);
+}
+
+static int vfs_unlink__exit(int ret, struct dentry *de)
+{
     if (ret != 0)
         goto out;
 
-    struct dentry *de        = NULL;
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-
     struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
     if (state == NULL) {
-        bpf_printk("fexit__vfs_unlink: no state\n");
+        bpf_printk("vfs_unlink__exit: no state\n");
         goto out;
     }
 
-    de = FUNC_ARG_READ(___type(de), vfs_unlink, dentry);
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
     struct ebpf_file_delete_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event) {
-        bpf_printk("fexit__vfs_unlink: failed to reserve event\n");
+        bpf_printk("vfs_unlink__exit: failed to reserve event\n");
         goto out;
     }
 
@@ -104,22 +121,63 @@ out:
     return 0;
 }
 
-SEC("fexit/do_filp_open")
-int BPF_PROG(fexit__do_filp_open,
-             int dfd,
-             struct filename *pathname,
-             const struct open_flags *op,
-             struct file *ret)
+SEC("fexit/vfs_unlink")
+int BPF_PROG(fexit__vfs_unlink)
+{
+    int ret           = FUNC_RET_READ(___type(ret), vfs_unlink);
+    struct dentry *de = FUNC_ARG_READ(___type(de), vfs_unlink, dentry);
+    return vfs_unlink__exit(ret, de);
+}
+
+SEC("kprobe/vfs_unlink")
+int BPF_KPROBE(kprobe__vfs_unlink)
+{
+    struct dentry de;
+    int err = FUNC_ARG_READ_PTREGS(de, vfs_unlink, dentry);
+    if (err) {
+        bpf_printk("kprobe__vfs_unlink: error reading dentry\n");
+        goto out;
+    }
+
+    struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
+    if (!state) {
+        bpf_printk("kprobe__vfs_unlink: state missing\n");
+        goto out;
+    }
+
+    state->unlink.de = de;
+
+out:
+    return 0;
+}
+
+SEC("kretprobe/vfs_unlink")
+int BPF_KRETPROBE(kretprobe__vfs_unlink, int ret)
+{
+    struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
+    if (!state) {
+        bpf_printk("kretprobe__vfs_unlink: state missing\n");
+        goto out;
+    }
+
+    return vfs_unlink__exit(ret, &state->unlink.de);
+
+out:
+    return 0;
+}
+
+static int do_filp_open__exit(struct file *f)
 {
     /*
     'ret' fields such f_mode and f_path should be obtained via BPF_CORE_READ
     because there's a kernel bug that causes a panic.
     Read more: github.com/torvalds/linux/commit/588a25e92458c6efeb7a261d5ca5726f5de89184
     */
-    if (IS_ERR_OR_NULL(ret))
+
+    if (IS_ERR_OR_NULL(f))
         goto out;
 
-    fmode_t fmode = BPF_CORE_READ(ret, f_mode);
+    fmode_t fmode = BPF_CORE_READ(f, f_mode);
     if (fmode & (fmode_t)0x100000) // FMODE_CREATED
     {
         struct ebpf_file_create_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
@@ -130,7 +188,8 @@ int BPF_PROG(fexit__do_filp_open,
         event->hdr.ts   = bpf_ktime_get_ns();
 
         struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-        ebpf_resolve_path_to_string(event->path, &ret->f_path, task);
+        struct path p = BPF_CORE_READ(f, f_path);
+        ebpf_resolve_path_to_string(event->path, &p, task);
         ebpf_pid_info__fill(&event->pids, task);
 
         bpf_ringbuf_submit(event, 0);
@@ -138,6 +197,22 @@ int BPF_PROG(fexit__do_filp_open,
 
 out:
     return 0;
+}
+
+SEC("fexit/do_filp_open")
+int BPF_PROG(fexit__do_filp_open,
+             int dfd,
+             struct filename *pathname,
+             const struct open_flags *op,
+             struct file *ret)
+{
+    return do_filp_open__exit(ret);
+}
+
+SEC("kretprobe/do_filp_open")
+int BPF_KRETPROBE(kretprobe__do_filp_open, struct file *ret)
+{
+    return do_filp_open__exit(ret);
 }
 
 int rename_state__init()
@@ -180,31 +255,18 @@ int BPF_PROG(fentry__do_renameat2)
     return rename_state__init();
 }
 
-SEC("fentry/vfs_rename")
-int BPF_PROG(fentry__vfs_rename)
+static int vfs_rename__enter(struct dentry *old_dentry, struct dentry *new_dentry)
 {
     struct ebpf_events_state *state;
     state = ebpf_events_state__get(EBPF_EVENTS_STATE_RENAME);
     if (!state || state->rename.step != RENAME_STATE_MOUNT_SET) {
-        bpf_printk("fentry__vfs_rename: state missing or incomplete\n");
+        bpf_printk("vfs_rename__enter: state missing or incomplete\n");
         goto out;
-    }
-
-    struct dentry *old_dentry, *new_dentry;
-    if (FUNC_ARG_EXISTS(vfs_rename, rd)) {
-        /* Function arguments have been refactored into struct renamedata */
-        struct renamedata *rd = (struct renamedata *)ctx[0];
-        old_dentry            = rd->old_dentry;
-        new_dentry            = rd->new_dentry;
-    } else {
-        /* Dentries are accessible from ctx */
-        old_dentry = FUNC_ARG_READ(___type(old_dentry), vfs_rename, old_dentry);
-        new_dentry = FUNC_ARG_READ(___type(new_dentry), vfs_rename, new_dentry);
     }
 
     struct ebpf_events_scratch_space *ss = ebpf_events_scratch_space__get(EBPF_EVENTS_STATE_RENAME);
     if (!ss) {
-        bpf_printk("fentry__vfs_rename: scratch space missing\n");
+        bpf_printk("vfs_rename__enter: scratch space missing\n");
         goto out;
     }
 
@@ -223,22 +285,68 @@ out:
     return 0;
 }
 
-SEC("fexit/vfs_rename")
-int BPF_PROG(fexit__vfs_rename)
+SEC("fentry/vfs_rename")
+int BPF_PROG(fentry__vfs_rename)
 {
-    int ret = FUNC_RET_READ(___type(ret), vfs_rename);
+    struct dentry *old_dentry, *new_dentry;
+
+    if (FUNC_ARG_EXISTS(vfs_rename, rd)) {
+        /* Function arguments have been refactored into struct renamedata */
+        struct renamedata *rd = (struct renamedata *)ctx[0];
+        old_dentry            = rd->old_dentry;
+        new_dentry            = rd->new_dentry;
+    } else {
+        /* Dentries are accessible from ctx */
+        old_dentry = FUNC_ARG_READ(___type(old_dentry), vfs_rename, old_dentry);
+        new_dentry = FUNC_ARG_READ(___type(new_dentry), vfs_rename, new_dentry);
+    }
+
+    return vfs_rename__enter(old_dentry, new_dentry);
+}
+
+SEC("kprobe/vfs_rename")
+int BPF_KPROBE(kprobe__vfs_rename)
+{
+    int err;
+    struct dentry *old_dentry, *new_dentry;
+
+    if (FUNC_ARG_EXISTS(vfs_rename, rd)) {
+        /* Function arguments have been refactored into struct renamedata */
+        struct renamedata rd;
+        bpf_core_read(&rd, sizeof(rd), (void *)PT_REGS_PARM1(ctx));
+        old_dentry = rd.old_dentry;
+        new_dentry = rd.new_dentry;
+    } else {
+        /* Dentries are accessible from ctx */
+        err = FUNC_ARG_READ_PTREGS(old_dentry, vfs_rename, old_dentry);
+        if (err) {
+            bpf_printk("kprobe__vfs_rename: error reading old_dentry\n");
+            return 0;
+        }
+        err = FUNC_ARG_READ_PTREGS(new_dentry, vfs_rename, new_dentry);
+        if (err) {
+            bpf_printk("kprobe__vfs_rename: error reading new_dentry\n");
+            return 0;
+        }
+    }
+
+    return vfs_rename__enter(old_dentry, new_dentry);
+}
+
+static int vfs_rename__exit(int ret)
+{
     if (ret)
         goto out;
 
     struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_RENAME);
     if (!state || state->rename.step != RENAME_STATE_PATHS_SET) {
-        bpf_printk("fexit__vfs_rename: state missing or incomplete\n");
+        bpf_printk("vfs_rename__exit: state missing or incomplete\n");
         goto out;
     }
 
     struct ebpf_events_scratch_space *ss = ebpf_events_scratch_space__get(EBPF_EVENTS_STATE_RENAME);
     if (!ss) {
-        bpf_printk("fexit__vfs_rename: scratch space missing\n");
+        bpf_printk("vfs_rename__exit: scratch space missing\n");
         goto out;
     }
 
@@ -258,4 +366,17 @@ int BPF_PROG(fexit__vfs_rename)
 
 out:
     return 0;
+}
+
+SEC("fexit/vfs_rename")
+int BPF_PROG(fexit__vfs_rename)
+{
+    int ret = FUNC_RET_READ(___type(ret), vfs_rename);
+    return vfs_rename__exit(ret);
+}
+
+SEC("kretprobe/vfs_rename")
+int BPF_KRETPROBE(kretprobe__vfs_rename, int ret)
+{
+    return vfs_rename__exit(ret);
 }

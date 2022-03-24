@@ -107,6 +107,7 @@ out:
 // group_dead is the result of an atomic decrement and test operation on
 // task->signal->live, so is guaranteed to only be passed into taskstats_exit
 // as true once, which signifies the last thread in a thread group exiting.
+// TODO: aarch64
 SEC("fentry/taskstats_exit")
 int BPF_PROG(fentry__taskstats_exit, const struct task_struct *task, int group_dead)
 {
@@ -158,6 +159,7 @@ out:
     return 0;
 }
 
+// TODO: aarch64
 SEC("fentry/commit_creds")
 int BPF_PROG(fentry__commit_creds, struct cred *new)
 {

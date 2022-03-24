@@ -14,6 +14,7 @@
 #include <bpf/btf.h>
 #include <bpf/libbpf.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 #include "EventProbe.skel.h"
@@ -172,14 +173,15 @@ static int probe_fill_relos(struct btf *btf, struct EventProbe_bpf *obj)
 
 /* Some programs in the skeleton are mutually exclusive, based on local kernel features.
  */
-static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj)
+static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj, uint64_t features)
 {
-    int err = 0;
+    int err            = 0;
+    bool has_bpf_tramp = features & EBPF_FEATURE_BPF_TRAMP;
 
     // rename syscall tracepoints and do_renameat2 are mutually exclusive.
-    // disable autoload of tracepoints if `do_renameat2` exists in BTF,
-    // and vice-versa.
-    if (BTF_FUNC_EXISTS(btf, do_renameat2)) {
+    // disable auto-loading of tracepoints if `do_renameat2` exists in BTF and
+    // if bpf trampolines are supported on the current arch, and vice-versa.
+    if (has_bpf_tramp && BTF_FUNC_EXISTS(btf, do_renameat2)) {
         err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_rename, false);
         err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_renameat, false);
         err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_renameat2, false);
@@ -188,12 +190,39 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
     }
 
     // tcp_v6_connect kprobes and fentry probes are mutually exclusive.
-    // disable auto-loading of kprobes if `tcp_v6_connect` exists in BTF,
-    // and vice-versa.
-    if (BTF_FUNC_EXISTS(btf, tcp_v6_connect)) {
+    // disable auto-loading of kprobes if `tcp_v6_connect` exists in BTF and
+    // if bpf trampolines are supported on the current arch, and vice-versa.
+    if (has_bpf_tramp && BTF_FUNC_EXISTS(btf, tcp_v6_connect)) {
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tcp_v6_connect, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__tcp_v6_connect, false);
     } else {
+        err = err ?: bpf_program__set_autoload(obj->progs.fexit__tcp_v6_connect, false);
+    }
+
+    // bpf trampolines are only implemented for x86. disable auto-loading of all
+    // fentry/fexit progs if EBPF_FEATURE_BPF_TRAMP is not in `features` and
+    // enable the k[ret]probe counterpart.
+    if (has_bpf_tramp) {
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__do_unlinkat, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__mnt_want_write, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__vfs_unlink, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__vfs_unlink, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__do_filp_open, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__vfs_rename, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__vfs_rename, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tcp_v6_connect, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__tcp_v6_connect, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_rename, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_renameat, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_renameat2, false);
+    } else {
+        err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_unlinkat, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.fentry__mnt_want_write, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.fexit__vfs_unlink, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.fexit__do_filp_open, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.fentry__vfs_rename, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.fexit__vfs_rename, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_renameat2, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__tcp_v6_connect, false);
     }
 
@@ -205,7 +234,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         uint64_t features,
                         uint64_t events)
 {
-    int err = 0;
+    int err                      = 0;
     struct EventProbe_bpf *probe = NULL;
 
     struct btf *btf = btf__load_vmlinux_btf();
@@ -225,7 +254,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
     if (err != 0)
         goto out_destroy_probe;
 
-    err = probe_set_autoload(btf, probe);
+    err = probe_set_autoload(btf, probe, features);
     if (err != 0)
         goto out_destroy_probe;
 
@@ -246,7 +275,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
         goto out_destroy_probe;
     }
     (*ctx)->probe = probe;
-    probe = NULL;
+    probe         = NULL;
 
     struct ring_buffer_opts opts;
     opts.sz = sizeof(opts);
