@@ -28,19 +28,16 @@
 #include "Network.h"
 #include "State.h"
 
-// TODO: aarch64
-SEC("fexit/inet_csk_accept")
-int BPF_PROG(
-    fexit__inet_csk_accept, struct sock *sk, int flags, int *err, bool kern, struct sock *ret)
+static int inet_csk_accept__exit(struct sock *sk)
 {
-    if (!ret)
+    if (!sk)
         goto out;
 
     struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;
 
-    if (ebpf_network_event__fill(event, ret)) {
+    if (ebpf_network_event__fill(event, sk)) {
         bpf_ringbuf_discard(event, 0);
         goto out;
     }
@@ -50,6 +47,19 @@ int BPF_PROG(
 
 out:
     return 0;
+}
+
+SEC("fexit/inet_csk_accept")
+int BPF_PROG(
+    fexit__inet_csk_accept, struct sock *sk, int flags, int *err, bool kern, struct sock *ret)
+{
+    return inet_csk_accept__exit(ret);
+}
+
+SEC("kretprobe/inet_csk_accept")
+int BPF_KRETPROBE(kretprobe__inet_csk_accept, struct sock *ret)
+{
+    return inet_csk_accept__exit(ret);
 }
 
 static int tcp_connect(struct sock *sk, int ret)
@@ -73,11 +83,31 @@ out:
     return 0;
 }
 
-// TODO: aarch64
 SEC("fexit/tcp_v4_connect")
 int BPF_PROG(fexit__tcp_v4_connect, struct sock *sk, struct sockaddr *uaddr, int addr_len, int ret)
 {
     return tcp_connect(sk, ret);
+}
+
+SEC("kprobe/tcp_v4_connect")
+int BPF_KPROBE(kprobe__tcp_v4_connect, struct sock *sk)
+{
+    struct ebpf_events_state state = {};
+    state.tcp_v4_connect.sk        = sk;
+    ebpf_events_state__set(EBPF_EVENTS_STATE_TCP_V4_CONNECT, &state);
+    return 0;
+}
+
+SEC("kretprobe/tcp_v4_connect")
+int BPF_KRETPROBE(kretprobe__tcp_v4_connect, int ret)
+{
+    struct ebpf_events_state *state;
+
+    state = ebpf_events_state__get(EBPF_EVENTS_STATE_TCP_V4_CONNECT);
+    if (!state)
+        return 0;
+
+    return tcp_connect(state->tcp_v4_connect.sk, ret);
 }
 
 SEC("fexit/tcp_v6_connect")
@@ -107,9 +137,7 @@ int BPF_KRETPROBE(kretprobe__tcp_v6_connect, int ret)
     return tcp_connect(state->tcp_v6_connect.sk, ret);
 }
 
-// TODO: aarch64
-SEC("fentry/tcp_close")
-int BPF_PROG(fentry__tcp_close, struct sock *sk, long timeout)
+static int tcp_close__enter(struct sock *sk)
 {
     struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
@@ -138,4 +166,16 @@ int BPF_PROG(fentry__tcp_close, struct sock *sk, long timeout)
 
 out:
     return 0;
+}
+
+SEC("fentry/tcp_close")
+int BPF_PROG(fentry__tcp_close, struct sock *sk, long timeout)
+{
+    return tcp_close__enter(sk);
+}
+
+SEC("kprobe/tcp_close")
+int BPF_KPROBE(kprobe__tcp_close, struct sock *sk, long timeout)
+{
+    return tcp_close__enter(sk);
 }

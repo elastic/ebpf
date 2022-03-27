@@ -188,7 +188,7 @@ static int do_filp_open__exit(struct file *f)
         event->hdr.ts   = bpf_ktime_get_ns();
 
         struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-        struct path p = BPF_CORE_READ(f, f_path);
+        struct path p            = BPF_CORE_READ(f, f_path);
         ebpf_resolve_path_to_string(event->path, &p, task);
         ebpf_pid_info__fill(&event->pids, task);
 
