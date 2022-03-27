@@ -58,8 +58,8 @@ static const struct argp_option opts[] = {
      "Whether or not to consider network connection attempted events", 1},
     {"net-conn-closed", EBPF_EVENT_NETWORK_CONNECTION_CLOSED, NULL, false,
      "Whether or not to consider network connection closed events", 1},
-    {"set-bpf-tramp", EBPF_FEATURE_BPF_TRAMP, NULL, false,
-     "Set feature supported: bpf trampoline", 2},
+    {"set-bpf-tramp", EBPF_FEATURE_BPF_TRAMP, NULL, false, "Set feature supported: bpf trampoline",
+     2},
     {},
 };
 
