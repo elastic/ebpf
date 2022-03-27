@@ -107,9 +107,7 @@ out:
 // group_dead is the result of an atomic decrement and test operation on
 // task->signal->live, so is guaranteed to only be passed into taskstats_exit
 // as true once, which signifies the last thread in a thread group exiting.
-// TODO: aarch64
-SEC("fentry/taskstats_exit")
-int BPF_PROG(fentry__taskstats_exit, const struct task_struct *task, int group_dead)
+static int taskstats_exit__enter(const struct task_struct *task, int group_dead)
 {
     if (!group_dead || is_kernel_thread(task))
         goto out;
@@ -122,13 +120,26 @@ int BPF_PROG(fentry__taskstats_exit, const struct task_struct *task, int group_d
     event->hdr.ts   = bpf_ktime_get_ns();
 
     // The exit _status_ is stored in the second byte of task->exit_code
-    event->exit_code = (task->exit_code >> 8) & 0xFF;
+    int exit_code    = BPF_CORE_READ(task, exit_code);
+    event->exit_code = (exit_code >> 8) & 0xFF;
     ebpf_pid_info__fill(&event->pids, task);
 
     bpf_ringbuf_submit(event, 0);
 
 out:
     return 0;
+}
+
+SEC("fentry/taskstats_exit")
+int BPF_PROG(fentry__taskstats_exit, const struct task_struct *task, int group_dead)
+{
+    return taskstats_exit__enter(task, group_dead);
+}
+
+SEC("kprobe/taskstats_exit")
+int BPF_KPROBE(kprobe__taskstats_exit, const struct task_struct *task, int group_dead)
+{
+    return taskstats_exit__enter(task, group_dead);
 }
 
 // tracepoint/syscalls/sys_[enter/exit]_[name] tracepoints are not available
@@ -159,9 +170,7 @@ out:
     return 0;
 }
 
-// TODO: aarch64
-SEC("fentry/commit_creds")
-int BPF_PROG(fentry__commit_creds, struct cred *new)
+static int commit_creds__enter(struct cred *new)
 {
     const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     const struct cred *old         = BPF_CORE_READ(task, real_cred);
@@ -206,4 +215,16 @@ int BPF_PROG(fentry__commit_creds, struct cred *new)
 
 out:
     return 0;
+}
+
+SEC("fentry/commit_creds")
+int BPF_PROG(fentry__commit_creds, struct cred *new)
+{
+    return commit_creds__enter(new);
+}
+
+SEC("kprobe/commit_creds")
+int BPF_KPROBE(kprobe__commit_creds, struct cred *new)
+{
+    return commit_creds__enter(new);
 }
