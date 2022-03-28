@@ -178,18 +178,16 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
     int err            = 0;
     bool has_bpf_tramp = features & EBPF_FEATURE_BPF_TRAMP;
 
-    // rename syscall tracepoints and do_renameat2 are mutually exclusive.
-    // disable auto-loading of tracepoints if `do_renameat2` exists in BTF and
+    // do_renameat2 kprobe and fentry probe are mutually exclusive.
+    // disable auto-loading of kprobe if `do_renameat2` exists in BTF and
     // if bpf trampolines are supported on the current arch, and vice-versa.
     if (has_bpf_tramp && BTF_FUNC_EXISTS(btf, do_renameat2)) {
-        err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_rename, false);
-        err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_renameat, false);
-        err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_renameat2, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__do_renameat2, false);
     } else {
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_renameat2, false);
     }
 
-    // tcp_v6_connect kprobes and fentry probes are mutually exclusive.
+    // tcp_v6_connect kprobes and fexit probe are mutually exclusive.
     // disable auto-loading of kprobes if `tcp_v6_connect` exists in BTF and
     // if bpf trampolines are supported on the current arch, and vice-versa.
     if (has_bpf_tramp && BTF_FUNC_EXISTS(btf, tcp_v6_connect)) {
@@ -212,9 +210,7 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__vfs_rename, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tcp_v6_connect, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__tcp_v6_connect, false);
-        err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_rename, false);
-        err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_renameat, false);
-        err = err ?: bpf_program__set_autoload(obj->progs.tracepoint_sys_enter_renameat2, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__do_renameat2, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__taskstats_exit, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__commit_creds, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__inet_csk_accept, false);

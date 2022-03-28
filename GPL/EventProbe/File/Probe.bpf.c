@@ -215,9 +215,10 @@ int BPF_KRETPROBE(kretprobe__do_filp_open, struct file *ret)
     return do_filp_open__exit(ret);
 }
 
-int rename_state__init()
+static int do_renameat2__enter()
 {
-    struct ebpf_events_state state = {.rename = {.step = RENAME_STATE_INIT}};
+    struct ebpf_events_state state = {};
+    state.rename.step = RENAME_STATE_INIT;
     ebpf_events_state__set(EBPF_EVENTS_STATE_RENAME, &state);
 
     u32 zero = 0;
@@ -231,28 +232,16 @@ out:
     return 0;
 }
 
-SEC("tracepoint/syscalls/sys_enter_rename")
-int tracepoint_sys_enter_rename(struct trace_event_raw_sys_enter *ctx)
-{
-    return rename_state__init();
-}
-
-SEC("tracepoint/syscalls/sys_enter_renameat")
-int tracepoint_sys_enter_renameat(struct trace_event_raw_sys_enter *ctx)
-{
-    return rename_state__init();
-}
-
-SEC("tracepoint/syscalls/sys_enter_renameat2")
-int tracepoint_sys_enter_renameat2(struct trace_event_raw_sys_enter *ctx)
-{
-    return rename_state__init();
-}
-
 SEC("fentry/do_renameat2")
 int BPF_PROG(fentry__do_renameat2)
 {
-    return rename_state__init();
+    return do_renameat2__enter();
+}
+
+SEC("kprobe/do_renameat2")
+int BPF_KPROBE(kprobe__do_renameat2)
+{
+    return do_renameat2__enter();
 }
 
 static int vfs_rename__enter(struct dentry *old_dentry, struct dentry *new_dentry)
