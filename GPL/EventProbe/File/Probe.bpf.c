@@ -218,7 +218,7 @@ int BPF_KRETPROBE(kretprobe__do_filp_open, struct file *ret)
 static int do_renameat2__enter()
 {
     struct ebpf_events_state state = {};
-    state.rename.step = RENAME_STATE_INIT;
+    state.rename.step              = RENAME_STATE_INIT;
     ebpf_events_state__set(EBPF_EVENTS_STATE_RENAME, &state);
 
     u32 zero = 0;

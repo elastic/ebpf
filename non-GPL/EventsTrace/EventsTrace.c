@@ -535,7 +535,11 @@ int main(int argc, char **argv)
     if (err)
         goto cleanup;
 
-    err = ebpf_event_ctx__new(&ctx, event_ctx_callback, g_features_env, g_events_env);
+    struct ebpf_event_ctx_opts opts = {
+        .events   = g_events_env,
+        .features = g_features_env,
+    };
+    err = ebpf_event_ctx__new(&ctx, event_ctx_callback, opts);
     if (err < 0) {
         fprintf(stderr, "Could not create event context: %d %s\n", err, strerror(-err));
         goto cleanup;

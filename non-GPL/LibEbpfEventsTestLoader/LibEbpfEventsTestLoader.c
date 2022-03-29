@@ -7,32 +7,37 @@
  * License 2.0.
  */
 
+#include <stdbool.h>
 #include <stdio.h>
 
 #include <LibEbpfEvents.h>
 
-static void print_features(uint64_t features)
+static void print_features(uint64_t features, bool autodetect)
 {
     printf("features: ");
     if (features & EBPF_FEATURE_BPF_TRAMP)
         printf("bpf_tramp,");
-    printf("\n");
+    printf(" (autodetect=%s) \n", autodetect ? "true" : "false");
 }
 
-static void test_with(uint64_t features)
+static void test_with(uint64_t features, bool autodetect)
 {
-    if (ebpf_event_ctx__new(NULL, NULL, features, 0)) {
+    struct ebpf_event_ctx_opts opts = {};
+    opts.features                   = features;
+    opts.features_autodetect        = autodetect;
+    if (ebpf_event_ctx__new(NULL, NULL, opts)) {
         printf("probe could not load with ");
         goto out;
     }
     printf("probe did load successfully with ");
 out:
-    print_features(features);
+    print_features(features, autodetect);
 }
 
 int main(int argc, char **argv)
 {
-    test_with(EBPF_FEATURE_BPF_TRAMP);
-    test_with(0);
+    test_with(EBPF_FEATURE_BPF_TRAMP, false);
+    test_with(0, false);
+    test_with(0, true);
     return 0;
 }
