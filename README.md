@@ -109,7 +109,7 @@ target
 - `contrib/` external dependencies, libraries
   - `contrib/elftoolchain` repo: [github.com/elftoolchain/elftoolchain@11d16eab](https://github.com/elftoolchain/elftoolchain/commit/11d16eab)
   - `contrib/kernel_hdrs` headers with eBPF definitions, copied 1:1 from kernel sources
-  - `contrib/libbpf` repo: [github.com/libbpf/libbpf@0.6.1](https://github.com/libbpf/libbpf/releases/tag/v0.6.1)
+  - `contrib/libbpf` repo: [github.com/libbpf/libbpf@0.7.0](https://github.com/libbpf/libbpf/releases/tag/v0.7.0)
   - `contrib/googletest` repo: [github.com/google/googletest@955c7f83](https://github.com/google/googletest/commit/955c7f83)
 - `GPL` eBPF programs which are GPL licensed
 - `non-GPL` tools, utilities with Elastic non-GPL license
