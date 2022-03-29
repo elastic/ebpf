@@ -231,10 +231,16 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
     return err;
 }
 
+static void probe_set_features(uint64_t *features)
+{
+#if defined(__x86_64__) || defined(__x86__)
+    *features |= EBPF_FEATURE_BPF_TRAMP;
+#endif
+}
+
 int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         ebpf_event_handler_fn cb,
-                        uint64_t features,
-                        uint64_t events)
+                        struct ebpf_event_ctx_opts opts)
 {
     int err                      = 0;
     struct EventProbe_bpf *probe = NULL;
@@ -252,11 +258,14 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
         goto out_destroy_probe;
     }
 
+    if (opts.features_autodetect)
+        probe_set_features(&opts.features);
+
     err = probe_fill_relos(btf, probe);
     if (err != 0)
         goto out_destroy_probe;
 
-    err = probe_set_autoload(btf, probe, features);
+    err = probe_set_autoload(btf, probe, opts.features);
     if (err != 0)
         goto out_destroy_probe;
 
@@ -279,8 +288,8 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
     (*ctx)->probe = probe;
     probe         = NULL;
 
-    struct ring_buffer_opts opts;
-    opts.sz = sizeof(opts);
+    struct ring_buffer_opts rb_opts;
+    rb_opts.sz = sizeof(rb_opts);
 
     (*ctx)->cb_ctx = calloc(1, sizeof(struct ring_buf_cb_ctx));
     if ((*ctx)->cb_ctx == NULL) {
@@ -289,10 +298,10 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
     }
 
     (*ctx)->cb_ctx->cb          = cb;
-    (*ctx)->cb_ctx->events_mask = events;
+    (*ctx)->cb_ctx->events_mask = opts.events;
 
     (*ctx)->ringbuf = ring_buffer__new(bpf_map__fd((*ctx)->probe->maps.ringbuf), ring_buf_cb,
-                                       (*ctx)->cb_ctx, &opts);
+                                       (*ctx)->cb_ctx, &rb_opts);
 
     if ((*ctx)->ringbuf == NULL) {
         /* ring_buffer__new doesn't report errors, hard to find something that

@@ -10,6 +10,7 @@
 #ifndef EBPF_EVENTS_H_
 #define EBPF_EVENTS_H_
 
+#include <stdbool.h>
 #include <stddef.h>
 
 #include "EbpfEventProto.h"
@@ -23,6 +24,12 @@ struct ebpf_event_ctx;
 
 typedef int (*ebpf_event_handler_fn)(struct ebpf_event_header *);
 
+struct ebpf_event_ctx_opts {
+    uint64_t events;
+    uint64_t features;
+    bool features_autodetect;
+};
+
 /* Allocates a new context based on requested events and capabilities.
  *
  * If ctx is NULL, the function returns right after loading and attaching the
@@ -34,8 +41,7 @@ typedef int (*ebpf_event_handler_fn)(struct ebpf_event_header *);
  */
 int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         ebpf_event_handler_fn cb,
-                        uint64_t features,
-                        uint64_t events);
+                        struct ebpf_event_ctx_opts opts);
 
 /* Consumes as many events as possible from the event context and returns the
  * number consumed.
