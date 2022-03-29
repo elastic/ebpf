@@ -16,7 +16,7 @@ LIBBPF_MAJOR_VERSION := $(firstword $(subst ., ,$(LIBBPF_VERSION)))
 TOPDIR = ..
 
 INCLUDES := -I. -I$(TOPDIR)/include -I$(TOPDIR)/include/uapi
-ALL_CFLAGS := $(INCLUDES)
+ALL_CFLAGS := $(INCLUDES) -fPIC
 
 SHARED_CFLAGS += -fPIC -fvisibility=hidden -DSHARED
 
