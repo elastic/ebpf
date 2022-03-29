@@ -36,28 +36,16 @@ struct bpf_object *ebpf_open_object_file(const char *file_path);
  * @return Error value (0 for success)
  */
 int ebpf_map_set_pin_path(struct bpf_object *obj, const char *map_name, const char *map_path);
+
 /**
  * @brief Load and attach eBPF program to a kprobe
  *
  * @param[in] obj eBPF object handle
- * @param[in] program_sec_name eBPF program name (section name in ELF)
+ * @param[in] program_name eBPF program name
  * @returns eBPF link handle to be passed to other functions
  */
 struct bpf_link *ebpf_load_and_attach_kprobe(struct bpf_object *obj,
-                                             const char *program_sec_name,
+                                             const char *program_name,
                                              enum ebpf_load_method load_method);
 
-/**
- * @brief Destroy link and cleanup resources
- *
- * @param[in] link eBPF link handle
- */
-void ebpf_link_destroy(struct bpf_link *link);
-
-/**
- * @brief Close eBPF object and cleanup resources
- *
- * @param[in] obj eBPF object handle
- */
-void ebpf_object_close(struct bpf_object *obj);
 #endif

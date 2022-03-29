@@ -141,7 +141,8 @@ protected:
 
 TEST_F(BPFTcFilterTests, TestAllowArpPacket)
 {
-    struct bpf_prog_test_run_attr tattr = {};
+    struct bpf_test_run_opts opts = {};
+    opts.sz = sizeof(opts);
     struct ethhdr eth
     {
     };
@@ -164,23 +165,23 @@ TEST_F(BPFTcFilterTests, TestAllowArpPacket)
 
     struct __sk_buff skb = {};
 
-    tattr.ctx_in       = &skb;
-    tattr.ctx_size_in  = sizeof(skb);
-    tattr.data_in      = &pkt_v4;
-    tattr.data_size_in = sizeof(pkt_v4);
-    tattr.ctx_out      = &skb;
-    tattr.ctx_size_out = sizeof(skb);
+    opts.ctx_in       = &skb;
+    opts.ctx_size_in  = sizeof(skb);
+    opts.data_in      = &pkt_v4;
+    opts.data_size_in = sizeof(pkt_v4);
+    opts.ctx_out      = &skb;
+    opts.ctx_size_out = sizeof(skb);
 
-    tattr.prog_fd = m_prog_fd;
+    int err = bpf_prog_test_run_opts(m_prog_fd, &opts);
 
-    ASSERT_FALSE(bpf_prog_test_run_xattr(&tattr));
-
-    EXPECT_EQ(tattr.retval, (unsigned int)ALLOW_PACKET);
+    EXPECT_EQ(err, 0);
+    EXPECT_EQ(opts.retval, (unsigned int)ALLOW_PACKET);
 }
 
 TEST_F(BPFTcFilterTests, TestDropUnsupportedPackets)
 {
-    struct bpf_prog_test_run_attr tattr = {};
+    struct bpf_test_run_opts opts = {};
+    opts.sz = sizeof(opts);
     struct ethhdr eth
     {
     };
@@ -203,23 +204,23 @@ TEST_F(BPFTcFilterTests, TestDropUnsupportedPackets)
 
     struct __sk_buff skb = {};
 
-    tattr.ctx_in       = &skb;
-    tattr.ctx_size_in  = sizeof(skb);
-    tattr.data_in      = &pkt_v4;
-    tattr.data_size_in = sizeof(pkt_v4);
-    tattr.ctx_out      = &skb;
-    tattr.ctx_size_out = sizeof(skb);
+    opts.ctx_in       = &skb;
+    opts.ctx_size_in  = sizeof(skb);
+    opts.data_in      = &pkt_v4;
+    opts.data_size_in = sizeof(pkt_v4);
+    opts.ctx_out      = &skb;
+    opts.ctx_size_out = sizeof(skb);
 
-    tattr.prog_fd = m_prog_fd;
+    int err = bpf_prog_test_run_opts(m_prog_fd, &opts);
 
-    ASSERT_FALSE(bpf_prog_test_run_xattr(&tattr));
-
-    EXPECT_EQ(tattr.retval, (unsigned int)DROP_PACKET);
+    EXPECT_EQ(err, 0);
+    EXPECT_EQ(opts.retval, (unsigned int)DROP_PACKET);
 }
 
 TEST_F(BPFTcFilterTests, TestDropIPV6Packets)
 {
-    struct bpf_prog_test_run_attr tattr = {};
+    struct bpf_test_run_opts opts = {};
+    opts.sz = sizeof(opts);
     struct ethhdr eth
     {
     };
@@ -243,23 +244,23 @@ TEST_F(BPFTcFilterTests, TestDropIPV6Packets)
 
     struct __sk_buff skb = {};
 
-    tattr.ctx_in       = &skb;
-    tattr.ctx_size_in  = sizeof(skb);
-    tattr.data_in      = &pkt_v6;
-    tattr.data_size_in = sizeof(pkt_v6);
-    tattr.ctx_out      = &skb;
-    tattr.ctx_size_out = sizeof(skb);
+    opts.ctx_in       = &skb;
+    opts.ctx_size_in  = sizeof(skb);
+    opts.data_in      = &pkt_v6;
+    opts.data_size_in = sizeof(pkt_v6);
+    opts.ctx_out      = &skb;
+    opts.ctx_size_out = sizeof(skb);
 
-    tattr.prog_fd = m_prog_fd;
+    int err = bpf_prog_test_run_opts(m_prog_fd, &opts);
 
-    ASSERT_FALSE(bpf_prog_test_run_xattr(&tattr));
-
-    EXPECT_EQ(tattr.retval, (unsigned int)DROP_PACKET);
+    EXPECT_EQ(err, 0);
+    EXPECT_EQ(opts.retval, (unsigned int)DROP_PACKET);
 }
 
 TEST_F(BPFTcFilterTests, TestDropInvalidHeaderLength)
 {
-    unsigned int retval;
+    struct bpf_test_run_opts opts = {};
+    opts.sz = sizeof(opts);
     struct ethhdr eth
     {
     };
@@ -282,15 +283,19 @@ TEST_F(BPFTcFilterTests, TestDropInvalidHeaderLength)
     pkt_v4.iph = iph;
     pkt_v4.tcp = tcp;
 
-    ASSERT_FALSE(
-        bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+    opts.data_in      = &pkt_v4;
+    opts.data_size_in = sizeof(pkt_v4);
 
-    EXPECT_EQ(retval, (unsigned int)DROP_PACKET);
+    int err = bpf_prog_test_run_opts(m_prog_fd, &opts);
+
+    EXPECT_EQ(err, 0);
+    EXPECT_EQ(opts.retval, (unsigned int)DROP_PACKET);
 }
 
 TEST_F(BPFTcFilterTests, TestDropFragmentedPacket)
 {
-    unsigned int retval;
+    struct bpf_test_run_opts opts = {};
+    opts.sz = sizeof(opts);
     struct ethhdr eth
     {
     };
@@ -314,15 +319,19 @@ TEST_F(BPFTcFilterTests, TestDropFragmentedPacket)
     pkt_v4.iph = iph;
     pkt_v4.tcp = tcp;
 
-    ASSERT_FALSE(
-        bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+    opts.data_in      = &pkt_v4;
+    opts.data_size_in = sizeof(pkt_v4);
 
-    EXPECT_EQ(retval, (unsigned int)DROP_PACKET);
+    int err = bpf_prog_test_run_opts(m_prog_fd, &opts);
+
+    EXPECT_EQ(err, 0);
+    EXPECT_EQ(opts.retval, (unsigned int)DROP_PACKET);
 }
 
 TEST_F(BPFTcFilterTests, TestAllowUDPPacketDNSPortSource)
 {
-    unsigned int retval;
+    struct bpf_test_run_opts opts = {};
+    opts.sz = sizeof(opts);
     struct ethhdr eth
     {
     };
@@ -347,15 +356,19 @@ TEST_F(BPFTcFilterTests, TestAllowUDPPacketDNSPortSource)
     pkt_v4.iph = iph;
     pkt_v4.udp = udp;
 
-    ASSERT_FALSE(
-        bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+    opts.data_in      = &pkt_v4;
+    opts.data_size_in = sizeof(pkt_v4);
 
-    EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
+    int err = bpf_prog_test_run_opts(m_prog_fd, &opts);
+
+    EXPECT_EQ(err, 0);
+    EXPECT_EQ(opts.retval, (unsigned int)ALLOW_PACKET);
 }
 
 TEST_F(BPFTcFilterTests, TestAllowUDPPacketDNSPortDest)
 {
-    unsigned int retval;
+    struct bpf_test_run_opts opts = {};
+    opts.sz = sizeof(opts);
     struct ethhdr eth
     {
     };
@@ -380,15 +393,19 @@ TEST_F(BPFTcFilterTests, TestAllowUDPPacketDNSPortDest)
     pkt_v4.iph = iph;
     pkt_v4.udp = udp;
 
-    ASSERT_FALSE(
-        bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+    opts.data_in      = &pkt_v4;
+    opts.data_size_in = sizeof(pkt_v4);
 
-    EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
+    int err = bpf_prog_test_run_opts(m_prog_fd, &opts);
+
+    EXPECT_EQ(err, 0);
+    EXPECT_EQ(opts.retval, (unsigned int)ALLOW_PACKET);
 }
 
 TEST_F(BPFTcFilterTests, TestAllowUDPPacketDHCPClient)
 {
-    unsigned int retval;
+    struct bpf_test_run_opts opts = {};
+    opts.sz = sizeof(opts);
     struct ethhdr eth
     {
     };
@@ -414,15 +431,19 @@ TEST_F(BPFTcFilterTests, TestAllowUDPPacketDHCPClient)
     pkt_v4.iph = iph;
     pkt_v4.udp = udp;
 
-    ASSERT_FALSE(
-        bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+    opts.data_in      = &pkt_v4;
+    opts.data_size_in = sizeof(pkt_v4);
 
-    EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
+    int err = bpf_prog_test_run_opts(m_prog_fd, &opts);
+
+    EXPECT_EQ(err, 0);
+    EXPECT_EQ(opts.retval, (unsigned int)ALLOW_PACKET);
 }
 
 TEST_F(BPFTcFilterTests, TestAllowUDPPacketDHCPServer)
 {
-    unsigned int retval;
+    struct bpf_test_run_opts opts = {};
+    opts.sz = sizeof(opts);
     struct ethhdr eth
     {
     };
@@ -448,15 +469,19 @@ TEST_F(BPFTcFilterTests, TestAllowUDPPacketDHCPServer)
     pkt_v4.iph = iph;
     pkt_v4.udp = udp;
 
-    ASSERT_FALSE(
-        bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+    opts.data_in      = &pkt_v4;
+    opts.data_size_in = sizeof(pkt_v4);
 
-    EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
+    int err = bpf_prog_test_run_opts(m_prog_fd, &opts);
+
+    EXPECT_EQ(err, 0);
+    EXPECT_EQ(opts.retval, (unsigned int)ALLOW_PACKET);
 }
 
 TEST_F(BPFTcFilterTests, TestDropUnknownUDPPackets)
 {
-    unsigned int retval;
+    struct bpf_test_run_opts opts = {};
+    opts.sz = sizeof(opts);
     struct ethhdr eth
     {
     };
@@ -480,16 +505,19 @@ TEST_F(BPFTcFilterTests, TestDropUnknownUDPPackets)
     pkt_v4.iph = iph;
     pkt_v4.udp = udp;
 
+    opts.data_in      = &pkt_v4;
+    opts.data_size_in = sizeof(pkt_v4);
 
-    ASSERT_FALSE(
-        bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+    int err = bpf_prog_test_run_opts(m_prog_fd, &opts);
 
-    EXPECT_EQ(retval, (unsigned int)DROP_PACKET);
+    EXPECT_EQ(err, 0);
+    EXPECT_EQ(opts.retval, (unsigned int)DROP_PACKET);
 }
 
 TEST_F(BPFTcFilterTests, TestDropUnknownTCPDestination)
 {
-    unsigned int retval;
+    struct bpf_test_run_opts opts = {};
+    opts.sz = sizeof(opts);
     struct ethhdr eth
     {
     };
@@ -513,16 +541,20 @@ TEST_F(BPFTcFilterTests, TestDropUnknownTCPDestination)
     pkt_v4.iph = iph;
     pkt_v4.tcp = tcp;
 
-    ASSERT_FALSE(
-        bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+    opts.data_in      = &pkt_v4;
+    opts.data_size_in = sizeof(pkt_v4);
 
-    EXPECT_EQ(retval, (unsigned int)DROP_PACKET);
+    int err = bpf_prog_test_run_opts(m_prog_fd, &opts);
+
+    EXPECT_EQ(err, 0);
+    EXPECT_EQ(opts.retval, (unsigned int)DROP_PACKET);
 }
 
 TEST_F(BPFTcFilterTests, TestAllowTCPAddressInAllowedIPs)
 {
     int allowed_ips_map_fd;
-    unsigned int retval;
+    struct bpf_test_run_opts opts = {};
+    opts.sz = sizeof(opts);
     struct ethhdr eth
     {
     };
@@ -553,15 +585,19 @@ TEST_F(BPFTcFilterTests, TestAllowTCPAddressInAllowedIPs)
     pkt_v4.iph = iph;
     pkt_v4.tcp = tcp;
 
-    ASSERT_FALSE(
-        bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+    opts.data_in      = &pkt_v4;
+    opts.data_size_in = sizeof(pkt_v4);
 
-    EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
+    int err = bpf_prog_test_run_opts(m_prog_fd, &opts);
+
+    EXPECT_EQ(err, 0);
+    EXPECT_EQ(opts.retval, (unsigned int)ALLOW_PACKET);
 }
 
 TEST_F(BPFTcFilterTests, TestDropUnknownICMPDestination)
 {
-    unsigned int retval;
+    struct bpf_test_run_opts opts = {};
+    opts.sz = sizeof(opts);
     struct ethhdr eth
     {
     };
@@ -585,16 +621,20 @@ TEST_F(BPFTcFilterTests, TestDropUnknownICMPDestination)
     pkt_v4.iph = iph;
     pkt_v4.tcp = tcp;
 
-    ASSERT_FALSE(
-        bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+    opts.data_in      = &pkt_v4;
+    opts.data_size_in = sizeof(pkt_v4);
 
-    EXPECT_EQ(retval, (unsigned int)DROP_PACKET);
+    int err = bpf_prog_test_run_opts(m_prog_fd, &opts);
+
+    EXPECT_EQ(err, 0);
+    EXPECT_EQ(opts.retval, (unsigned int)DROP_PACKET);
 }
 
 TEST_F(BPFTcFilterTests, TestAllowICMPAddressInAllowedIPs)
 {
     int allowed_ips_map_fd;
-    unsigned int retval;
+    struct bpf_test_run_opts opts = {};
+    opts.sz = sizeof(opts);
     struct ethhdr eth
     {
     };
@@ -625,8 +665,11 @@ TEST_F(BPFTcFilterTests, TestAllowICMPAddressInAllowedIPs)
     pkt_v4.iph = iph;
     pkt_v4.tcp = tcp;
 
-    ASSERT_FALSE(
-        bpf_prog_test_run(m_prog_fd, 1, &pkt_v4, sizeof(pkt_v4), NULL, NULL, &retval, NULL));
+    opts.data_in      = &pkt_v4;
+    opts.data_size_in = sizeof(pkt_v4);
 
-    EXPECT_EQ(retval, (unsigned int)ALLOW_PACKET);
+    int err = bpf_prog_test_run_opts(m_prog_fd, &opts);
+
+    EXPECT_EQ(err, 0);
+    EXPECT_EQ(opts.retval, (unsigned int)ALLOW_PACKET);
 }
