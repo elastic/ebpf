@@ -35,6 +35,9 @@ const char argp_program_doc[] =
 static const struct argp_option opts[] = {
     {"print-initialized", 'i', NULL, false,
      "Whether or not to print a message when probes have been successfully loaded", 1},
+     "Print a message when probes have been successfully loaded", 1},
+    {"unbuffer-stdout", 'u', NULL, false, "Don't buffer stdout in userspace at all", 1},
+    {"libbpf-verbose", 'v', NULL, false, "Log verobse libbpf logs to stderr", 1},
     {"all", 'a', NULL, false, "Whether or not to consider all the events", 0},
     {"file-delete", EBPF_EVENT_FILE_DELETE, NULL, false,
      "Whether or not to consider file delete events", 1},
@@ -69,12 +72,21 @@ uint64_t g_events_env   = 0;
 uint64_t g_features_env = 0;
 
 bool g_print_initialized = 0;
+bool g_unbuffer_stdout   = 0;
+bool g_libbpf_verbose = 0;
 
 static error_t parse_arg(int key, char *arg, struct argp_state *state)
 {
     switch (key) {
     case 'i':
         g_print_initialized = 1;
+        break;
+    case 'u':
+        g_unbuffer_stdout = 1;
+        break;
+    case 'v':
+        g_libbpf_verbose = 1;
+        break;
     case 'a':
         g_events_env = UINT64_MAX;
         break;
@@ -541,11 +553,15 @@ int main(int argc, char **argv)
     if (err)
         goto cleanup;
 
+    if (g_libbpf_verbose)
+        ebpf_set_verbose_logging();
+
     struct ebpf_event_ctx_opts opts = {
         .events   = g_events_env,
         .features = g_features_env,
     };
     err = ebpf_event_ctx__new(&ctx, event_ctx_callback, opts);
+
     if (err < 0) {
         fprintf(stderr, "Could not create event context: %d %s\n", err, strerror(-err));
         goto cleanup;
