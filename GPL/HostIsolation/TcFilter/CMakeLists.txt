@@ -1,20 +1,9 @@
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
 
 # Copyright (C) 2021 Elasticsearch BV
 #
-# This program is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the Free
-# Software Foundation; version 2.
-#
-# This program is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-# FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-# more details.
-#
-# You should have received a copy of the GNU General Public License along with
-# this program; if not, write to the Free Software Foundation, Inc., 51
-# Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-
+# This software is dual-licensed under the BSD 2-Clause and GPL v2 licenses, you
+# may choose either one of them if you use this software.
 
 # BPF program
 set(TCFILTER_CFLAGS
@@ -44,7 +33,7 @@ add_custom_target(BPFTcFilter ALL DEPENDS  ${TCFILTER_BPF_OUTPUT})
 # BPF_PROG_TEST_RUN gtests
 add_executable(BPFTcFilterTests BPFTcFilterTests.cpp ${GTEST_MAIN})
 set_target_properties(BPFTcFilterTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${TARGET_TEST_DIR})
-target_include_directories(BPFTcFilterTests PRIVATE 
+target_include_directories(BPFTcFilterTests PRIVATE
     "${LIBBPF_TARGET_INCLUDE_DIR}"
     "${LIBBPF_UAPI_INCLUDE_DIR}"
     "${LIBBPF_INCLUDE_DIR}"

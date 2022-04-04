@@ -1,21 +1,12 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
 
 /*
  * Copyright (C) 2021 Elasticsearch BV
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; version 2.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 51
- * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * This software is dual-licensed under the BSD 2-Clause and GPL v2 licenses.
+ * You may choose either one of them if you use this software.
  */
+
 
 // Host Isolation - this eBPF program hooks into tcp_v4_connect kprobe and adds
 // entries to the IP allowlist if an allowed process tries to initiate a

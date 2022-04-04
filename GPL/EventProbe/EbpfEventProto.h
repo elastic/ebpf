@@ -1,11 +1,10 @@
-// SPDX-License-Identifier: GPL-2.0-only OR Elastic-2.0
+// SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
 
 /*
- * Copyright 2021 Elasticsearch BV
+ * Copyright (C) 2021 Elasticsearch BV
  *
- * This file is dual-licensed under the GNU General Public License version 2
- * and the Elastic License 2.0. You may choose either one of them if you use
- * this file.
+ * This software is dual-licensed under the BSD 2-Clause and GPL v2 licenses.
+ * You may choose either one of them if you use this software.
  */
 
 #ifndef EBPF_EVENTPROBE_EBPFEVENTPROTO_H
