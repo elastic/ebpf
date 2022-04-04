@@ -23,6 +23,8 @@
 #define __aligned_u64 __u64 __attribute__((aligned(8)))
 #include <LibEbpfEvents.h>
 
+#include "K8sMetaDataTester.c"
+
 const char *argp_program_version     = "EventsTrace 0.0.0";
 const char *argp_program_bug_address = "https://github.com/elastic/ebpf/issues";
 const char argp_program_doc[] =
@@ -355,6 +357,7 @@ static void out_process_fork(struct ebpf_process_fork_event *evt)
 static void out_process_exec(struct ebpf_process_exec_event *evt)
 {
     out_object_start();
+    SendQuery(evt->pids.tgid);
     out_event_type("PROCESS_EXEC");
     out_comma();
 
@@ -601,6 +604,8 @@ int main(int argc, char **argv)
         fprintf(stderr, "Failed to register SIGINT handler\n");
         goto out;
     }
+
+    UDSInit();
 
     err = argp_parse(&argp, argc, argv, 0, NULL, NULL);
     if (err)
