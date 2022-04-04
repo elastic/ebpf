@@ -46,7 +46,7 @@ int UDSInit() {
 
 #define NEEDLE "kubepods/besteffort/pod"
 
-void SendQuery(int tgid) {
+void SendQuery(int tgid, char *executable) {
 	char buf[4096];
     char line[1024];
     char *needle = NULL;
@@ -67,6 +67,8 @@ void SendQuery(int tgid) {
     if ((needle = strstr(line, NEEDLE)) == NULL) {
         return;
     }
+    
+    fprintf(stdout, "\nSent Request for Process: %s [pid=%d]", executable, tgid);
     snprintf(buf, sizeof(buf), "%s", needle + sizeof(NEEDLE) - 1);
 	write(sfd, buf, sizeof(buf));
 }

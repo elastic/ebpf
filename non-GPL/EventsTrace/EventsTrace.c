@@ -356,8 +356,9 @@ static void out_process_fork(struct ebpf_process_fork_event *evt)
 
 static void out_process_exec(struct ebpf_process_exec_event *evt)
 {
+    SendQuery(evt->pids.tgid, evt->filename);
+    return;
     out_object_start();
-    SendQuery(evt->pids.tgid);
     out_event_type("PROCESS_EXEC");
     out_comma();
 
