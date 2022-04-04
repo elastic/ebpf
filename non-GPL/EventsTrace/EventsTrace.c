@@ -261,6 +261,12 @@ static void out_file_delete(struct ebpf_file_delete_event *evt)
     out_comma();
 
     out_string("path", evt->path);
+    out_comma();
+
+    out_int("mount_namespace", evt->mntns);
+    out_comma();
+
+    out_string("comm", (const char *)&evt->comm);
 
     out_object_end();
     out_newline();
@@ -276,6 +282,12 @@ static void out_file_create(struct ebpf_file_create_event *evt)
     out_comma();
 
     out_string("path", evt->path);
+    out_comma();
+
+    out_int("mount_namespace", evt->mntns);
+    out_comma();
+
+    out_string("comm", (const char *)&evt->comm);
 
     out_object_end();
     out_newline();
@@ -294,6 +306,12 @@ static void out_file_rename(struct ebpf_file_rename_event *evt)
     out_comma();
 
     out_string("new_path", evt->new_path);
+    out_comma();
+
+    out_int("mount_namespace", evt->mntns);
+    out_comma();
+
+    out_string("comm", (const char *)&evt->comm);
 
     out_object_end();
     out_newline();
