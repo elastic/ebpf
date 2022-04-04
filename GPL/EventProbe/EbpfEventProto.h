@@ -73,12 +73,16 @@ struct ebpf_file_delete_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
     char path[PATH_MAX_BUF];
+    uint32_t mntns;
+    char comm[16]; // TASK_COMM_LEN
 } __attribute__((packed));
 
 struct ebpf_file_create_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
     char path[PATH_MAX_BUF];
+    uint32_t mntns;
+    char comm[16]; // TASK_COMM_LEN
 } __attribute__((packed));
 
 struct ebpf_file_rename_event {
@@ -86,6 +90,8 @@ struct ebpf_file_rename_event {
     struct ebpf_pid_info pids;
     char old_path[PATH_MAX_BUF];
     char new_path[PATH_MAX_BUF];
+    uint32_t mntns;
+    char comm[16]; // TASK_COMM_LEN
 } __attribute__((packed));
 
 struct ebpf_process_fork_event {

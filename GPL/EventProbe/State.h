@@ -89,6 +89,12 @@ static long ebpf_events_state__set(enum ebpf_events_state_op op, struct ebpf_eve
     return bpf_map_update_elem(&elastic_ebpf_events_state, &key, state, BPF_ANY);
 }
 
+static long ebpf_events_state__del(enum ebpf_events_state_op op)
+{
+    struct ebpf_events_key key = ebpf_events_state__key(op);
+    return bpf_map_delete_elem(&elastic_ebpf_events_state, &key);
+}
+
 #define PATH_MAX 4096
 #define BUF PATH_MAX * 2
 
