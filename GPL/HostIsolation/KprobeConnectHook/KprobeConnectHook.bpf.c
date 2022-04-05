@@ -82,4 +82,4 @@ int BPF_KPROBE(tcp_v4_connect, void *sk, struct sockaddr *uaddr)
     return enter_tcp_connect(uaddr);
 }
 
-char LICENSE[] SEC("license") = "GPL";
+char LICENSE[] SEC("license") = "Dual BSD/GPL";
