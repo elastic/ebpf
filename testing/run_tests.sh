@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 SUMMARY_FILE="bpf-check-summary.txt"
 RESULTS_DIR="results"

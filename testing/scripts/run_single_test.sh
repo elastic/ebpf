@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # SPDX-License-Identifier: Elastic-2.0
 
 # Copyright 2022 Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under
