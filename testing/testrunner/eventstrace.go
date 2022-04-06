@@ -78,6 +78,7 @@ func (et *EventsTraceInstance) DumpStderr() {
 
 func (et *EventsTraceInstance) GetNextEventJson(types ...string) string {
 	var line string
+loop:
 	for {
 		select {
 		case line = <-et.StdoutChan:
@@ -85,7 +86,7 @@ func (et *EventsTraceInstance) GetNextEventJson(types ...string) string {
 
 			for _, a := range types {
 				if a == eventType {
-					return line
+					break loop
 				}
 			}
 		case <-time.After(60 * time.Second):
@@ -94,7 +95,7 @@ func (et *EventsTraceInstance) GetNextEventJson(types ...string) string {
 		}
 	}
 
-	return "" // Won't be hit
+	return line
 }
 
 func (et *EventsTraceInstance) Stop() error {
