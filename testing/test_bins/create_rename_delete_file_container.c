@@ -1,3 +1,12 @@
+// SPDX-License-Identifier: Elastic-2.0
+
+/*
+ * Copyright 2022 Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under
+ * one or more contributor license agreements. Licensed under the Elastic
+ * License 2.0; you may not use this file except in compliance with the Elastic
+ * License 2.0.
+ */
+
 // Does the same set of operations as create_rename_delete_file.c, but in a
 // separate mount namespace with an overlayfs filesystem as its root. This
 // simulates file accesses in a container to ensure they're picked up
