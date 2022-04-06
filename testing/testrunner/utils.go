@@ -84,13 +84,15 @@ type FileRenameEvent struct {
 }
 
 type SetUidEvent struct {
-	Pids  PidInfo  `json:"pids"`
-	Creds CredInfo `json:"creds"`
+	Pids    PidInfo `json:"pids"`
+	NewRuid int64   `json:"new_ruid"`
+	NewEuid int64   `json:"new_euid"`
 }
 
 type SetGidEvent struct {
-	Pids  PidInfo  `json:"pids"`
-	Creds CredInfo `json:"creds"`
+	Pids    PidInfo `json:"pids"`
+	NewRgid int64   `json:"new_rgid"`
+	NewEgid int64   `json:"new_egid"`
 }
 
 func getJsonEventType(jsonLine string) string {

@@ -172,9 +172,11 @@ func TestFileRename(et *EventsTraceInstance) {
 }
 
 func TestSetuid(et *EventsTraceInstance) {
-	outputStr := runTestBin("setuid")
+	outputStr := runTestBin("setreuid")
 	var binOutput struct {
 		PidInfo TestPidInfo `json:"pid_info"`
+		NewRuid int64       `json:"new_ruid"`
+		NewEuid int64       `json:"new_euid"`
 	}
 	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
 		TestFail("failed to unmarshal json", err)
@@ -192,14 +194,17 @@ func TestSetuid(et *EventsTraceInstance) {
 		}
 	}
 
-	// TODO: Consult with @nicholasberlin on expected value of creds
+	AssertInt64Equal(binOutput.NewRuid, setUidEvent.NewRuid)
+	AssertInt64Equal(binOutput.NewEuid, setUidEvent.NewEuid)
 	AssertPidInfoEqual(binOutput.PidInfo, setUidEvent.Pids)
 }
 
 func TestSetgid(et *EventsTraceInstance) {
-	outputStr := runTestBin("setgid")
+	outputStr := runTestBin("setregid")
 	var binOutput struct {
 		PidInfo TestPidInfo `json:"pid_info"`
+		NewRgid int64       `json:"new_rgid"`
+		NewEgid int64       `json:"new_egid"`
 	}
 	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
 		TestFail("failed to unmarshal json", err)
@@ -217,6 +222,8 @@ func TestSetgid(et *EventsTraceInstance) {
 		}
 	}
 
+	AssertInt64Equal(binOutput.NewRgid, setGidEvent.NewRgid)
+	AssertInt64Equal(binOutput.NewEgid, setGidEvent.NewEgid)
 	AssertPidInfoEqual(binOutput.PidInfo, setGidEvent.Pids)
 }
 

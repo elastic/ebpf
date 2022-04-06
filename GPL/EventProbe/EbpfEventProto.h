@@ -118,13 +118,19 @@ struct ebpf_process_setsid_event {
 struct ebpf_process_setuid_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
-    struct ebpf_cred_info creds;
+    uint32_t new_ruid;
+    uint32_t new_euid;
+    uint32_t new_rgid;
+    uint32_t new_egid;
 } __attribute__((packed));
 
 struct ebpf_process_setgid_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
-    struct ebpf_cred_info creds;
+    uint32_t new_rgid;
+    uint32_t new_egid;
+    uint32_t new_ruid;
+    uint32_t new_euid;
 } __attribute__((packed));
 
 enum ebpf_net_info_transport {

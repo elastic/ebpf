@@ -352,7 +352,9 @@ static void out_process_setuid(struct ebpf_process_setuid_event *evt)
 
     out_pid_info("pids", &evt->pids);
     out_comma();
-    out_cred_info("creds", &evt->creds);
+    out_uint("new_ruid", evt->new_ruid);
+    out_comma();
+    out_uint("new_euid", evt->new_euid);
 
     out_object_end();
     out_newline();
@@ -366,7 +368,9 @@ static void out_process_setgid(struct ebpf_process_setgid_event *evt)
 
     out_pid_info("pids", &evt->pids);
     out_comma();
-    out_cred_info("creds", &evt->creds);
+    out_uint("new_rgid", evt->new_rgid);
+    out_comma();
+    out_uint("new_egid", evt->new_egid);
 
     out_object_end();
     out_newline();

@@ -15,11 +15,12 @@
 
 int main()
 {
-    const int new_uid = 5;
-    CHECK(setuid(new_uid), -1);
+    const int new_rgid = 5;
+    const int new_egid = 4;
+    CHECK(setregid(new_rgid, new_egid), -1);
 
     char pid_info[8192];
     gen_pid_info_json(pid_info, sizeof(pid_info));
-    printf("{ \"pid_info\": %s }\n", pid_info);
+    printf("{ \"pid_info\": %s, \"new_rgid\": %d, \"new_egid\": %d }\n", pid_info, new_rgid, new_egid);
     return 0;
 }
