@@ -233,9 +233,10 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
 
 static void probe_set_features(uint64_t *features)
 {
-#if defined(__x86_64__) || defined(__x86__)
-    *features |= EBPF_FEATURE_BPF_TRAMP;
-#endif
+    // default attach type for BPF_PROG_TYPE_TRACING is
+    // BPF_TRACE_FENTRY.
+    if (!libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_TRACING, NULL))
+        *features |= EBPF_FEATURE_BPF_TRAMP;
 }
 
 int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
