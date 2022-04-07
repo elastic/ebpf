@@ -7,7 +7,6 @@
  * You may choose either one of them if you use this software.
  */
 
-
 typedef signed char __s8;
 
 typedef unsigned char __u8;

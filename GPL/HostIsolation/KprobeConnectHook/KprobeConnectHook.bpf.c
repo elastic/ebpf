@@ -7,7 +7,6 @@
  * You may choose either one of them if you use this software.
  */
 
-
 // Host Isolation - this eBPF program hooks into tcp_v4_connect kprobe and adds
 // entries to the IP allowlist if an allowed process tries to initiate a
 // connection.
