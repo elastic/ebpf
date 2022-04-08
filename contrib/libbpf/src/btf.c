@@ -454,7 +454,7 @@ const struct btf *btf__base_btf(const struct btf *btf)
 }
 
 /* internal helper returning non-const pointer to a type */
-struct btf_type *btf_type_by_id(struct btf *btf, __u32 type_id)
+struct btf_type *btf_type_by_id(const struct btf *btf, __u32 type_id)
 {
 	if (type_id == 0)
 		return &btf_void;
@@ -1124,54 +1124,86 @@ struct btf *btf__parse_split(const char *path, struct btf *base_btf)
 
 static void *btf_get_raw_data(const struct btf *btf, __u32 *size, bool swap_endian);
 
-int btf__load_into_kernel(struct btf *btf)
+int btf_load_into_kernel(struct btf *btf, char *log_buf, size_t log_sz, __u32 log_level)
 {
-	__u32 log_buf_size = 0, raw_size;
-	char *log_buf = NULL;
+	LIBBPF_OPTS(bpf_btf_load_opts, opts);
+	__u32 buf_sz = 0, raw_size;
+	char *buf = NULL, *tmp;
 	void *raw_data;
 	int err = 0;
 
 	if (btf->fd >= 0)
 		return libbpf_err(-EEXIST);
+	if (log_sz && !log_buf)
+		return libbpf_err(-EINVAL);
 
-retry_load:
-	if (log_buf_size) {
-		log_buf = malloc(log_buf_size);
-		if (!log_buf)
-			return libbpf_err(-ENOMEM);
-
-		*log_buf = 0;
-	}
-
+	/* cache native raw data representation */
 	raw_data = btf_get_raw_data(btf, &raw_size, false);
 	if (!raw_data) {
 		err = -ENOMEM;
 		goto done;
 	}
-	/* cache native raw data representation */
 	btf->raw_size = raw_size;
 	btf->raw_data = raw_data;
 
-	btf->fd = bpf_load_btf(raw_data, raw_size, log_buf, log_buf_size, false);
-	if (btf->fd < 0) {
-		if (!log_buf || errno == ENOSPC) {
-			log_buf_size = max((__u32)BPF_LOG_BUF_SIZE,
-					   log_buf_size << 1);
-			free(log_buf);
-			goto retry_load;
+retry_load:
+	/* if log_level is 0, we won't provide log_buf/log_size to the kernel,
+	 * initially. Only if BTF loading fails, we bump log_level to 1 and
+	 * retry, using either auto-allocated or custom log_buf. This way
+	 * non-NULL custom log_buf provides a buffer just in case, but hopes
+	 * for successful load and no need for log_buf.
+	 */
+	if (log_level) {
+		/* if caller didn't provide custom log_buf, we'll keep
+		 * allocating our own progressively bigger buffers for BTF
+		 * verification log
+		 */
+		if (!log_buf) {
+			buf_sz = max((__u32)BPF_LOG_BUF_SIZE, buf_sz * 2);
+			tmp = realloc(buf, buf_sz);
+			if (!tmp) {
+				err = -ENOMEM;
+				goto done;
+			}
+			buf = tmp;
+			buf[0] = '\0';
 		}
 
+		opts.log_buf = log_buf ? log_buf : buf;
+		opts.log_size = log_buf ? log_sz : buf_sz;
+		opts.log_level = log_level;
+	}
+
+	btf->fd = bpf_btf_load(raw_data, raw_size, &opts);
+	if (btf->fd < 0) {
+		/* time to turn on verbose mode and try again */
+		if (log_level == 0) {
+			log_level = 1;
+			goto retry_load;
+		}
+		/* only retry if caller didn't provide custom log_buf, but
+		 * make sure we can never overflow buf_sz
+		 */
+		if (!log_buf && errno == ENOSPC && buf_sz <= UINT_MAX / 2)
+			goto retry_load;
+
 		err = -errno;
-		pr_warn("Error loading BTF: %s(%d)\n", strerror(errno), errno);
-		if (*log_buf)
-			pr_warn("%s\n", log_buf);
-		goto done;
+		pr_warn("BTF loading error: %d\n", err);
+		/* don't print out contents of custom log_buf */
+		if (!log_buf && buf[0])
+			pr_warn("-- BEGIN BTF LOAD LOG ---\n%s\n-- END BTF LOAD LOG --\n", buf);
 	}
 
 done:
-	free(log_buf);
+	free(buf);
 	return libbpf_err(err);
 }
+
+int btf__load_into_kernel(struct btf *btf)
+{
+	return btf_load_into_kernel(btf, NULL, 0, 0);
+}
+
 int btf__load(struct btf *) __attribute__((alias("btf__load_into_kernel")));
 
 int btf__fd(const struct btf *btf)
@@ -1588,19 +1620,36 @@ static int btf_commit_type(struct btf *btf, int data_sz)
 struct btf_pipe {
 	const struct btf *src;
 	struct btf *dst;
+	struct hashmap *str_off_map; /* map string offsets from src to dst */
 };
 
 static int btf_rewrite_str(__u32 *str_off, void *ctx)
 {
 	struct btf_pipe *p = ctx;
-	int off;
+	void *mapped_off;
+	int off, err;
 
 	if (!*str_off) /* nothing to do for empty strings */
 		return 0;
 
+	if (p->str_off_map &&
+	    hashmap__find(p->str_off_map, (void *)(long)*str_off, &mapped_off)) {
+		*str_off = (__u32)(long)mapped_off;
+		return 0;
+	}
+
 	off = btf__add_str(p->dst, btf__str_by_offset(p->src, *str_off));
 	if (off < 0)
 		return off;
+
+	/* Remember string mapping from src to dst.  It avoids
+	 * performing expensive string comparisons.
+	 */
+	if (p->str_off_map) {
+		err = hashmap__append(p->str_off_map, (void *)(long)*str_off, (void *)(long)off);
+		if (err)
+			return err;
+	}
 
 	*str_off = off;
 	return 0;
@@ -1648,6 +1697,9 @@ static int btf_rewrite_type_ids(__u32 *type_id, void *ctx)
 	return 0;
 }
 
+static size_t btf_dedup_identity_hash_fn(const void *key, void *ctx);
+static bool btf_dedup_equal_fn(const void *k1, const void *k2, void *ctx);
+
 int btf__add_btf(struct btf *btf, const struct btf *src_btf)
 {
 	struct btf_pipe p = { .src = src_btf, .dst = btf };
@@ -1679,6 +1731,11 @@ int btf__add_btf(struct btf *btf, const struct btf *src_btf)
 	/* pre-allocate enough memory for type offset index for new types */
 	off = btf_add_type_offs_mem(btf, cnt);
 	if (!off)
+		return libbpf_err(-ENOMEM);
+
+	/* Map the string offsets from src_btf to the offsets from btf to improve performance */
+	p.str_off_map = hashmap__new(btf_dedup_identity_hash_fn, btf_dedup_equal_fn, NULL);
+	if (IS_ERR(p.str_off_map))
 		return libbpf_err(-ENOMEM);
 
 	/* bulk copy types data for all types from src_btf */
@@ -1722,6 +1779,8 @@ int btf__add_btf(struct btf *btf, const struct btf *src_btf)
 	btf->hdr->str_off += data_sz;
 	btf->nr_types += cnt;
 
+	hashmap__free(p.str_off_map);
+
 	/* return type ID of the first added BTF type */
 	return btf->start_id + btf->nr_types - cnt;
 err_out:
@@ -1734,6 +1793,8 @@ err_out:
 	/* and now restore original strings section size; types data size
 	 * wasn't modified, so doesn't need restoring, see big comment above */
 	btf->hdr->str_len = old_strs_len;
+
+	hashmap__free(p.str_off_map);
 
 	return libbpf_err(err);
 }

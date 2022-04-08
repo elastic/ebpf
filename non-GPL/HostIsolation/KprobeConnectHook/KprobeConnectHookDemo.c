@@ -71,7 +71,7 @@ static int try_load_ebpf_kprobe(const char *ebpf_file,
         goto cleanup;
     }
 
-    link = ebpf_load_and_attach_kprobe(obj, "kprobe/tcp_v4_connect", load_method);
+    link = ebpf_load_and_attach_kprobe(obj, "tcp_v4_connect", load_method);
     if (!link) {
         printf("failed to load and attach kprobe\n");
         rv = -1;
@@ -83,8 +83,8 @@ static int try_load_ebpf_kprobe(const char *ebpf_file,
 
 cleanup:
     if (rv) {
-        ebpf_object_close(obj);
-        ebpf_link_destroy(link);
+        bpf_object__close(obj);
+        bpf_link__destroy(link);
     } else {
         *bpf_obj  = obj;
         *bpf_link = link;
@@ -137,7 +137,7 @@ int main(int argc, char **argv)
 
 cleanup:
     // release libbpf resources
-    ebpf_object_close(obj);
-    ebpf_link_destroy(link);
+    bpf_object__close(obj);
+    bpf_link__destroy(link);
     return rv;
 }
