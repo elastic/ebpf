@@ -76,9 +76,9 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
     struct dentry *curr_dentry = BPF_CORE_READ(path, dentry);
     struct dentry **dentry_arr;
 
-    // Ensure we zero out buf early up here so if we exit with any sort of
-    // error, we won't leave garbage in it if it's uninitialized
-    memset(buf, '\0', sizeof(buf));
+    // Ensure we make buf and empty string early up here so if we exit with any
+    // sort of error, we won't leave garbage in it if it's uninitialized
+    buf[0] = '\0';
 
     u32 zero = 0;
     if (!(dentry_arr = bpf_map_lookup_elem(&path_resolver_scratch_map, &zero))) {
