@@ -171,11 +171,10 @@ static void out_string(const char *name, const char *value)
             break;
         case '\b':
             printf("\\b");
-        default:
-            printf("%c", c);
             break;
+        default:
             if (!isascii(c) || iscntrl(c))
-                printf("\\\\x%02x", c);
+                printf("\\x%02x", c);
             else
                 printf("%c", c);
         }
