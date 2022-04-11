@@ -32,13 +32,15 @@ const char argp_program_doc[] =
     "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename]\n"
     "[--process-fork] [--process-exec] [--process-exit] [--process-setsid] [--process-setuid] "
     "[--process-setgid]\n"
-    "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n";
+    "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n"
+    "[--print-initialized] [--unbuffer-stdout] [--libbpf-verbose]\n";
+
 
 static const struct argp_option opts[] = {
     {"print-initialized", 'i', NULL, false,
      "Whether or not to print a message when probes have been successfully loaded", 1},
     {"unbuffer-stdout", 'u', NULL, false, "Don't buffer stdout in userspace at all", 1},
-    {"libbpf-verbose", 'v', NULL, false, "Log verobse libbpf logs to stderr", 1},
+    {"libbpf-verbose", 'v', NULL, false, "Log verbose libbpf logs to stderr", 1},
     {"all", 'a', NULL, false, "Whether or not to consider all the events", 0},
     {"file-delete", EBPF_EVENT_FILE_DELETE, NULL, false,
      "Whether or not to consider file delete events", 1},
