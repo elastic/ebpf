@@ -103,11 +103,8 @@ func (et *EventsTraceInstance) Stop() error {
 		return err
 	}
 
-	if err := et.Cmd.Wait(); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := et.Cmd.Process.Wait()
+	return err
 }
 
 func NewEventsTrace(args ...string) *EventsTraceInstance {

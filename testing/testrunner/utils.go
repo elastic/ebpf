@@ -184,5 +184,7 @@ func RunTest(f func(*EventsTraceInstance), args ...string) {
 
 	fmt.Println("test passed: ", testFuncName)
 
-	et.Stop()
+	if err := et.Stop(); err != nil {
+		TestFail(fmt.Sprintf("Could not stop EventsTrace binary: %s", err))
+	}
 }
