@@ -35,7 +35,6 @@ const char argp_program_doc[] =
     "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n"
     "[--print-initialized] [--unbuffer-stdout] [--libbpf-verbose]\n";
 
-
 static const struct argp_option opts[] = {
     {"print-initialized", 'i', NULL, false,
      "Whether or not to print a message when probes have been successfully loaded", 1},
@@ -76,7 +75,7 @@ uint64_t g_features_env = 0;
 
 bool g_print_initialized = 0;
 bool g_unbuffer_stdout   = 0;
-bool g_libbpf_verbose = 0;
+bool g_libbpf_verbose    = 0;
 
 static error_t parse_arg(int key, char *arg, struct argp_state *state)
 {
