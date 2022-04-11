@@ -121,7 +121,7 @@ static int vfs_unlink__exit(int ret, struct dentry *de)
     p.mnt    = state->unlink.mnt;
     ebpf_resolve_path_to_string(event->path, &p, task);
     event->mntns = mntns(task);
-    bpf_get_current_comm(event->comm, 16);
+    bpf_get_current_comm(event->comm, TASK_COMM_LEN);
 
     bpf_ringbuf_submit(event, 0);
 
@@ -205,7 +205,7 @@ static int do_filp_open__exit(struct file *f)
         ebpf_resolve_path_to_string(event->path, &p, task);
         ebpf_pid_info__fill(&event->pids, task);
         event->mntns = mntns(task);
-        bpf_get_current_comm(event->comm, 16);
+        bpf_get_current_comm(event->comm, TASK_COMM_LEN);
 
         bpf_ringbuf_submit(event, 0);
     }
@@ -366,7 +366,7 @@ static int vfs_rename__exit(int ret)
     bpf_probe_read_kernel_str(event->old_path, PATH_MAX_BUF, ss->rename.old_path);
     bpf_probe_read_kernel_str(event->new_path, PATH_MAX_BUF, ss->rename.new_path);
     event->mntns = mntns(task);
-    bpf_get_current_comm(event->comm, 16);
+    bpf_get_current_comm(event->comm, TASK_COMM_LEN);
 
     bpf_ringbuf_submit(event, 0);
 
