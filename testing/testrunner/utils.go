@@ -129,19 +129,19 @@ func AssertPidInfoEqual(tpi TestPidInfo, pi PidInfo) {
 	AssertInt64Equal(pi.Sid, tpi.Sid)
 }
 
-func AssertStringsEqual(a string, b string) {
+func AssertStringsEqual(a, b string) {
 	if a != b {
 		TestFail(fmt.Sprintf("Test assertion failed %s != %s", a, b))
 	}
 }
 
-func AssertInt64Equal(a int64, b int64) {
+func AssertInt64Equal(a, b int64) {
 	if a != b {
 		TestFail(fmt.Sprintf("Test assertion failed %d != %d", a, b))
 	}
 }
 
-func AssertInt64NotEqual(a int64, b int64) {
+func AssertInt64NotEqual(a, b int64) {
 	if a == b {
 		TestFail(fmt.Sprintf("Test assertion failed %d == %d", a, b))
 	}
