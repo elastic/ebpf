@@ -124,6 +124,10 @@ static int vfs_unlink__exit(int ret, struct dentry *de)
     bpf_get_current_comm(event->comm, 16);
 
     bpf_ringbuf_submit(event, 0);
+
+    // Certain filesystems (eg. overlayfs) call vfs_unlink twice during the same
+    // execution context.
+    // In order to not emit a second event, delete the state explicitly. 
     ebpf_events_state__del(EBPF_EVENTS_STATE_UNLINK);
 
 out:
@@ -365,6 +369,10 @@ static int vfs_rename__exit(int ret)
     bpf_get_current_comm(event->comm, 16);
 
     bpf_ringbuf_submit(event, 0);
+
+    // Certain filesystems (eg. overlayfs) call vfs_rename twice during the same
+    // execution context.
+    // In order to not emit a second event, delete the state explicitly. 
     ebpf_events_state__del(EBPF_EVENTS_STATE_RENAME);
 
 out:
