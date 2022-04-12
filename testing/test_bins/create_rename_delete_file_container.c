@@ -129,8 +129,8 @@ int main()
         goto cleanup;
     }
 
-    printf("{ \"child_pid\": %d, \"filename_orig\": \"%s/%s\", \"filename_new\": \"%s/%s\"}\n",
-            child_pid, ovl_mountpoint, filename_orig, ovl_mountpoint, filename_new);
+    printf("{ \"child_pid\": %d, \"filename_orig\": \"/%s\", \"filename_new\": \"/%s\"}\n",
+            child_pid, filename_orig, filename_new);
 
 cleanup:
     // Clean up directories created by child
