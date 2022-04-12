@@ -61,7 +61,7 @@ type ProcessForkEvent struct {
 type ProcessExecEvent struct {
 	Pids     PidInfo  `json:"pids"`
 	Creds    CredInfo `json:"creds"`
-	Ctty     TtyInfo  `json:"creds"`
+	Ctty     TtyInfo  `json:"ctty"`
 	FileName string   `json:"filename"`
 	Cwd      string   `json:"cwd"`
 	Argv     string   `json:"argv"`
