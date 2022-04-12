@@ -35,6 +35,8 @@ func (et *EventsTraceInstance) Start(ctx context.Context) {
 	}
 
 	readStreamFunc := func(streamCtx context.Context, c chan string, stream io.ReadCloser) {
+		defer close(c)
+
 		for {
 			select {
 			case <-streamCtx.Done():
@@ -81,8 +83,6 @@ func (et *EventsTraceInstance) DumpStderr() {
 				return
 			}
 			fmt.Println(line)
-		case <-time.After(1 * time.Second):
-			return
 		}
 	}
 }
