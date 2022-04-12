@@ -1,0 +1,17 @@
+name: Multi Kernel Testing
+on: [ workflow_dispatch, pull_request ]
+
+jobs:
+  multikernel_tester:
+    name: EBPF MultiKernel Test
+    runs-on: ubuntu:latest
+#    container:
+#      image: ghcr.io/elastic/ebpf/testrunner:latest
+#      credentials:
+#        username: ${{ github.actor }}
+#        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+    - name: Run ls
+      run: ls -lha /

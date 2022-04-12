@@ -55,7 +55,7 @@ func (et *EventsTraceInstance) Start() {
 	select {
 	case <-et.StdoutChan:
 		break
-	case <-time.After(60 * time.Second):
+	case <-time.After(120 * time.Second):
 		et.DumpStderr()
 		TestFail("timed out waiting for EventsTrace to get ready, dumped stderr above")
 	}
