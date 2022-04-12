@@ -11,6 +11,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os/exec"
@@ -27,45 +28,45 @@ type EventsTraceInstance struct {
 
 const eventsTraceBinPath = "/EventsTrace"
 
-func (et *EventsTraceInstance) Start() {
+func (et *EventsTraceInstance) Start(ctx context.Context) {
 	if err := et.Cmd.Start(); err != nil {
 		fmt.Println("failed to start EventsTrace: ", err)
 		TestFail()
 	}
 
-	et.StdoutChan = make(chan string)
-	go func() {
-		scanner := bufio.NewScanner(et.Stdout)
-		for scanner.Scan() {
-			et.StdoutChan <- scanner.Text()
-		}
+	readStreamFunc := func(streamCtx context.Context, c chan string, stream io.ReadCloser) {
+		for {
+			select {
+			case <-streamCtx.Done():
+				return
+			default:
+				scanner := bufio.NewScanner(stream)
+				for scanner.Scan() {
+					c <- scanner.Text()
+				}
 
-		if err := scanner.Err(); err != nil {
-			fmt.Println("failed to read from EventsTrace stdout: ", err)
-			return
+				if err := scanner.Err(); err != nil {
+					fmt.Println("failed to read from EventsTrace stdout: ", err)
+					return
+				}
+			}
 		}
-	}()
+	}
 
+	// Child contexts used to signal when goroutines should stop
+	stdoutCtx, _ := context.WithCancel(ctx)
+	stderrCtx, _ := context.WithCancel(ctx)
+
+	et.StdoutChan = make(chan string, 100)
 	et.StderrChan = make(chan string, 100)
-	go func() {
-		scanner := bufio.NewScanner(et.Stderr)
-		for scanner.Scan() {
-			et.StderrChan <- scanner.Text()
-		}
 
-		if err := scanner.Err(); err != nil {
-			fmt.Println("failed to read from EventsTrace stderr: ", err)
-			return
-		}
-	}()
+	go readStreamFunc(stdoutCtx, et.StdoutChan, et.Stdout)
+	go readStreamFunc(stderrCtx, et.StderrChan, et.Stderr)
 
-	// This timeout is long on purpose, when running without KVM on a system
-	// under heavy load, it may actually take tens of seconds for EventsTrace
-	// to start up
 	select {
 	case <-et.StdoutChan:
 		break
-	case <-time.After(60 * time.Second):
+	case <-ctx.Done():
 		et.DumpStderr()
 		TestFail("timed out waiting for EventsTrace to get ready, dumped stderr above")
 	}
@@ -117,10 +118,10 @@ func (et *EventsTraceInstance) Stop() error {
 	return err
 }
 
-func NewEventsTrace(args ...string) *EventsTraceInstance {
+func NewEventsTrace(ctx context.Context, args ...string) *EventsTraceInstance {
 	var et EventsTraceInstance
 	args = append(args, "--print-initialized", "--unbuffer-stdout", "--libbpf-verbose", "--set-bpf-tramp")
-	et.Cmd = exec.Command(eventsTraceBinPath, args...)
+	et.Cmd = exec.CommandContext(ctx, eventsTraceBinPath, args...)
 
 	stdout, err := et.Cmd.StdoutPipe()
 	if err != nil {

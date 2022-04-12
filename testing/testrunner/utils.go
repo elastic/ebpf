@@ -10,6 +10,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -17,6 +18,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"syscall"
+	"time"
 )
 
 // This is a JSON type printed by the test binaries (not by EventsTrace), it's
@@ -176,11 +178,15 @@ func PowerOff() {
 
 func RunTest(f func(*EventsTraceInstance), args ...string) {
 	testFuncName := runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
+	ctx, cancel := context.WithTimeout(context.TODO(), 60*time.Second)
 
-	et := NewEventsTrace(args...)
-	et.Start()
+	et := NewEventsTrace(ctx, args...)
+	et.Start(ctx)
 
 	f(et) // Will dump info and shutdown if test fails
+
+	// Shuts down eventstrace and goroutines listening on stdout/stderr
+	cancel()
 
 	fmt.Println("test passed: ", testFuncName)
 
