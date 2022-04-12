@@ -37,11 +37,12 @@ func (et *EventsTraceInstance) Start() {
 	go func() {
 		scanner := bufio.NewScanner(et.Stdout)
 		for scanner.Scan() {
-			if err := scanner.Err(); err != nil {
-				fmt.Println("failed to read from EventsTrace stdout: ", err)
-				return
-			}
 			et.StdoutChan <- scanner.Text()
+		}
+
+		if err := scanner.Err(); err != nil {
+			fmt.Println("failed to read from EventsTrace stdout: ", err)
+			return
 		}
 	}()
 
@@ -49,11 +50,12 @@ func (et *EventsTraceInstance) Start() {
 	go func() {
 		scanner := bufio.NewScanner(et.Stderr)
 		for scanner.Scan() {
-			if err := scanner.Err(); err != nil {
-				fmt.Println("failed to read from EventsTrace stderr: ", err)
-				return
-			}
 			et.StderrChan <- scanner.Text()
+		}
+
+		if err := scanner.Err(); err != nil {
+			fmt.Println("failed to read from EventsTrace stderr: ", err)
+			return
 		}
 	}()
 
