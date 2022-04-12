@@ -153,5 +153,5 @@ int main()
     printf("[init] exec'ing testrunner at /testrunner\n");
     CHECK(execl("/testrunner", "/testrunner", NULL), -1);
 
-    return -1;
+    return -1; // Won't be hit, execl will either succeed or CHECK will ret -1
 }
