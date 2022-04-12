@@ -217,6 +217,7 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
     } else {
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_unlinkat, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__mnt_want_write, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.fentry__vfs_unlink, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__vfs_unlink, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__do_filp_open, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__vfs_rename, false);

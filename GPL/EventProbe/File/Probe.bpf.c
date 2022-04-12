@@ -44,6 +44,7 @@ static int mntns(const struct task_struct *task)
 static int do_unlinkat__enter()
 {
     struct ebpf_events_state state = {};
+    state.unlink.step              = UNLINK_STATE_INIT;
     ebpf_events_state__set(EBPF_EVENTS_STATE_UNLINK, &state);
     return 0;
 }
@@ -66,12 +67,23 @@ static int mnt_want_write__enter(struct vfsmount *mnt)
 
     state = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
     if (state) {
-        state->unlink.mnt = mnt;
+        // Certain filesystems (eg. overlayfs) call mnt_want_write
+        // multiple times during the same execution context.
+        // Only take into account the first invocation.
+        if (state->unlink.step != UNLINK_STATE_INIT)
+            goto out;
+        state->unlink.mnt  = mnt;
+        state->unlink.step = UNLINK_STATE_MOUNT_SET;
         goto out;
     }
 
     state = ebpf_events_state__get(EBPF_EVENTS_STATE_RENAME);
     if (state) {
+        // Certain filesystems (eg. overlayfs) call mnt_want_write
+        // multiple times during the same execution context.
+        // Only take into account the first invocation.
+        if (state->rename.step != RENAME_STATE_INIT)
+            goto out;
         state->rename.mnt  = mnt;
         state->rename.step = RENAME_STATE_MOUNT_SET;
         goto out;
@@ -93,14 +105,14 @@ int BPF_KPROBE(kprobe__mnt_want_write, struct vfsmount *mnt)
     return mnt_want_write__enter(mnt);
 }
 
-static int vfs_unlink__exit(int ret, struct dentry *de)
+static int vfs_unlink__exit(int ret)
 {
     if (ret != 0)
         goto out;
 
     struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
-    if (state == NULL) {
-        bpf_printk("vfs_unlink__exit: no state\n");
+    if (!state || state->rename.step != UNLINK_STATE_DENTRY_SET) {
+        bpf_printk("vfs_unlink__exit: state missing or incomplete\n");
         goto out;
     }
 
@@ -117,7 +129,7 @@ static int vfs_unlink__exit(int ret, struct dentry *de)
     ebpf_pid_info__fill(&event->pids, task);
 
     struct path p;
-    p.dentry = de;
+    p.dentry = &state->unlink.de;
     p.mnt    = state->unlink.mnt;
     ebpf_resolve_path_to_string(event->path, &p, task);
     event->mntns = mntns(task);
@@ -127,7 +139,7 @@ static int vfs_unlink__exit(int ret, struct dentry *de)
 
     // Certain filesystems (eg. overlayfs) call vfs_unlink twice during the same
     // execution context.
-    // In order to not emit a second event, delete the state explicitly. 
+    // In order to not emit a second event, delete the state explicitly.
     ebpf_events_state__del(EBPF_EVENTS_STATE_UNLINK);
 
 out:
@@ -137,9 +149,38 @@ out:
 SEC("fexit/vfs_unlink")
 int BPF_PROG(fexit__vfs_unlink)
 {
-    int ret           = FUNC_RET_READ(___type(ret), vfs_unlink);
-    struct dentry *de = FUNC_ARG_READ(___type(de), vfs_unlink, dentry);
-    return vfs_unlink__exit(ret, de);
+    int ret = FUNC_RET_READ(___type(ret), vfs_unlink);
+    return vfs_unlink__exit(ret);
+}
+
+SEC("kretprobe/vfs_unlink")
+int BPF_KRETPROBE(kretprobe__vfs_unlink, int ret)
+{
+    return vfs_unlink__exit(ret);
+}
+
+static int vfs_unlink__enter(struct dentry de)
+{
+    struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
+    if (!state || state->unlink.step != UNLINK_STATE_MOUNT_SET) {
+        bpf_printk("vfs_unlink__enter: state missing or incomplete\n");
+        goto out;
+    }
+
+    state->unlink.de   = de;
+    state->unlink.step = UNLINK_STATE_DENTRY_SET;
+
+out:
+    return 0;
+}
+
+SEC("fentry/vfs_unlink")
+int BPF_PROG(fentry__vfs_unlink)
+{
+    struct dentry *tmp = FUNC_ARG_READ(___type(tmp), vfs_unlink, dentry);
+    struct dentry de;
+    bpf_core_read(&de, sizeof(de), tmp);
+    return vfs_unlink__enter(de);
 }
 
 SEC("kprobe/vfs_unlink")
@@ -149,34 +190,10 @@ int BPF_KPROBE(kprobe__vfs_unlink)
     int err = FUNC_ARG_READ_PTREGS(de, vfs_unlink, dentry);
     if (err) {
         bpf_printk("kprobe__vfs_unlink: error reading dentry\n");
-        goto out;
+        return 0;
     }
 
-    struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
-    if (!state) {
-        bpf_printk("kprobe__vfs_unlink: state missing\n");
-        goto out;
-    }
-
-    state->unlink.de = de;
-
-out:
-    return 0;
-}
-
-SEC("kretprobe/vfs_unlink")
-int BPF_KRETPROBE(kretprobe__vfs_unlink, int ret)
-{
-    struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
-    if (!state) {
-        bpf_printk("kretprobe__vfs_unlink: state missing\n");
-        goto out;
-    }
-
-    return vfs_unlink__exit(ret, &state->unlink.de);
-
-out:
-    return 0;
+    return vfs_unlink__enter(de);
 }
 
 static int do_filp_open__exit(struct file *f)
@@ -372,7 +389,7 @@ static int vfs_rename__exit(int ret)
 
     // Certain filesystems (eg. overlayfs) call vfs_rename twice during the same
     // execution context.
-    // In order to not emit a second event, delete the state explicitly. 
+    // In order to not emit a second event, delete the state explicitly.
     ebpf_events_state__del(EBPF_EVENTS_STATE_RENAME);
 
 out:
