@@ -17,3 +17,5 @@ testing/test_bins/bin/*
 testing/init/bin/*
 testing/kernels
 testing/virtme
+cscope.out
+tags
