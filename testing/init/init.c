@@ -146,7 +146,7 @@ int main()
     CHECK(chdir("/"), -1);
 
     // Mount /proc and friends, everything needed for the testrunner to work
-    printf("[init] mounting pseudo-filesystems needed by tests\n", new_root);
+    printf("[init] mounting pseudo-filesystems needed by tests\n");
     CHECK(setup_pseudo_filesystems(), -1);
 
     // Exec testrunner
