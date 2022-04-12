@@ -33,7 +33,14 @@ struct ebpf_events_key {
     enum ebpf_events_state_op op;
 } __attribute__((packed));
 
+enum ebpf_events_unlink_state_step {
+    UNLINK_STATE_INIT       = 0,
+    UNLINK_STATE_MOUNT_SET  = 1,
+    UNLINK_STATE_DENTRY_SET = 2,
+};
+
 struct ebpf_events_unlink_state {
+    enum ebpf_events_unlink_state_step step;
     struct vfsmount *mnt;
     struct dentry de;
 };
