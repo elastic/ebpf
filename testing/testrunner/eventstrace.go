@@ -61,6 +61,8 @@ func (et *EventsTraceInstance) Start(ctx context.Context) {
 	go readStreamFunc(ctx, et.StdoutChan, et.Stdout)
 	go readStreamFunc(ctx, et.StderrChan, et.Stderr)
 
+    // Block until EventsTrace logs its "probes ready" line, indicating it's
+    // done loading
 	select {
 	case <-et.StdoutChan:
 		break
