@@ -45,6 +45,10 @@ func (et *EventsTraceInstance) Start() {
 	go func() {
 		scanner := bufio.NewScanner(et.Stderr)
 		for scanner.Scan() {
+			if err := scanner.Err(); err != nil {
+				fmt.Println("failed to read from EventsTrace: ", err)
+				return
+			}
 			et.StderrChan <- scanner.Text()
 		}
 	}()
