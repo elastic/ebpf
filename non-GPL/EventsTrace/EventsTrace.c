@@ -8,6 +8,7 @@
  */
 
 #include <argp.h>
+#include <ctype.h>
 #include <errno.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -169,7 +170,37 @@ static void out_int(const char *name, const long value)
 
 static void out_string(const char *name, const char *value)
 {
-    printf("\"%s\":\"%s\"", name, value);
+    printf("\"%s\":\"", name);
+    for (size_t i = 0; i < strlen(value); i++) {
+        char c = value[i];
+        switch (c) {
+        case '\n':
+            printf("\\n");
+            break;
+        case '\r':
+            printf("\\r");
+            break;
+        case '\\':
+            printf("\\\\");
+            break;
+        case '"':
+            printf("\"");
+            break;
+        case '\t':
+            printf("\\t");
+            break;
+        case '\b':
+            printf("\\b");
+            break;
+        default:
+            if (!isascii(c) || iscntrl(c))
+                printf("\\x%02x", c);
+            else
+                printf("%c", c);
+        }
+    }
+
+    printf("\"");
 }
 
 static void out_tty_dev(const char *name, struct ebpf_tty_dev *tty_dev)
@@ -220,12 +251,9 @@ static void out_cred_info(const char *name, struct ebpf_cred_info *cred_info)
 
 static void out_argv(const char *name, char *buf, size_t buf_size)
 {
-    printf("\"%s\":", name);
-
-    char scratch_space[buf_size];
-
     // Buf is the argv array, with each argument delimited by a '\0', rework
     // it in a scratch space so it's a space-separated string we can print
+    char scratch_space[buf_size];
     memcpy(scratch_space, buf, buf_size);
 
     for (int i = 0; i < buf_size; i++) {
@@ -240,7 +268,7 @@ static void out_argv(const char *name, char *buf, size_t buf_size)
         }
     }
 
-    printf("\"%s\"", scratch_space);
+    out_string(name, scratch_space);
 }
 
 static void out_file_delete(struct ebpf_file_delete_event *evt)
@@ -253,6 +281,12 @@ static void out_file_delete(struct ebpf_file_delete_event *evt)
     out_comma();
 
     out_string("path", evt->path);
+    out_comma();
+
+    out_int("mount_namespace", evt->mntns);
+    out_comma();
+
+    out_string("comm", (const char *)&evt->comm);
 
     out_object_end();
     out_newline();
@@ -268,6 +302,12 @@ static void out_file_create(struct ebpf_file_create_event *evt)
     out_comma();
 
     out_string("path", evt->path);
+    out_comma();
+
+    out_int("mount_namespace", evt->mntns);
+    out_comma();
+
+    out_string("comm", (const char *)&evt->comm);
 
     out_object_end();
     out_newline();
@@ -286,6 +326,12 @@ static void out_file_rename(struct ebpf_file_rename_event *evt)
     out_comma();
 
     out_string("new_path", evt->new_path);
+    out_comma();
+
+    out_int("mount_namespace", evt->mntns);
+    out_comma();
+
+    out_string("comm", (const char *)&evt->comm);
 
     out_object_end();
     out_newline();
@@ -438,6 +484,7 @@ static void out_net_info(const char *name, struct ebpf_net_event *evt)
         break;
     case EBPF_NETWORK_EVENT_AF_INET6:
         out_string("family", "AF_INET6");
+        out_comma();
 
         out_ip6_addr("source_address", &net->saddr6);
         out_comma();

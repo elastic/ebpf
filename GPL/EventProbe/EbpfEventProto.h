@@ -19,6 +19,8 @@
 // fits in PATH_MAX
 #define PATH_MAX_BUF PATH_MAX * 2
 
+#define TASK_COMM_LEN 16
+
 #ifndef __KERNEL__
 #include <stdint.h>
 #else
@@ -73,12 +75,16 @@ struct ebpf_file_delete_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
     char path[PATH_MAX_BUF];
+    uint32_t mntns;
+    char comm[TASK_COMM_LEN];
 } __attribute__((packed));
 
 struct ebpf_file_create_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
     char path[PATH_MAX_BUF];
+    uint32_t mntns;
+    char comm[TASK_COMM_LEN];
 } __attribute__((packed));
 
 struct ebpf_file_rename_event {
@@ -86,6 +92,8 @@ struct ebpf_file_rename_event {
     struct ebpf_pid_info pids;
     char old_path[PATH_MAX_BUF];
     char new_path[PATH_MAX_BUF];
+    uint32_t mntns;
+    char comm[TASK_COMM_LEN];
 } __attribute__((packed));
 
 struct ebpf_process_fork_event {
@@ -170,7 +178,7 @@ struct ebpf_net_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
     struct ebpf_net_info net;
-    char comm[16]; // TASK_COMM_LEN
+    char comm[TASK_COMM_LEN];
 } __attribute__((packed));
 
 #endif // EBPF_EVENTPROBE_EBPFEVENTPROTO_H

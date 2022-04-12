@@ -33,7 +33,14 @@ struct ebpf_events_key {
     enum ebpf_events_state_op op;
 } __attribute__((packed));
 
+enum ebpf_events_unlink_state_step {
+    UNLINK_STATE_INIT       = 0,
+    UNLINK_STATE_MOUNT_SET  = 1,
+    UNLINK_STATE_DENTRY_SET = 2,
+};
+
 struct ebpf_events_unlink_state {
+    enum ebpf_events_unlink_state_step step;
     struct vfsmount *mnt;
     struct dentry de;
 };
@@ -87,6 +94,12 @@ static long ebpf_events_state__set(enum ebpf_events_state_op op, struct ebpf_eve
 {
     struct ebpf_events_key key = ebpf_events_state__key(op);
     return bpf_map_update_elem(&elastic_ebpf_events_state, &key, state, BPF_ANY);
+}
+
+static long ebpf_events_state__del(enum ebpf_events_state_op op)
+{
+    struct ebpf_events_key key = ebpf_events_state__key(op);
+    return bpf_map_delete_elem(&elastic_ebpf_events_state, &key);
 }
 
 #define PATH_MAX 4096

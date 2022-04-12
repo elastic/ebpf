@@ -217,6 +217,7 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
     } else {
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_unlinkat, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__mnt_want_write, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.fentry__vfs_unlink, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__vfs_unlink, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__do_filp_open, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__vfs_rename, false);
@@ -233,9 +234,10 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
 
 static void probe_set_features(uint64_t *features)
 {
-#if defined(__x86_64__) || defined(__x86__)
-    *features |= EBPF_FEATURE_BPF_TRAMP;
-#endif
+    // default attach type for BPF_PROG_TYPE_TRACING is
+    // BPF_TRACE_FENTRY.
+    if (!libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_TRACING, NULL))
+        *features |= EBPF_FEATURE_BPF_TRAMP;
 }
 
 static int libbpf_verbose_print(enum libbpf_print_level lvl, const char *fmt, va_list args)

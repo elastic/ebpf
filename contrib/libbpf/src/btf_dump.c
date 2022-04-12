@@ -1861,14 +1861,16 @@ static int btf_dump_array_data(struct btf_dump *d,
 {
 	const struct btf_array *array = btf_array(t);
 	const struct btf_type *elem_type;
-	__u32 i, elem_size = 0, elem_type_id;
+	__u32 i, elem_type_id;
+	__s64 elem_size;
 	bool is_array_member;
 
 	elem_type_id = array->type;
 	elem_type = skip_mods_and_typedefs(d->btf, elem_type_id, NULL);
 	elem_size = btf__resolve_size(d->btf, elem_type_id);
 	if (elem_size <= 0) {
-		pr_warn("unexpected elem size %d for array type [%u]\n", elem_size, id);
+		pr_warn("unexpected elem size %zd for array type [%u]\n",
+			(ssize_t)elem_size, id);
 		return -EINVAL;
 	}
 
@@ -2321,8 +2323,8 @@ int btf_dump__dump_type_data(struct btf_dump *d, __u32 id,
 	if (!opts->indent_str)
 		d->typed_dump->indent_str[0] = '\t';
 	else
-		strncat(d->typed_dump->indent_str, opts->indent_str,
-			sizeof(d->typed_dump->indent_str) - 1);
+		libbpf_strlcpy(d->typed_dump->indent_str, opts->indent_str,
+			       sizeof(d->typed_dump->indent_str));
 
 	d->typed_dump->compact = OPTS_GET(opts, compact, false);
 	d->typed_dump->skip_names = OPTS_GET(opts, skip_names, false);
