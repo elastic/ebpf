@@ -55,15 +55,11 @@ func (et *EventsTraceInstance) Start(ctx context.Context) {
 		}
 	}
 
-	// Child contexts used to signal when goroutines should stop
-	stdoutCtx, _ := context.WithCancel(ctx)
-	stderrCtx, _ := context.WithCancel(ctx)
-
 	et.StdoutChan = make(chan string, 100)
 	et.StderrChan = make(chan string, 100)
 
-	go readStreamFunc(stdoutCtx, et.StdoutChan, et.Stdout)
-	go readStreamFunc(stderrCtx, et.StderrChan, et.Stderr)
+	go readStreamFunc(ctx, et.StdoutChan, et.Stdout)
+	go readStreamFunc(ctx, et.StderrChan, et.Stderr)
 
 	select {
 	case <-et.StdoutChan:
