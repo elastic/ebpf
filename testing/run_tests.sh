@@ -103,7 +103,7 @@ test_on_gs_kernels() {
                 continue
             fi
 
-            if [[ "$KERNEL_TARBALL" =~ (aarch64|armv7) ]]
+            if ! [[ "$KERNEL_TARBALL" =~ (amd64|x86_64) ]]
             then
                 echo "[SKIP-ARCH] $KERNEL_NAME"
                 continue
