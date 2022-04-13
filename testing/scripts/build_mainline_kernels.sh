@@ -20,7 +20,7 @@ pushd $1
 KERNEL_VERSIONS=$(git tag | egrep 'v5.(8|9|[1-9][0-9])(.[0-9]+$|$)' | sort -V)
 N_KERNS=$(echo "$KERNEL_VERSIONS" | wc | awk '{ print $1 }')
 I=1
-mkdir -p mainline_kernels
+mkdir -p mainline-kernels
 
 for V in $KERNEL_VERSIONS
 do
@@ -67,7 +67,7 @@ do
     make olddefconfig
 
     make -j$(nproc)
-    mv arch/x86/boot/bzImage mainline_kernels/bzImage-${V}
+    mv arch/x86/boot/bzImage mainline-kernels/bzImage-${V}
     I=$(($I + 1))
 done
 
