@@ -10,13 +10,16 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"reflect"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -174,6 +177,28 @@ func PowerOff() {
 	if err := syscall.Reboot(syscall.LINUX_REBOOT_CMD_POWER_OFF); err != nil {
 		panic(fmt.Sprintf("Power off failed: %s", err))
 	}
+}
+
+func IsOverlayFsSupported() bool {
+	file, err := os.Open("/proc/filesystems")
+	if err != nil {
+		TestFail(fmt.Sprintf("Could not open /proc/filesystems: %s", err))
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasSuffix(line, "overlay") {
+			return true
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		TestFail(fmt.Sprintf("Could not read from /proc/filesystems: %s", err))
+	}
+
+	return false
 }
 
 func RunTest(f func(*EventsTraceInstance), args ...string) {

@@ -9,6 +9,10 @@
 
 package main
 
+import (
+	"fmt"
+)
+
 func main() {
 	RunTest(TestForkExit, "--process-fork")
 	RunTest(TestForkExec, "--process-fork", "--process-exec")
@@ -17,9 +21,20 @@ func main() {
 	RunTest(TestFileCreate, "--file-create")
 	RunTest(TestFileDelete, "--file-delete")
 	RunTest(TestFileRename, "--file-rename")
-	RunTest(TestFileCreateContainer, "--file-create")
-	RunTest(TestFileRenameContainer, "--file-rename")
-	RunTest(TestFileDeleteContainer, "--file-delete")
+
+	// These tests rely on overlayfs support. Distro kernels commonly compile
+	// overlayfs as a module, thus it's not available to us in our
+	// minimal/bzImage-only approach (attempting to mount an overlay fs will
+	// result in ENODEV if the module isn't loaded). The mainline kernel build
+	// script ensures overlayfs is compiled into the kernel, so just skip these
+	// tests if we're on a distro kernel that we can't use overlayfs on.
+	if IsOverlayFsSupported() {
+		RunTest(TestFileCreateContainer, "--file-create")
+		RunTest(TestFileRenameContainer, "--file-rename")
+		RunTest(TestFileDeleteContainer, "--file-delete")
+	} else {
+		fmt.Println("Overlayfs kernel module not loaded, not running ovl tests")
+	}
 
 	AllTestsPassed()
 	PowerOff()
