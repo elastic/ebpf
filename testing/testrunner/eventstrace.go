@@ -44,7 +44,16 @@ func (et *EventsTraceInstance) Start(ctx context.Context) {
 			default:
 				scanner := bufio.NewScanner(stream)
 				for scanner.Scan() {
-					c <- scanner.Text()
+					select {
+					case c <- scanner.Text():
+						break
+					default:
+						// If we don't have room in the channel, we _must_ drop
+						// incoming lines, otherwise EventsTrace will block
+						// forever trying to write to stdout/stderr and the
+						// test will time out
+						fmt.Println("dropped EventsTrace stdout/stderr due to full channel")
+					}
 				}
 
 				if err := scanner.Err(); err != nil {
@@ -55,14 +64,14 @@ func (et *EventsTraceInstance) Start(ctx context.Context) {
 		}
 	}
 
-	et.StdoutChan = make(chan string, 100)
-	et.StderrChan = make(chan string, 100)
+	et.StdoutChan = make(chan string, 20000)
+	et.StderrChan = make(chan string, 20000)
 
 	go readStreamFunc(ctx, et.StdoutChan, et.Stdout)
 	go readStreamFunc(ctx, et.StderrChan, et.Stderr)
 
-    // Block until EventsTrace logs its "probes ready" line, indicating it's
-    // done loading
+	// Block until EventsTrace logs its "probes ready" line, indicating it's
+	// done loading
 	select {
 	case <-et.StdoutChan:
 		break
