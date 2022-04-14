@@ -83,7 +83,7 @@ cp_test_infra_file(const char *pathname, const struct stat *sbuf, int typeflag, 
     CHECK(src_fd = open(pathname, O_RDONLY), -1);
     CHECK(dst_fd = open(dst_path, O_CREAT | O_WRONLY, S_IRWXU), -1);
 
-    printf("[init] copying %s\n", pathname, dst_path);
+    printf("[init] copying %s\n", pathname);
 
     while (1) {
         size_t n;
