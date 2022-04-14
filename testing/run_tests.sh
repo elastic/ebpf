@@ -185,6 +185,13 @@ check_kvm() {
     fi
 }
 
+usage() {
+    echo "Usage: ./run_tests.sh [-m] [-d gs_bucket] [-j jobs]"
+    echo "-m          -- Test on mainline kernels located at mainlin-kernels.tar"
+    echo "-d <bucket> -- Test on distro kernels located in the given GCS bucket"
+    echo "-j <jobs>   -- Spin up jobs VMs in parallel"
+}
+
 MAINLINE=0
 DISTRO=0
 GS_BUCKET=""
@@ -195,10 +202,16 @@ do
             ;;
         d ) DISTRO=1
             GS_BUCKET=$OPTARG
+            if [[ $GS_BUCKET != gs://* ]]
+            then
+                usage
+                exit 1
+            fi
             ;;
         j ) JOBS=$OPTARG
             ;;
-        \? ) echo "Usage ${0} [-md]"
+        \? )
+            usage
             exit 1
             ;;
     esac
