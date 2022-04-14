@@ -149,8 +149,10 @@ static void ebpf_cred_info__fill(struct ebpf_cred_info *ci, const struct task_st
 
 static bool is_kernel_thread(const struct task_struct *task)
 {
-    // Session ID is 0 for all kernel threads
-    return BPF_CORE_READ(task, group_leader, signal, pids[PIDTYPE_SID], numbers[0].nr) == 0;
+    // All kernel threads are children of kthreadd, which always has pid 2
+    // except on some ancient kernels (2.4x)
+    // https://unix.stackexchange.com/a/411175
+    return BPF_CORE_READ(task, group_leader, real_parent, tgid) == 2;
 }
 
 static bool is_thread_group_leader(const struct task_struct *task)

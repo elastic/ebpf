@@ -30,6 +30,9 @@ struct ebpf_event_ctx_opts {
     bool features_autodetect;
 };
 
+/* Turn on logging of all libbpf debug logs to stderr */
+int ebpf_set_verbose_logging();
+
 /* Allocates a new context based on requested events and capabilities.
  *
  * If ctx is NULL, the function returns right after loading and attaching the

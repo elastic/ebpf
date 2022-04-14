@@ -240,6 +240,16 @@ static void probe_set_features(uint64_t *features)
         *features |= EBPF_FEATURE_BPF_TRAMP;
 }
 
+static int libbpf_verbose_print(enum libbpf_print_level lvl, const char *fmt, va_list args)
+{
+    return vfprintf(stderr, fmt, args);
+}
+
+int ebpf_set_verbose_logging()
+{
+    libbpf_set_print(libbpf_verbose_print);
+}
+
 int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         ebpf_event_handler_fn cb,
                         struct ebpf_event_ctx_opts opts)

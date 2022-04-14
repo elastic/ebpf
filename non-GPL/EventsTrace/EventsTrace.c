@@ -14,6 +14,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/resource.h>
+#include <sys/time.h>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -31,9 +33,14 @@ const char argp_program_doc[] =
     "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename]\n"
     "[--process-fork] [--process-exec] [--process-exit] [--process-setsid] [--process-setuid] "
     "[--process-setgid]\n"
-    "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n";
+    "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n"
+    "[--print-initialized] [--unbuffer-stdout] [--libbpf-verbose]\n";
 
 static const struct argp_option opts[] = {
+    {"print-initialized", 'i', NULL, false,
+     "Whether or not to print a message when probes have been successfully loaded", 1},
+    {"unbuffer-stdout", 'u', NULL, false, "Don't buffer stdout in userspace at all", 1},
+    {"libbpf-verbose", 'v', NULL, false, "Log verbose libbpf logs to stderr", 1},
     {"all", 'a', NULL, false, "Whether or not to consider all the events", 0},
     {"file-delete", EBPF_EVENT_FILE_DELETE, NULL, false,
      "Whether or not to consider file delete events", 1},
@@ -67,9 +74,22 @@ static const struct argp_option opts[] = {
 uint64_t g_events_env   = 0;
 uint64_t g_features_env = 0;
 
+bool g_print_initialized = 0;
+bool g_unbuffer_stdout   = 0;
+bool g_libbpf_verbose    = 0;
+
 static error_t parse_arg(int key, char *arg, struct argp_state *state)
 {
     switch (key) {
+    case 'i':
+        g_print_initialized = 1;
+        break;
+    case 'u':
+        g_unbuffer_stdout = 1;
+        break;
+    case 'v':
+        g_libbpf_verbose = 1;
+        break;
     case 'a':
         g_events_env = UINT64_MAX;
         break;
@@ -379,7 +399,9 @@ static void out_process_setuid(struct ebpf_process_setuid_event *evt)
 
     out_pid_info("pids", &evt->pids);
     out_comma();
-    out_cred_info("cred", &evt->creds);
+    out_uint("new_ruid", evt->new_ruid);
+    out_comma();
+    out_uint("new_euid", evt->new_euid);
 
     out_object_end();
     out_newline();
@@ -393,7 +415,9 @@ static void out_process_setgid(struct ebpf_process_setgid_event *evt)
 
     out_pid_info("pids", &evt->pids);
     out_comma();
-    out_cred_info("cred", &evt->creds);
+    out_uint("new_rgid", evt->new_rgid);
+    out_comma();
+    out_uint("new_egid", evt->new_egid);
 
     out_object_end();
     out_newline();
@@ -575,23 +599,47 @@ int main(int argc, char **argv)
 
     if (signal(SIGINT, sig_int) == SIG_ERR) {
         fprintf(stderr, "Failed to register SIGINT handler\n");
-        goto cleanup;
+        goto out;
     }
 
     err = argp_parse(&argp, argc, argv, 0, NULL, NULL);
     if (err)
-        goto cleanup;
+        goto out;
+
+    struct rlimit lim;
+    lim.rlim_cur = RLIM_INFINITY;
+    lim.rlim_max = RLIM_INFINITY;
+    err          = setrlimit(RLIMIT_MEMLOCK, &lim);
+    if (err < 0) {
+        fprintf(stderr, "Could not set RLIMIT_MEMLOCK: %d %s\n", err, strerror(-err));
+        goto out;
+    }
+
+    if (g_unbuffer_stdout) {
+        err = setvbuf(stdout, NULL, _IONBF, 0);
+        if (err < 0) {
+            fprintf(stderr, "Could not turn off stdout buffering: %d %s\n", err, strerror(err));
+            goto out;
+        }
+    }
+
+    if (g_libbpf_verbose)
+        ebpf_set_verbose_logging();
 
     struct ebpf_event_ctx_opts opts = {
         .events   = g_events_env,
         .features = g_features_env,
     };
     err = ebpf_event_ctx__new(&ctx, event_ctx_callback, opts);
+
     if (err < 0) {
         fprintf(stderr, "Could not create event context: %d %s\n", err, strerror(-err));
-        goto cleanup;
+        goto out;
     }
 
+    if (g_print_initialized) {
+        printf("{ \"eventstrace_message\": \"probes initialized\"}\n");
+    }
     while (!exiting) {
         err = ebpf_event_ctx__next(ctx, 10);
         if (err < 0) {
@@ -600,7 +648,8 @@ int main(int argc, char **argv)
         }
     }
 
-cleanup:
     ebpf_event_ctx__destroy(&ctx);
+
+out:
     return err != 0;
 }

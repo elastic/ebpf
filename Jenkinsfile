@@ -224,7 +224,7 @@ def validateFormatting()
     {
         try
         {
-            sh "find GPL/ non-GPL/ -name '*.[c, h]' | xargs clang-format -Werror --dry-run"
+            sh "find GPL/ non-GPL/ testing/test_bins testing/init -name '*.[c, h]' | xargs clang-format -Werror --dry-run"
         }
         catch(Exception e)
         {
