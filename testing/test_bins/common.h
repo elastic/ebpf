@@ -13,13 +13,13 @@
 #include <unistd.h>
 
 // Convenience wrapper for glibc error checking
-#define CHECK(stmt, err)                                                      \
-  do {                                                                        \
-    if ((stmt) == err) {                                                      \
-      perror(#stmt);                                                          \
-      return -1;                                                              \
-    }                                                                         \
-  } while(0)
+#define CHECK(stmt, err)                                                                           \
+    do {                                                                                           \
+        if ((stmt) == err) {                                                                       \
+            perror(#stmt);                                                                         \
+            return -1;                                                                             \
+        }                                                                                          \
+    } while (0)
 
 // Old toolchain doesn't provide this syscall
 pid_t gettid()

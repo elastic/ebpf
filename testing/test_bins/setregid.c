@@ -21,6 +21,7 @@ int main()
 
     char pid_info[8192];
     gen_pid_info_json(pid_info, sizeof(pid_info));
-    printf("{ \"pid_info\": %s, \"new_rgid\": %d, \"new_egid\": %d }\n", pid_info, new_rgid, new_egid);
+    printf("{ \"pid_info\": %s, \"new_rgid\": %d, \"new_egid\": %d }\n", pid_info, new_rgid,
+           new_egid);
     return 0;
 }

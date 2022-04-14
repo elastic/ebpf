@@ -19,16 +19,16 @@
 // multiple kernels.
 #define _GNU_SOURCE
 
-#include <stdio.h>
+#include <errno.h>
 #include <ftw.h>
 #include <sched.h>
-#include <sys/syscall.h>
-#include <errno.h>
-#include <sys/types.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/mman.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <sys/mman.h>
-#include <string.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -38,7 +38,7 @@
 
 const char *ovl_upperdir = "/ovl_upperdir";
 const char *ovl_lowerdir = "/ovl_lowerdir";
-const char *ovl_workdir = "/ovl_workdir";
+const char *ovl_workdir  = "/ovl_workdir";
 
 const char *ovl_mountpoint = "/ovl_mountpoint";
 
@@ -77,8 +77,8 @@ static int child(void *arg)
 
     // Mount an overlayfs filesytem on ovl_mountpoint
     char mount_flags[1024];
-    snprintf(mount_flags, sizeof(mount_flags), "upperdir=%s,lowerdir=%s,workdir=%s",
-            ovl_upperdir, ovl_lowerdir, ovl_workdir);
+    snprintf(mount_flags, sizeof(mount_flags), "upperdir=%s,lowerdir=%s,workdir=%s", ovl_upperdir,
+             ovl_lowerdir, ovl_workdir);
     CHECK(mount(NULL, ovl_mountpoint, "overlay", 0, mount_flags), -1);
 
     // Create a directory where the current root will be shifted under the new
@@ -108,15 +108,16 @@ static int rm_file(const char *pathname, const struct stat *sbuf, int typeflag, 
 
 static int rm_recursive(const char *dir)
 {
-    CHECK(nftw(dir, rm_file, 10, FTW_DEPTH|FTW_MOUNT|FTW_PHYS), -1);
+    CHECK(nftw(dir, rm_file, 10, FTW_DEPTH | FTW_MOUNT | FTW_PHYS), -1);
 }
 
 int main()
 {
     int wstatus, err = 0;
     void *child_stack;
-    CHECK(child_stack = mmap(NULL, STACK_SIZE,
-            PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0), MAP_FAILED);
+    CHECK(child_stack = mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE,
+                             MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0),
+          MAP_FAILED);
 
     pid_t child_pid;
     CHECK(child_pid = clone(child, child_stack + STACK_SIZE, CLONE_NEWNS | SIGCHLD, NULL), -1);
@@ -130,7 +131,7 @@ int main()
     }
 
     printf("{ \"child_pid\": %d, \"filename_orig\": \"/%s\", \"filename_new\": \"/%s\"}\n",
-            child_pid, filename_orig, filename_new);
+           child_pid, filename_orig, filename_new);
 
 cleanup:
     // Clean up directories created by child
