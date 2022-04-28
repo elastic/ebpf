@@ -248,6 +248,7 @@ static int libbpf_verbose_print(enum libbpf_print_level lvl, const char *fmt, va
 int ebpf_set_verbose_logging()
 {
     libbpf_set_print(libbpf_verbose_print);
+    return 0;
 }
 
 int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,

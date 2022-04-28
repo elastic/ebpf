@@ -50,6 +50,8 @@
 // (set to 1,000,000 as of 5.3).
 #define PATH_RESOLVER_MAX_COMPONENTS 100
 
+#define KERNFS_NODE_COMPONENT_MAX_LEN 250
+
 // Map used as a scratch area by the path resolver to store intermediate state
 // (dentry pointers).
 struct {
@@ -57,7 +59,7 @@ struct {
     __type(key, u32);
     __type(value, struct dentry *[PATH_RESOLVER_MAX_COMPONENTS]);
     __uint(max_entries, 1);
-} path_resolver_scratch_map SEC(".maps");
+} path_resolver_dentry_scratch_map SEC(".maps");
 
 static void
 ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_struct *task)
@@ -81,7 +83,7 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
     buf[0] = '\0';
 
     u32 zero = 0;
-    if (!(dentry_arr = bpf_map_lookup_elem(&path_resolver_scratch_map, &zero))) {
+    if (!(dentry_arr = bpf_map_lookup_elem(&path_resolver_dentry_scratch_map, &zero))) {
         bpf_printk("Could not get path resolver scratch area");
         goto out_err;
     }
@@ -170,6 +172,72 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
     if (buf[0] == '\0') {
         buf[0] = '/';
         buf[1] = '\0';
+    }
+
+    return;
+
+out_err:
+    buf[0] = '\0';
+}
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, u32);
+    __type(value, struct kernfs_node *[PATH_RESOLVER_MAX_COMPONENTS]);
+    __uint(max_entries, 1);
+} path_resolver_kernfs_node_scratch_map SEC(".maps");
+
+static void ebpf_resolve_kernfs_node_to_string(char *buf, const struct task_struct *task)
+{
+    long cur  = 0;
+    int depth = 0, zero = 0, read_len, name_len;
+    char name[KERNFS_NODE_COMPONENT_MAX_LEN];
+    buf[0] = '\0';
+
+    struct kernfs_node *kn   = BPF_CORE_READ(task, cgroups, subsys[pids_cgrp_id], cgroup, kn);
+    struct kernfs_node **kna = bpf_map_lookup_elem(&path_resolver_kernfs_node_scratch_map, &zero);
+    if (!kna) {
+        bpf_printk("could not get scratch area");
+        goto out_err;
+    }
+
+    while (depth < PATH_RESOLVER_MAX_COMPONENTS - 1) {
+        if (!kn)
+            break;
+
+        kna[depth] = kn;
+        kn         = BPF_CORE_READ(kn, parent);
+        depth++;
+    }
+
+    while (depth > 0) {
+        depth--;
+        struct kernfs_node *curr = kna[depth];
+
+        read_len = bpf_probe_read_kernel_str(&name, KERNFS_NODE_COMPONENT_MAX_LEN,
+                                             (void *)BPF_CORE_READ(curr, name));
+        name_len = read_len - 1;
+
+        if (name_len == 0)
+            continue;
+        if (read_len < 0) {
+            bpf_printk("could not get read kernfs_node name: %d", read_len);
+            goto out_err;
+        }
+        if (cur + name_len + 1 > PATH_MAX) {
+            bpf_printk("path too long");
+            goto out_err;
+        }
+
+        buf[cur & PATH_MAX_INDEX_MASK] = '/';
+        cur                            = (cur + 1) & PATH_MAX_INDEX_MASK;
+        if (bpf_probe_read_kernel_str(
+                buf + (cur & PATH_MAX_INDEX_MASK),
+                PATH_MAX - cur > KERNFS_NODE_COMPONENT_MAX_LEN ? KERNFS_NODE_COMPONENT_MAX_LEN : 0,
+                (void *)name) < 0)
+            goto out_err;
+
+        cur += name_len & PATH_MAX_INDEX_MASK;
     }
 
     return;

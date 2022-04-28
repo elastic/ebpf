@@ -100,6 +100,7 @@ struct ebpf_process_fork_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info parent_pids;
     struct ebpf_pid_info child_pids;
+    char pids_ss_cgroup_path[PATH_MAX];
 } __attribute__((packed));
 
 struct ebpf_process_exec_event {
@@ -110,12 +111,14 @@ struct ebpf_process_exec_event {
     char filename[PATH_MAX];
     char cwd[PATH_MAX];
     char argv[ARGV_MAX];
+    char pids_ss_cgroup_path[PATH_MAX];
 } __attribute__((packed));
 
 struct ebpf_process_exit_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
     int32_t exit_code;
+    char pids_ss_cgroup_path[PATH_MAX];
 } __attribute__((packed));
 
 struct ebpf_process_setsid_event {

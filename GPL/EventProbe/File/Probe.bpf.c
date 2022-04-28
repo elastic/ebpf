@@ -112,7 +112,7 @@ static int vfs_unlink__exit(int ret)
 
     struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
     if (!state || state->rename.step != UNLINK_STATE_DENTRY_SET) {
-        bpf_printk("vfs_unlink__exit: state missing or incomplete\n");
+        // Omit logging as this happens in the happy path.
         goto out;
     }
 
@@ -163,7 +163,7 @@ static int vfs_unlink__enter(struct dentry de)
 {
     struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
     if (!state || state->unlink.step != UNLINK_STATE_MOUNT_SET) {
-        bpf_printk("vfs_unlink__enter: state missing or incomplete\n");
+        // Omit logging as this happens in the happy path.
         goto out;
     }
 
@@ -281,7 +281,7 @@ static int vfs_rename__enter(struct dentry *old_dentry, struct dentry *new_dentr
     struct ebpf_events_state *state;
     state = ebpf_events_state__get(EBPF_EVENTS_STATE_RENAME);
     if (!state || state->rename.step != RENAME_STATE_MOUNT_SET) {
-        bpf_printk("vfs_rename__enter: state missing or incomplete\n");
+        // Omit logging as this happens in the happy path.
         goto out;
     }
 
@@ -361,7 +361,7 @@ static int vfs_rename__exit(int ret)
 
     struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_RENAME);
     if (!state || state->rename.step != RENAME_STATE_PATHS_SET) {
-        bpf_printk("vfs_rename__exit: state missing or incomplete\n");
+        // Omit logging as this happens in the happy path.
         goto out;
     }
 

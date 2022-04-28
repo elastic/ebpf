@@ -347,6 +347,9 @@ static void out_process_fork(struct ebpf_process_fork_event *evt)
     out_comma();
 
     out_pid_info("child_pids", &evt->child_pids);
+    out_comma();
+
+    out_string("pids_ss_cgroup_path", evt->pids_ss_cgroup_path);
 
     out_object_end();
     out_newline();
@@ -371,6 +374,9 @@ static void out_process_exec(struct ebpf_process_exec_event *evt)
     out_comma();
 
     out_string("cwd", evt->cwd);
+    out_comma();
+
+    out_string("pids_ss_cgroup_path", evt->pids_ss_cgroup_path);
     out_comma();
 
     out_argv("argv", evt->argv, sizeof(evt->argv));
@@ -430,6 +436,9 @@ static void out_process_exit(struct ebpf_process_exit_event *evt)
     out_comma();
 
     out_pid_info("pids", &evt->pids);
+    out_comma();
+
+    out_string("pids_ss_cgroup_path", evt->pids_ss_cgroup_path);
     out_comma();
 
     out_int("exit_code", evt->exit_code);
