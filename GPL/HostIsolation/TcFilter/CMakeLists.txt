@@ -29,7 +29,8 @@ set(TCFILTER_CFLAGS
                 -Wno-address-of-packed-member
                 -Wno-tautological-compare
                 -fno-asynchronous-unwind-tables
-                -fno-stack-protector)
+                -fno-stack-protector
+                -fno-ident)
 
 
 set(TCFILTER_BPF_OUTPUT ${TARGET_EBPF_DIR}/TcFilter.bpf.o)
