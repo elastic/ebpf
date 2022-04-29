@@ -25,7 +25,8 @@ set(KPROBECONNECTHOOK_CFLAGS
                         -I${LIBBPF_TARGET_INCLUDE_DIR}
                         -I${LIBBPF_UAPI_INCLUDE_DIR}
                         -I${LIBBPF_INCLUDE_DIR}
-                        -I${CMAKE_SOURCE_DIR}/non-GPL/Common)
+                        -I${CMAKE_SOURCE_DIR}/non-GPL/Common
+                        -fno-ident)
 
 set(KPROBECONNECTHOOK_BPF_OUTPUT ${TARGET_EBPF_DIR}/KprobeConnectHook.bpf.o)
 add_custom_command(OUTPUT ${KPROBECONNECTHOOK_BPF_OUTPUT}
