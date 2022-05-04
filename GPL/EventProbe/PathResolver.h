@@ -215,14 +215,15 @@ static void ebpf_resolve_kernfs_node_to_string(char *buf, struct kernfs_node *kn
 
         read_len = bpf_probe_read_kernel_str(&name, KERNFS_NODE_COMPONENT_MAX_LEN,
                                              (void *)BPF_CORE_READ(curr, name));
-        name_len = read_len - 1;
-
-        if (name_len == 0)
-            continue;
         if (read_len < 0) {
             bpf_printk("could not get read kernfs_node name: %d", read_len);
             goto out_err;
         }
+
+        name_len = read_len - 1;
+        if (name_len == 0)
+            continue;
+
         if (cur + name_len + 1 > PATH_MAX) {
             bpf_printk("path too long");
             goto out_err;
