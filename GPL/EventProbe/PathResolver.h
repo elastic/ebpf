@@ -187,14 +187,13 @@ struct {
     __uint(max_entries, 1);
 } path_resolver_kernfs_node_scratch_map SEC(".maps");
 
-static void ebpf_resolve_kernfs_node_to_string(char *buf, const struct task_struct *task)
+static void ebpf_resolve_kernfs_node_to_string(char *buf, struct kernfs_node *kn)
 {
     long cur  = 0;
     int depth = 0, zero = 0, read_len, name_len;
     char name[KERNFS_NODE_COMPONENT_MAX_LEN];
     buf[0] = '\0';
 
-    struct kernfs_node *kn   = BPF_CORE_READ(task, cgroups, subsys[pids_cgrp_id], cgroup, kn);
     struct kernfs_node **kna = bpf_map_lookup_elem(&path_resolver_kernfs_node_scratch_map, &zero);
     if (!kna) {
         bpf_printk("could not get scratch area");
@@ -244,6 +243,12 @@ static void ebpf_resolve_kernfs_node_to_string(char *buf, const struct task_stru
 
 out_err:
     buf[0] = '\0';
+}
+
+static void ebpf_resolve_pids_ss_cgroup_path_to_string(char *buf, const struct task_struct *task)
+{
+    struct kernfs_node *kn = BPF_CORE_READ(task, cgroups, subsys[pids_cgrp_id], cgroup, kn);
+    ebpf_resolve_kernfs_node_to_string(buf, kn);
 }
 
 #endif // EBPF_EVENTPROBE_PATHRESOLVER_H
