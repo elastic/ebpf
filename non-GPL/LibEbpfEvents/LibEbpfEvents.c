@@ -37,11 +37,11 @@ static int ring_buf_cb(void *ctx, void *data, size_t size)
     if (cb_ctx == NULL) {
         return 0;
     }
-    ebpf_event_handler_fn cb       = cb_ctx->cb;
+    ebpf_event_handler_fn cb = cb_ctx->cb;
     if (cb == NULL) {
         return 0;
     }
-    struct ebpf_event_header *evt  = data;
+    struct ebpf_event_header *evt = data;
     if (evt == NULL) {
         return 0;
     }

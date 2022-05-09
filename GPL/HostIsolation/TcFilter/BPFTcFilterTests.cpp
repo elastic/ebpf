@@ -1,20 +1,10 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
 
 /*
  * Copyright (C) 2021 Elasticsearch BV
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; version 2.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 51
- * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * This software is dual-licensed under the BSD 2-Clause and GPL v2 licenses.
+ * You may choose either one of them if you use this software.
  */
 
 #include "Kerneldefs.h"
@@ -36,22 +26,19 @@
 #define MAGIC_BYTES 123
 #define __packed __attribute__((__packed__))
 
-struct packet_v4
-{
+struct packet_v4 {
     struct ethhdr eth;
     struct iphdr iph;
     struct tcphdr tcp;
 } __packed;
 
-struct packet_v4_udp
-{
+struct packet_v4_udp {
     struct ethhdr eth;
     struct iphdr iph;
     struct udphdr udp;
 } __packed;
 
-struct packet_v6
-{
+struct packet_v6 {
     struct ethhdr eth;
     struct ipv6hdr iph;
     struct tcphdr tcp;
@@ -59,22 +46,20 @@ struct packet_v6
 
 class BPFTcFilterTests : public ::testing::Test
 {
-protected:
+  protected:
     struct bpf_object *m_obj = nullptr;
     int m_prog_fd            = -1;
 
-    virtual void
-    SetUp() override
+    virtual void SetUp() override
     {
         struct bpf_object_load_attr load_attr = {};
         struct bpf_program *prog              = nullptr;
         char *object_path_env                 = getenv(OBJECT_PATH_ENV_VAR);
         int err                               = 0;
-        m_obj = object_path_env == NULL ? bpf_object__open(DEFAULT_OBJECT_PATH) :
-                                          bpf_object__open(object_path_env);
+        m_obj = object_path_env == NULL ? bpf_object__open(DEFAULT_OBJECT_PATH)
+                                        : bpf_object__open(object_path_env);
 
-        if (libbpf_get_error(m_obj))
-        {
+        if (libbpf_get_error(m_obj)) {
             FAIL() << "Cannot open ELF object to test, you can pass a custom one with the "
                    << OBJECT_PATH_ENV_VAR << " environment variable";
         }
@@ -82,12 +67,11 @@ protected:
 
         prog = bpf_object__find_program_by_name(m_obj, CLASSIFIER_SECTION_NAME);
         ASSERT_FALSE(prog == NULL);
-	
+
         bpf_program__set_type(prog, BPF_PROG_TYPE_SCHED_CLS);
 
         err = bpf_object__load_xattr(&load_attr);
-        if (err)
-        {
+        if (err) {
             FAIL() << "Could not load the bpf program, please check your permissions";
             return;
         }
@@ -95,13 +79,11 @@ protected:
         m_prog_fd = bpf_program__fd(prog);
     }
 
-    virtual void
-    TearDown() override
+    virtual void TearDown() override
     {
-        int err = 0;
+        int err                         = 0;
         struct bpf_map *allowed_ips_map = bpf_object__find_map_by_name(m_obj, "allowed_IPs");
-        if(!allowed_ips_map)
-        {
+        if (!allowed_ips_map) {
             FAIL() << "Could not find the allowed_IPs map";
             return;
         }
@@ -111,9 +93,9 @@ protected:
             return;
         }
 
-        struct bpf_map *allowed_subnets_map = bpf_object__find_map_by_name(m_obj, "allowed_subnets");
-        if (!allowed_subnets_map)
-        {
+        struct bpf_map *allowed_subnets_map =
+            bpf_object__find_map_by_name(m_obj, "allowed_subnets");
+        if (!allowed_subnets_map) {
             FAIL() << "Could not find the allowed_subnets map";
             return;
         }
@@ -127,14 +109,13 @@ protected:
         m_prog_fd = -1;
     }
 
-    static void
-    SetUpTestSuite()
+    static void SetUpTestSuite()
     {
         struct rlimit rinf;
         rinf = {RLIM_INFINITY, RLIM_INFINITY};
-        if (setrlimit(RLIMIT_MEMLOCK, &rinf) == -EPERM)
-        {
-            FAIL() << "setrlimit failed, running the BPFTcFilterTests suite requires root permissions";
+        if (setrlimit(RLIMIT_MEMLOCK, &rinf) == -EPERM) {
+            FAIL()
+                << "setrlimit failed, running the BPFTcFilterTests suite requires root permissions";
         }
     }
 };
@@ -142,22 +123,18 @@ protected:
 TEST_F(BPFTcFilterTests, TestAllowArpPacket)
 {
     struct bpf_test_run_opts opts = {};
-    opts.sz = sizeof(opts);
-    struct ethhdr eth
-    {
+    opts.sz                       = sizeof(opts);
+    struct ethhdr eth {
     };
     eth.h_proto = __bpf_htons(ETH_P_ARP);
 
-    struct iphdr iph
-    {
+    struct iphdr iph {
     };
 
-    struct tcphdr tcp
-    {
+    struct tcphdr tcp {
     };
 
-    struct packet_v4 pkt_v4
-    {
+    struct packet_v4 pkt_v4 {
     };
     pkt_v4.eth = eth;
     pkt_v4.iph = iph;
@@ -181,22 +158,18 @@ TEST_F(BPFTcFilterTests, TestAllowArpPacket)
 TEST_F(BPFTcFilterTests, TestDropUnsupportedPackets)
 {
     struct bpf_test_run_opts opts = {};
-    opts.sz = sizeof(opts);
-    struct ethhdr eth
-    {
+    opts.sz                       = sizeof(opts);
+    struct ethhdr eth {
     };
     eth.h_proto = __bpf_htons(ETH_P_LOOP);
 
-    struct iphdr iph
-    {
+    struct iphdr iph {
     };
 
-    struct tcphdr tcp
-    {
+    struct tcphdr tcp {
     };
 
-    struct packet_v4 pkt_v4
-    {
+    struct packet_v4 pkt_v4 {
     };
     pkt_v4.eth = eth;
     pkt_v4.iph = iph;
@@ -220,23 +193,19 @@ TEST_F(BPFTcFilterTests, TestDropUnsupportedPackets)
 TEST_F(BPFTcFilterTests, TestDropIPV6Packets)
 {
     struct bpf_test_run_opts opts = {};
-    opts.sz = sizeof(opts);
-    struct ethhdr eth
-    {
+    opts.sz                       = sizeof(opts);
+    struct ethhdr eth {
     };
     eth.h_proto = __bpf_htons(ETH_P_IP);
 
-    struct ipv6hdr iph
-    {
+    struct ipv6hdr iph {
     };
     iph.version = 6;
 
-    struct tcphdr tcp
-    {
+    struct tcphdr tcp {
     };
 
-    struct packet_v6 pkt_v6
-    {
+    struct packet_v6 pkt_v6 {
     };
     pkt_v6.eth = eth;
     pkt_v6.iph = iph;
@@ -260,24 +229,20 @@ TEST_F(BPFTcFilterTests, TestDropIPV6Packets)
 TEST_F(BPFTcFilterTests, TestDropInvalidHeaderLength)
 {
     struct bpf_test_run_opts opts = {};
-    opts.sz = sizeof(opts);
-    struct ethhdr eth
-    {
+    opts.sz                       = sizeof(opts);
+    struct ethhdr eth {
     };
     eth.h_proto = __bpf_htons(ETH_P_IP);
 
-    struct iphdr iph
-    {
+    struct iphdr iph {
     };
     iph.version = 4;
     iph.ihl     = 10;
 
-    struct tcphdr tcp
-    {
+    struct tcphdr tcp {
     };
 
-    struct packet_v4 pkt_v4
-    {
+    struct packet_v4 pkt_v4 {
     };
     pkt_v4.eth = eth;
     pkt_v4.iph = iph;
@@ -295,25 +260,21 @@ TEST_F(BPFTcFilterTests, TestDropInvalidHeaderLength)
 TEST_F(BPFTcFilterTests, TestDropFragmentedPacket)
 {
     struct bpf_test_run_opts opts = {};
-    opts.sz = sizeof(opts);
-    struct ethhdr eth
-    {
+    opts.sz                       = sizeof(opts);
+    struct ethhdr eth {
     };
     eth.h_proto = __bpf_htons(ETH_P_IP);
 
-    struct iphdr iph
-    {
+    struct iphdr iph {
     };
     iph.version = 4;
     iph.ihl     = 5;
     iph.frag_off |= PCKT_FRAGMENTED;
 
-    struct tcphdr tcp
-    {
+    struct tcphdr tcp {
     };
 
-    struct packet_v4 pkt_v4
-    {
+    struct packet_v4 pkt_v4 {
     };
     pkt_v4.eth = eth;
     pkt_v4.iph = iph;
@@ -331,26 +292,22 @@ TEST_F(BPFTcFilterTests, TestDropFragmentedPacket)
 TEST_F(BPFTcFilterTests, TestAllowUDPPacketDNSPortSource)
 {
     struct bpf_test_run_opts opts = {};
-    opts.sz = sizeof(opts);
-    struct ethhdr eth
-    {
+    opts.sz                       = sizeof(opts);
+    struct ethhdr eth {
     };
     eth.h_proto = __bpf_htons(ETH_P_IP);
 
-    struct iphdr iph
-    {
+    struct iphdr iph {
     };
     iph.version  = 4;
     iph.ihl      = 5;
     iph.protocol = IPPROTO_UDP;
 
-    struct udphdr udp
-    {
+    struct udphdr udp {
     };
     udp.source = __bpf_htons(53);
 
-    struct packet_v4_udp pkt_v4
-    {
+    struct packet_v4_udp pkt_v4 {
     };
     pkt_v4.eth = eth;
     pkt_v4.iph = iph;
@@ -368,26 +325,22 @@ TEST_F(BPFTcFilterTests, TestAllowUDPPacketDNSPortSource)
 TEST_F(BPFTcFilterTests, TestAllowUDPPacketDNSPortDest)
 {
     struct bpf_test_run_opts opts = {};
-    opts.sz = sizeof(opts);
-    struct ethhdr eth
-    {
+    opts.sz                       = sizeof(opts);
+    struct ethhdr eth {
     };
     eth.h_proto = __bpf_htons(ETH_P_IP);
 
-    struct iphdr iph
-    {
+    struct iphdr iph {
     };
     iph.version  = 4;
     iph.ihl      = 5;
     iph.protocol = IPPROTO_UDP;
 
-    struct udphdr udp
-    {
+    struct udphdr udp {
     };
     udp.dest = __bpf_htons(53);
 
-    struct packet_v4_udp pkt_v4
-    {
+    struct packet_v4_udp pkt_v4 {
     };
     pkt_v4.eth = eth;
     pkt_v4.iph = iph;
@@ -405,27 +358,23 @@ TEST_F(BPFTcFilterTests, TestAllowUDPPacketDNSPortDest)
 TEST_F(BPFTcFilterTests, TestAllowUDPPacketDHCPClient)
 {
     struct bpf_test_run_opts opts = {};
-    opts.sz = sizeof(opts);
-    struct ethhdr eth
-    {
+    opts.sz                       = sizeof(opts);
+    struct ethhdr eth {
     };
     eth.h_proto = __bpf_htons(ETH_P_IP);
 
-    struct iphdr iph
-    {
+    struct iphdr iph {
     };
     iph.version  = 4;
     iph.ihl      = 5;
     iph.protocol = IPPROTO_UDP;
 
-    struct udphdr udp
-    {
+    struct udphdr udp {
     };
     udp.source = __bpf_htons(DHCP_SERVER_PORT);
     udp.dest   = __bpf_htons(DHCP_CLIENT_PORT);
 
-    struct packet_v4_udp pkt_v4
-    {
+    struct packet_v4_udp pkt_v4 {
     };
     pkt_v4.eth = eth;
     pkt_v4.iph = iph;
@@ -443,27 +392,23 @@ TEST_F(BPFTcFilterTests, TestAllowUDPPacketDHCPClient)
 TEST_F(BPFTcFilterTests, TestAllowUDPPacketDHCPServer)
 {
     struct bpf_test_run_opts opts = {};
-    opts.sz = sizeof(opts);
-    struct ethhdr eth
-    {
+    opts.sz                       = sizeof(opts);
+    struct ethhdr eth {
     };
     eth.h_proto = __bpf_htons(ETH_P_IP);
 
-    struct iphdr iph
-    {
+    struct iphdr iph {
     };
     iph.version  = 4;
     iph.ihl      = 5;
     iph.protocol = IPPROTO_UDP;
 
-    struct udphdr udp
-    {
+    struct udphdr udp {
     };
     udp.source = __bpf_htons(DHCP_CLIENT_PORT);
     udp.dest   = __bpf_htons(DHCP_SERVER_PORT);
 
-    struct packet_v4_udp pkt_v4
-    {
+    struct packet_v4_udp pkt_v4 {
     };
     pkt_v4.eth = eth;
     pkt_v4.iph = iph;
@@ -481,25 +426,21 @@ TEST_F(BPFTcFilterTests, TestAllowUDPPacketDHCPServer)
 TEST_F(BPFTcFilterTests, TestDropUnknownUDPPackets)
 {
     struct bpf_test_run_opts opts = {};
-    opts.sz = sizeof(opts);
-    struct ethhdr eth
-    {
+    opts.sz                       = sizeof(opts);
+    struct ethhdr eth {
     };
     eth.h_proto = __bpf_htons(ETH_P_IP);
 
-    struct iphdr iph
-    {
+    struct iphdr iph {
     };
     iph.version  = 4;
     iph.ihl      = 5;
     iph.protocol = IPPROTO_UDP;
 
-    struct udphdr udp
-    {
+    struct udphdr udp {
     };
 
-    struct packet_v4_udp pkt_v4
-    {
+    struct packet_v4_udp pkt_v4 {
     };
     pkt_v4.eth = eth;
     pkt_v4.iph = iph;
@@ -517,25 +458,21 @@ TEST_F(BPFTcFilterTests, TestDropUnknownUDPPackets)
 TEST_F(BPFTcFilterTests, TestDropUnknownTCPDestination)
 {
     struct bpf_test_run_opts opts = {};
-    opts.sz = sizeof(opts);
-    struct ethhdr eth
-    {
+    opts.sz                       = sizeof(opts);
+    struct ethhdr eth {
     };
     eth.h_proto = __bpf_htons(ETH_P_IP);
 
-    struct iphdr iph
-    {
+    struct iphdr iph {
     };
     iph.version  = 4;
     iph.ihl      = 5;
     iph.protocol = IPPROTO_TCP;
 
-    struct tcphdr tcp
-    {
+    struct tcphdr tcp {
     };
 
-    struct packet_v4 pkt_v4
-    {
+    struct packet_v4 pkt_v4 {
     };
     pkt_v4.eth = eth;
     pkt_v4.iph = iph;
@@ -554,14 +491,12 @@ TEST_F(BPFTcFilterTests, TestAllowTCPAddressInAllowedIPs)
 {
     int allowed_ips_map_fd;
     struct bpf_test_run_opts opts = {};
-    opts.sz = sizeof(opts);
-    struct ethhdr eth
-    {
+    opts.sz                       = sizeof(opts);
+    struct ethhdr eth {
     };
     eth.h_proto = __bpf_htons(ETH_P_IP);
 
-    struct iphdr iph
-    {
+    struct iphdr iph {
     };
     iph.version  = 4;
     iph.ihl      = 5;
@@ -574,12 +509,10 @@ TEST_F(BPFTcFilterTests, TestAllowTCPAddressInAllowedIPs)
     int ret = bpf_map_update_elem(allowed_ips_map_fd, &iph.daddr, &val, BPF_ANY);
     ASSERT_EQ(ret, 0);
 
-    struct tcphdr tcp
-    {
+    struct tcphdr tcp {
     };
 
-    struct packet_v4 pkt_v4
-    {
+    struct packet_v4 pkt_v4 {
     };
     pkt_v4.eth = eth;
     pkt_v4.iph = iph;
@@ -597,25 +530,21 @@ TEST_F(BPFTcFilterTests, TestAllowTCPAddressInAllowedIPs)
 TEST_F(BPFTcFilterTests, TestDropUnknownICMPDestination)
 {
     struct bpf_test_run_opts opts = {};
-    opts.sz = sizeof(opts);
-    struct ethhdr eth
-    {
+    opts.sz                       = sizeof(opts);
+    struct ethhdr eth {
     };
     eth.h_proto = __bpf_htons(ETH_P_IP);
 
-    struct iphdr iph
-    {
+    struct iphdr iph {
     };
     iph.version  = 4;
     iph.ihl      = 5;
     iph.protocol = IPPROTO_ICMP;
 
-    struct tcphdr tcp
-    {
+    struct tcphdr tcp {
     };
 
-    struct packet_v4 pkt_v4
-    {
+    struct packet_v4 pkt_v4 {
     };
     pkt_v4.eth = eth;
     pkt_v4.iph = iph;
@@ -634,14 +563,12 @@ TEST_F(BPFTcFilterTests, TestAllowICMPAddressInAllowedIPs)
 {
     int allowed_ips_map_fd;
     struct bpf_test_run_opts opts = {};
-    opts.sz = sizeof(opts);
-    struct ethhdr eth
-    {
+    opts.sz                       = sizeof(opts);
+    struct ethhdr eth {
     };
     eth.h_proto = __bpf_htons(ETH_P_IP);
 
-    struct iphdr iph
-    {
+    struct iphdr iph {
     };
     iph.version  = 4;
     iph.ihl      = 5;
@@ -654,12 +581,10 @@ TEST_F(BPFTcFilterTests, TestAllowICMPAddressInAllowedIPs)
     int ret = bpf_map_update_elem(allowed_ips_map_fd, &iph.daddr, &val, BPF_ANY);
     ASSERT_EQ(ret, 0);
 
-    struct tcphdr tcp
-    {
+    struct tcphdr tcp {
     };
 
-    struct packet_v4 pkt_v4
-    {
+    struct packet_v4 pkt_v4 {
     };
     pkt_v4.eth = eth;
     pkt_v4.iph = iph;
