@@ -7,43 +7,39 @@
  * You may choose either one of them if you use this software.
  */
 
-#include <sys/resource.h>
 #include <gtest/gtest.h>
+#include <sys/resource.h>
 
-#include <bpf/libbpf.h>
 #include <bpf/bpf.h>
+#include <bpf/libbpf.h>
 
 #include "EventProbe.skel.h"
 
 class BPFFileEventsTests : public ::testing::Test
 {
-protected:
+  protected:
     struct EventProbe_bpf *m_skel;
 
-    virtual void
-    SetUp() override
+    virtual void SetUp() override
     {
         m_skel = EventProbe_bpf__open_and_load();
-        if (!m_skel)
-        {
+        if (!m_skel) {
             FAIL() << "Failed to open and load BPF program";
         }
     }
 
-    virtual void
-    TearDown() override
+    virtual void TearDown() override
     {
         EventProbe_bpf__destroy(m_skel);
     }
 
-    static void
-    SetUpTestSuite()
+    static void SetUpTestSuite()
     {
         struct rlimit rinf;
         rinf = {RLIM_INFINITY, RLIM_INFINITY};
-        if (setrlimit(RLIMIT_MEMLOCK, &rinf) == -EPERM)
-        {
-            FAIL() << "setrlimit failed, running the BPFFileEventsTests suite requires root permissions";
+        if (setrlimit(RLIMIT_MEMLOCK, &rinf) == -EPERM) {
+            FAIL() << "setrlimit failed, running the BPFFileEventsTests suite requires root "
+                      "permissions";
         }
     }
 };
