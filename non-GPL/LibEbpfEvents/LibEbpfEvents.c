@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "EventProbe.skel.h"
 
@@ -91,7 +92,8 @@ out:
 /* Find the BTF type relocation index for a named argument of a kernel function */
 static int resolve_btf_func_arg_idx(struct btf *btf, const char *func, const char *arg)
 {
-    int ret                                   = -1;
+    int ret = -1;
+
     const struct btf_type *proto_btf_type_ptr = resolve_btf_type_by_func(btf, func);
     if (!proto_btf_type_ptr)
         goto out;
@@ -188,6 +190,13 @@ static int probe_fill_relos(struct btf *btf, struct EventProbe_bpf *obj)
     }
     err = err ?: FILL_FUNC_RET_IDX(obj, btf, vfs_rename);
 
+    if (FILL_FUNC_ARG_EXISTS(obj, btf, tty_write, from)) {
+        err = err ?: FILL_FUNC_ARG_IDX(obj, btf, tty_write, buf);
+        err = err ?: FILL_FUNC_ARG_IDX(obj, btf, tty_write, count);
+    } else {
+        err = err ?: FILL_FUNC_ARG_IDX(obj, btf, tty_write, from);
+    }
+
     return err;
 }
 
@@ -234,6 +243,7 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tcp_v4_connect, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__tcp_v4_connect, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tcp_close, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tty_write, false);
     } else {
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_unlinkat, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__mnt_want_write, false);
@@ -247,6 +257,7 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__inet_csk_accept, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__tcp_v4_connect, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__tcp_close, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.fentry__tty_write, false);
     }
 
     return err;
@@ -296,6 +307,8 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
 
     if (opts.features_autodetect)
         probe_set_features(&opts.features);
+
+    probe->rodata->consumer_pid = getpid();
 
     err = probe_fill_relos(btf, probe);
     if (err != 0)
