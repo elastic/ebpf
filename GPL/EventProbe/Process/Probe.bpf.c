@@ -234,3 +234,52 @@ int BPF_KPROBE(kprobe__commit_creds, struct cred *new)
 {
     return commit_creds__enter(new);
 }
+
+SEC("kprobe/tty_write")
+int BPF_KPROBE(tty_write, void *r1, void *r2, void *r3)
+{
+    struct ebpf_process_tty_write_event *event;
+    const char *buf;
+    size_t size;
+
+    if (!(event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0)))
+        goto out;
+
+    // TODO: filter endpoint's own tty output, else debug messages cause
+    // infinite output loop
+
+    // TODO: signature lookup for previous tty_write version
+    const tty_write_version = 2;
+
+    // TODO: does the iov_iter's contents need to be iterated over?
+    //       see struct members:
+    //  count:
+    //    `The total amount of data pointed to by the iovec array is stored in count`
+    //  nr_segs
+    //    `while the number of iovec structures is stored in nr_segs`
+
+    if (tty_write_version == 1) {
+        buf  = BPF_CORE_READ(r1);
+        size = BPF_CORE_READ(r2);
+    }
+
+    if (tty_write_version == 2) {
+        buf  = BPF_CORE_READ(((struct iov_iter *)r2), iov, iov_base);
+        size = BPF_CORE_READ(((struct iov_iter *)r2), iov, iov_len);
+    }
+
+    if (size) {
+        event->hdr.type  = EBPF_EVENT_PROCESS_TTY_WRITE;
+        event->hdr.ts    = bpf_ktime_get_ns();
+
+        event->tty_out_len = size;
+        bpf_probe_read_user_str(event->tty_out, sizeof(event->tty_out), buf);
+
+        bpf_ringbuf_submit(event, 0);
+    } else {
+        bpf_ringbuf_discard(event, 0);
+    }
+
+out:
+    return 0;
+}

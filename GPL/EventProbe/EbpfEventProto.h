@@ -20,6 +20,8 @@
 
 #define TASK_COMM_LEN 16
 
+#define TTY_OUT_MAX 4096
+
 #ifndef __KERNEL__
 #include <stdint.h>
 #else
@@ -33,12 +35,13 @@ enum ebpf_event_type {
     EBPF_EVENT_PROCESS_SETSID               = (1 << 4),
     EBPF_EVENT_PROCESS_SETUID               = (1 << 5),
     EBPF_EVENT_PROCESS_SETGID               = (1 << 6),
-    EBPF_EVENT_FILE_DELETE                  = (1 << 7),
-    EBPF_EVENT_FILE_CREATE                  = (1 << 8),
-    EBPF_EVENT_FILE_RENAME                  = (1 << 9),
-    EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED  = (1 << 10),
-    EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED = (1 << 11),
-    EBPF_EVENT_NETWORK_CONNECTION_CLOSED    = (1 << 12),
+    EBPF_EVENT_PROCESS_TTY_WRITE            = (1 << 7),
+    EBPF_EVENT_FILE_DELETE                  = (1 << 8),
+    EBPF_EVENT_FILE_CREATE                  = (1 << 9),
+    EBPF_EVENT_FILE_RENAME                  = (1 << 10),
+    EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED  = (1 << 11),
+    EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED = (1 << 12),
+    EBPF_EVENT_NETWORK_CONNECTION_CLOSED    = (1 << 13),
 };
 
 struct ebpf_event_header {
@@ -132,6 +135,12 @@ struct ebpf_process_setuid_event {
     uint32_t new_euid;
     uint32_t new_rgid;
     uint32_t new_egid;
+} __attribute__((packed));
+
+struct ebpf_process_tty_write_event {
+    struct ebpf_event_header hdr;
+    char tty_out[TTY_OUT_MAX];
+    uint64_t tty_out_len;
 } __attribute__((packed));
 
 struct ebpf_process_setgid_event {
