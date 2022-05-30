@@ -32,7 +32,7 @@ const char argp_program_doc[] =
     "\n"
     "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename]\n"
     "[--process-fork] [--process-exec] [--process-exit] [--process-setsid] [--process-setuid] "
-    "[--process-setgid]\n"
+    "[--process-setgid] [--process-tty-write]\n"
     "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n"
     "[--print-initialized] [--unbuffer-stdout] [--libbpf-verbose]\n";
 
@@ -60,6 +60,8 @@ static const struct argp_option opts[] = {
      "Whether or not to consider process setuid events", 1},
     {"process-setgid", EBPF_EVENT_PROCESS_SETGID, NULL, false,
      "Whether or not to consider process setgid events", 1},
+    {"process-tty-write", EBPF_EVENT_PROCESS_TTY_WRITE, NULL, false,
+     "Whether or not to consider process tty-write events", 1},
     {"net-conn-accept", EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED, NULL, false,
      "Whether or not to consider network connection accepted events", 1},
     {"net-conn-attempt", EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED, NULL, false,
@@ -102,6 +104,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case EBPF_EVENT_PROCESS_SETSID:
     case EBPF_EVENT_PROCESS_SETUID:
     case EBPF_EVENT_PROCESS_SETGID:
+    case EBPF_EVENT_PROCESS_TTY_WRITE:
     case EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED:
     case EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED:
     case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
@@ -429,6 +432,24 @@ static void out_process_setgid(struct ebpf_process_setgid_event *evt)
     out_newline();
 }
 
+static void out_process_tty_write(struct ebpf_process_tty_write_event *evt)
+{
+    out_object_start();
+    out_event_type("PROCESS_TTY_WRITE");
+    out_comma();
+
+    out_pid_info("pids", &evt->pids);
+    out_comma();
+    out_int("tty_out_len", evt->tty_out_len);
+    out_comma();
+    out_int("tty_out_truncated", evt->tty_out_truncated);
+    out_comma();
+    out_string("tty_out", evt->tty_out);
+
+    out_object_end();
+    out_newline();
+}
+
 static void out_process_exit(struct ebpf_process_exit_event *evt)
 {
     out_object_start();
@@ -577,6 +598,9 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         break;
     case EBPF_EVENT_PROCESS_SETGID:
         out_process_setgid((struct ebpf_process_setgid_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_PROCESS_TTY_WRITE:
+        out_process_tty_write((struct ebpf_process_tty_write_event *)evt_hdr);
         break;
     case EBPF_EVENT_FILE_DELETE:
         out_file_delete((struct ebpf_file_delete_event *)evt_hdr);

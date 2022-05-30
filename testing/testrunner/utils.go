@@ -100,6 +100,13 @@ type SetGidEvent struct {
 	NewEgid int64   `json:"new_egid"`
 }
 
+type TtyWriteEvent struct {
+	Pids      PidInfo `json:"pids"`
+	Len       int64   `json:"tty_out_len"`
+	Truncated int64   `json:"tty_out_truncated"`
+	Out       string  `json:"tty_out"`
+}
+
 func getJsonEventType(jsonLine string) string {
 	var jsonUnmarshaled struct {
 		EventType string `json:"event_type"`

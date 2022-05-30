@@ -12,6 +12,8 @@
 
 #include "EbpfEventProto.h"
 
+const volatile int consumer_pid = 0;
+
 #if BPF_DEBUG_TRACE == 0
 #undef bpf_printk
 #define bpf_printk(fmt, ...)
@@ -148,6 +150,12 @@ static bool is_kernel_thread(const struct task_struct *task)
 static bool is_thread_group_leader(const struct task_struct *task)
 {
     return BPF_CORE_READ(task, pid) == BPF_CORE_READ(task, tgid);
+}
+
+static bool is_consumer()
+{
+    int pid = bpf_get_current_pid_tgid() >> 32;
+    return consumer_pid == pid;
 }
 
 #endif // EBPF_EVENTPROBE_HELPERS_H

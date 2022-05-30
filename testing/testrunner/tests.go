@@ -305,3 +305,28 @@ func TestFileDeleteContainer(et *EventsTraceInstance) {
 
 	AssertStringsEqual(fileDeleteEvent.Path, binOutput.FileNameNew)
 }
+
+func TestTtyWrite(et *EventsTraceInstance) {
+	out := runTestBin("tty_write")
+	var output struct {
+		Pid int64 `json:"pid"`
+	}
+	if err := json.Unmarshal(out, &output); err != nil {
+		TestFail("failed to unmarshal json", err)
+	}
+
+	var ev TtyWriteEvent
+	for {
+		line := et.GetNextEventJson("PROCESS_TTY_WRITE")
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			TestFail("failed to unmarshal JSON: ", err)
+		}
+		if ev.Pids.Tgid == output.Pid {
+			break
+		}
+	}
+
+	AssertInt64Equal(ev.Len, 7)
+	AssertInt64Equal(ev.Truncated, 0)
+	AssertStringsEqual(ev.Out, "--- OK\n")
+}

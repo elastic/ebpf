@@ -16,6 +16,12 @@
 #include "Helpers.h"
 #include "PathResolver.h"
 
+/* tty_write */
+DECL_FUNC_ARG(tty_write, from);
+DECL_FUNC_ARG(tty_write, buf);
+DECL_FUNC_ARG(tty_write, count);
+DECL_FUNC_ARG_EXISTS(tty_write, from);
+
 SEC("tp_btf/sched_process_fork")
 int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct task_struct *child)
 {
@@ -233,4 +239,86 @@ SEC("kprobe/commit_creds")
 int BPF_KPROBE(kprobe__commit_creds, struct cred *new)
 {
     return commit_creds__enter(new);
+}
+
+static int tty_write__enter(const char *buf, ssize_t count)
+{
+    if (is_consumer())
+        goto out;
+
+    if (count <= 0)
+        goto out;
+
+    struct ebpf_process_tty_write_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    if (!event)
+        goto out;
+
+    event->hdr.type          = EBPF_EVENT_PROCESS_TTY_WRITE;
+    event->hdr.ts            = bpf_ktime_get_ns();
+    event->tty_out_len       = count;
+    event->tty_out_truncated = count > TTY_OUT_MAX ? 1 : 0;
+
+    const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    ebpf_pid_info__fill(&event->pids, task);
+
+    if (bpf_probe_read_user(event->tty_out, count > TTY_OUT_MAX ? TTY_OUT_MAX : count,
+                            (void *)buf)) {
+        bpf_printk("tty_write__enter: error reading buf\n");
+        bpf_ringbuf_discard(event, 0);
+        goto out;
+    }
+
+    bpf_ringbuf_submit(event, 0);
+
+out:
+    return 0;
+}
+
+SEC("fentry/tty_write")
+int BPF_PROG(fentry__tty_write)
+{
+    const char *buf;
+    ssize_t count;
+
+    if (FUNC_ARG_EXISTS(tty_write, from)) {
+        struct iov_iter *ii = FUNC_ARG_READ(___type(ii), tty_write, from);
+        buf                 = BPF_CORE_READ(ii, iov, iov_base);
+        count               = BPF_CORE_READ(ii, iov, iov_len);
+    } else {
+        buf   = FUNC_ARG_READ(___type(buf), tty_write, buf);
+        count = FUNC_ARG_READ(___type(count), tty_write, count);
+    }
+
+    return tty_write__enter(buf, count);
+}
+
+SEC("kprobe/tty_write")
+int BPF_KPROBE(kprobe__tty_write)
+{
+    const char *buf;
+    ssize_t count;
+
+    if (FUNC_ARG_EXISTS(tty_write, from)) {
+        struct iov_iter ii;
+        if (FUNC_ARG_READ_PTREGS(ii, tty_write, from)) {
+            bpf_printk("kprobe__tty_write: error reading iov_iter\n");
+            goto out;
+        }
+        buf   = BPF_CORE_READ(ii.iov, iov_base);
+        count = BPF_CORE_READ(ii.iov, iov_len);
+    } else {
+        if (FUNC_ARG_READ_PTREGS(buf, tty_write, buf)) {
+            bpf_printk("kprobe__tty_write: error reading buf\n");
+            goto out;
+        }
+        if (FUNC_ARG_READ_PTREGS(count, tty_write, count)) {
+            bpf_printk("kprobe__tty_write: error reading count\n");
+            goto out;
+        }
+    }
+
+    return tty_write__enter(buf, count);
+
+out:
+    return 0;
 }
