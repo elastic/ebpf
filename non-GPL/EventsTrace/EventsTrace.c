@@ -68,6 +68,7 @@ static const struct argp_option opts[] = {
      "Whether or not to consider network connection attempted events", 1},
     {"net-conn-closed", EBPF_EVENT_NETWORK_CONNECTION_CLOSED, NULL, false,
      "Whether or not to consider network connection closed events", 1},
+    {"features-autodetect", 'd', NULL, false, "Autodetect features based on running kernel", 2},
     {"set-bpf-tramp", EBPF_FEATURE_BPF_TRAMP, NULL, false, "Set feature supported: bpf trampoline",
      2},
     {},
@@ -75,6 +76,7 @@ static const struct argp_option opts[] = {
 
 uint64_t g_events_env   = 0;
 uint64_t g_features_env = 0;
+uint64_t g_features_autodetect = 0;
 
 bool g_print_initialized = 0;
 bool g_unbuffer_stdout   = 0;
@@ -94,6 +96,9 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
         break;
     case 'a':
         g_events_env = UINT64_MAX;
+        break;
+    case 'd':
+        g_features_autodetect = 1;
         break;
     case EBPF_EVENT_FILE_DELETE:
     case EBPF_EVENT_FILE_CREATE:
@@ -662,7 +667,9 @@ int main(int argc, char **argv)
     struct ebpf_event_ctx_opts opts = {
         .events   = g_events_env,
         .features = g_features_env,
+        .features_autodetect = g_features_autodetect
     };
+
     err = ebpf_event_ctx__new(&ctx, event_ctx_callback, opts);
 
     if (err < 0) {

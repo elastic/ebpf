@@ -26,6 +26,7 @@ type EventsTraceInstance struct {
 	StderrChan chan string
 }
 
+const streamChanSize = 200000
 const eventsTraceBinPath = "/EventsTrace"
 
 func (et *EventsTraceInstance) Start(ctx context.Context) {
@@ -64,8 +65,8 @@ func (et *EventsTraceInstance) Start(ctx context.Context) {
 		}
 	}
 
-	et.StdoutChan = make(chan string, 20000)
-	et.StderrChan = make(chan string, 20000)
+	et.StdoutChan = make(chan string, streamChanSize)
+	et.StderrChan = make(chan string, streamChanSize)
 
 	go readStreamFunc(ctx, et.StdoutChan, et.Stdout)
 	go readStreamFunc(ctx, et.StderrChan, et.Stderr)
@@ -131,7 +132,7 @@ func (et *EventsTraceInstance) Stop() error {
 
 func NewEventsTrace(ctx context.Context, args ...string) *EventsTraceInstance {
 	var et EventsTraceInstance
-	args = append(args, "--print-initialized", "--unbuffer-stdout", "--libbpf-verbose", "--set-bpf-tramp")
+	args = append(args, "--print-initialized", "--unbuffer-stdout", "--libbpf-verbose", "--features-autodetect")
 	et.Cmd = exec.CommandContext(ctx, eventsTraceBinPath, args...)
 
 	stdout, err := et.Cmd.StdoutPipe()

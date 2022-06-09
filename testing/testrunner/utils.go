@@ -20,7 +20,6 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -172,18 +171,11 @@ func TestFail(v ...interface{}) {
 	fmt.Println("####################################################")
 	fmt.Println("")
 
-	PowerOff()
+	os.Exit(1)
 }
 
 func AllTestsPassed() {
 	fmt.Println("ALL BPF TESTS PASSED")
-}
-
-func PowerOff() {
-	fmt.Println("Powering off VM")
-	if err := syscall.Reboot(syscall.LINUX_REBOOT_CMD_POWER_OFF); err != nil {
-		panic(fmt.Sprintf("Power off failed: %s", err))
-	}
 }
 
 func IsOverlayFsSupported() bool {
@@ -210,7 +202,7 @@ func IsOverlayFsSupported() bool {
 
 func RunTest(f func(*EventsTraceInstance), args ...string) {
 	testFuncName := runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
-	ctx, cancel := context.WithTimeout(context.TODO(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.TODO(), 30*time.Second)
 
 	et := NewEventsTrace(ctx, args...)
 	et.Start(ctx)
