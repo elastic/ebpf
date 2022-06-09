@@ -38,5 +38,4 @@ func main() {
 	}
 
 	AllTestsPassed()
-	PowerOff()
 }

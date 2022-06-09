@@ -1,46 +1,14 @@
 #!/usr/bin/env bash
+set -x
 
 SUMMARY_FILE="bpf-check-summary.txt"
 RESULTS_DIR="results"
 JOBS=$(nproc)
 
-build_initramfs() {
-    CPIO_OUT=$(pwd)/initramfs.cpio
-    INITRAMFS_ROOT=$(mktemp -d)
-
-    TEST_INFRA_DIR=$INITRAMFS_ROOT/test_infra
-    mkdir -p $TEST_INFRA_DIR
-
-    cp init/bin/init $INITRAMFS_ROOT
-
-    cp test_bins/bin/* $TEST_INFRA_DIR
-    cp testrunner/testrunner $TEST_INFRA_DIR
-    cp ../build/non-GPL/EventsTrace/EventsTrace $TEST_INFRA_DIR
-
-    pushd $INITRAMFS_ROOT
-    find . | cpio --format=newc -ov > $CPIO_OUT
-    popd
-
-    rm -r $INITRAMFS_ROOT
-}
-
-build_init() {
-    pushd init
-
-    mkdir -p bin
-    gcc -static init.c -o bin/init
-    if [[ $? -ne 0 ]]
-    then
-        echo "Could not build init"
-        exit 1
-    fi
-
-    popd
-}
-
 build_testrunner() {
     pushd testrunner > /dev/null
-    go build
+    go clean
+    GOARCH=$1 go build
 
     if [[ $? -ne 0 ]]
     then
@@ -51,17 +19,19 @@ build_testrunner() {
 }
 
 build_testbins() {
+    ARCH=$1
     pushd test_bins
-    mkdir -p bin
+
+    mkdir -p bin/$ARCH
 
     for C_SRC in *.c
     do
-        BIN_NAME=bin/$(basename $C_SRC .c)
+        BIN_PATH=bin/$ARCH/$(basename $C_SRC .c)
 
-        gcc -static $C_SRC -o $BIN_NAME
+        ${ARCH}-linux-gnu-gcc -static $C_SRC -o $BIN_PATH
         if [[ $? -ne 0 ]]
         then
-            echo "Compilation of $C_SRC failed (see above)"
+            echo "Compilation of $C_SRC for $ARCH failed (see above)"
             exit 1
         fi
     done
@@ -69,109 +39,58 @@ build_testbins() {
     popd
 }
 
-test_on_gs_kernels() {
-    GS_BUCKET=$1
-    ROOT_UNPACK_DIR=$(mktemp -d /tmp/bpf-checker.XXXXXXXXXX)
-    trap "rm -r $ROOT_UNPACK_DIR" SIGINT
+build_initramfs() {
+    ARCH=$1
+    EVENTSTRACE=$2
 
-    PARALLEL_CMDS=''
-    DISTRO_PATHS=$(gsutil ls $GS_BUCKET)
-    for DISTRO_PATH in $DISTRO_PATHS
-    do
-        DISTRO_NAME=$(basename $DISTRO_PATH)
-        mkdir -p results/$(basename $DISTRO_NAME)
-
-        KERNELS=$(gsutil ls $DISTRO_PATH/)
-        if [[ $? -ne 0 ]]
-        then
-            echo "Could not list kernels"
-            exit 1
-        fi
-
-        DISTRO_UNPACK_DIR=$ROOT_UNPACK_DIR/$DISTRO_NAME
-        mkdir -p $DISTRO_UNPACK_DIR
-        for KERNEL_GS_PATH in $KERNELS
-        do
-            KERNEL_TARBALL=$(basename $KERNEL_GS_PATH)
-            KERNEL_NAME=$(basename $KERNEL_GS_PATH .tar.gz)
-            KERNEL_UNPACK_DIR=$DISTRO_UNPACK_DIR/$KERNEL_NAME
-            RESULTS_FILE="results/$DISTRO_NAME/$KERNEL_NAME.txt"
-
-            if ! [[ "$KERNEL_TARBALL" =~ ^5.(8|9|[1-9][0-9]) ]]
-            then
-                echo "[SKIP-OLD] $KERNEL_NAME"
-                continue
-            fi
-
-            if ! [[ "$KERNEL_TARBALL" =~ (amd64|x86_64) ]]
-            then
-                echo "[SKIP-ARCH] $KERNEL_NAME"
-                continue
-            fi
-
-            mkdir -p $KERNEL_UNPACK_DIR
-            gsutil cp $KERNEL_GS_PATH $KERNEL_UNPACK_DIR > /dev/null 2>&1
-            if [[ $? -ne 0 ]]
-            then
-                echo "Could not download kernel $KERNEL_GS_PATH to $KERNEL_UNPACK_DIR"
-                exit 1
-            fi
-
-            tar -C $KERNEL_UNPACK_DIR -axvf $KERNEL_UNPACK_DIR/$KERNEL_TARBALL > /dev/null
-            if [[ $? -ne 0 ]]
-            then
-                echo "Could not extract kernel $KERNEL"
-                exit 1
-            fi
-
-            rm $KERNEL_UNPACK_DIR/$KERNEL_TARBALL
-
-            PARALLEL_CMDS="${PARALLEL_CMDS}\n./scripts/run_single_test.sh $KERNEL_UNPACK_DIR/vmlinuz $KERNEL_NAME $RESULTS_FILE"
-        done
-
-        # All kernels collected for this distro, run tests and delete them
-        N_KERNS=$(echo -ne $PARALLEL_CMDS | wc | awk '{ print $1 }')
-        echo -e "\n$DISTRO_NAME ($N_KERNS kernel(s) to test)" >> $SUMMARY_FILE
-        echo -e $PARALLEL_CMDS | parallel -k -j${JOBS} | tee -a $SUMMARY_FILE
-        PARALLEL_CMDS=''
-
-        rm -r $DISTRO_UNPACK_DIR
-    done
-
-    rm -r $ROOT_UNPACK_DIR
-}
-
-test_on_mainline_kernels() {
-    mkdir -p $RESULTS_DIR/mainline
-    PARALLEL_CMDS=''
-
-    tar -axvf mainline-kernels.tar
-    if [[ $? -ne 0 ]]
+    build_testbins $ARCH
+    if [[ $ARCH == "aarch64" ]]
     then
-        echo "Could not unpack mainline kernels"
-        exit 1
+        # GCC uses "aarch64" as an identifier, golang uses "arm64"
+        GOARCH="arm64"
+    elif [[ $ARCH == "x86_64" ]]
+    then
+        # GCC uses "x86_64" as an identifier, golang uses "amd64"
+        GOARCH="amd64"
     fi
 
-    for KERNEL_IMAGE in $(ls mainline-kernels/* | sort -r -V)
+    build_testrunner $GOARCH
+
+    CMD="bluebox"
+    CMD+=" -a $GOARCH"
+    CMD+=" -e testrunner/testrunner"
+    CMD+=" -r $EVENTSTRACE"
+    CMD+=" -o initramfs-${ARCH}.cpio"
+    for BIN in test_bins/bin/$ARCH/*
     do
-        IMAGE_BASENAME=$(basename $KERNEL_IMAGE)
-        KERNEL_VER=${IMAGE_BASENAME#"bzImage-"}
-        PARALLEL_CMDS="${PARALLEL_CMDS}\n./scripts/run_single_test.sh $KERNEL_IMAGE mainline-${KERNEL_VER} results/mainline/mainline-${KERNEL_VER}-results.out"
+        CMD+=" -r $BIN"
+    done
+
+    $CMD
+    if [[ $? -ne 0 ]]
+    then
+        echo "Failed to generate initramfs"
+        exit 1
+    fi
+}
+
+run_tests() {
+    ARCH=$1
+    DIR=$2
+
+    mkdir -p results/
+
+    PARALLEL_CMDS=''
+    for KERNEL_IMAGE in $DIR/*
+    do
+        RESULTS_FILE="results/$(basename $KERNEL_IMAGE).txt"
+        PARALLEL_CMDS="${PARALLEL_CMDS}\n./scripts/run_single_test.sh $ARCH $KERNEL_IMAGE $RESULTS_FILE"
     done
 
     N_KERNS=$(echo -ne $PARALLEL_CMDS | wc | awk '{ print $1 }')
-    echo -e "\nmainline ($N_KERNS kernel(s) to test)" >> $SUMMARY_FILE
+
+    echo "Testing $N_KERNS $ARCH kernel(s) at $(date)" > $SUMMARY_FILE
     echo -e $PARALLEL_CMDS | parallel -k -j${JOBS} | tee -a $SUMMARY_FILE
-}
-
-test_setup() {
-    build_init
-    build_testrunner
-    build_testbins
-    build_initramfs
-
-    mkdir -p $RESULTS_DIR
-    echo "BPF check run at $(date)" > $SUMMARY_FILE
 }
 
 check_kvm() {
@@ -187,26 +106,18 @@ check_kvm() {
 
 usage() {
     echo "Usage: ./run_tests.sh [-m] [-d gs_bucket] [-j jobs]"
-    echo "-m          -- Test on mainline kernels located at mainlin-kernels.tar"
     echo "-d <bucket> -- Test on distro kernels located in the given GCS bucket"
     echo "-j <jobs>   -- Spin up jobs VMs in parallel"
 }
 
-MAINLINE=0
-DISTRO=0
-GS_BUCKET=""
-while getopts ":md:j:" opt
+while getopts ":j:a:e:d:" opt
 do
     case ${opt} in
-        m ) MAINLINE=1
+        a ) ARCH=$OPTARG
             ;;
-        d ) DISTRO=1
-            GS_BUCKET=$OPTARG
-            if [[ $GS_BUCKET != gs://* ]]
-            then
-                usage
-                exit 1
-            fi
+        e ) EVENTSTRACE=$OPTARG
+            ;;
+        d ) DIR=$OPTARG
             ;;
         j ) JOBS=$OPTARG
             ;;
@@ -217,21 +128,30 @@ do
     esac
 done
 
-if [[ $MAINLINE == 0 && $DISTRO == 0 ]]
+if [[ -z $ARCH ]]
 then
-    echo "Specify -m and/or -d for mainline/distro kernels"
+    echo "Architecture must be specified with -a <x86_64/aarch64>"
     exit 1
 fi
 
-check_kvm
-test_setup
-
-if [[ $MAINLINE == 1 ]]
+if [[ -z $EVENTSTRACE ]]
 then
-    test_on_mainline_kernels
+    echo "EventsTrace binary must be provided with -e <path>"
+    exit 1
 fi
 
-if [[ $DISTRO == 1 ]]
+rm -rf $RESULTS_DIR
+check_kvm
+build_initramfs $ARCH $EVENTSTRACE
+
+mkdir -p $RESULTS_DIR
+
+run_tests $ARCH $DIR
+
+grep "FAIL" $SUMMARY_FILE > /dev/null
+if [[ $? -eq 0 ]]
 then
-    test_on_gs_kernels $GS_BUCKET
+    exit 1
+else
+    exit 0
 fi
