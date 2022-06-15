@@ -31,7 +31,7 @@ then
     KVM_ARGS="-enable-kvm -cpu host"
 fi
 
-qemu-system-x86_64 \
+qemu-system-`arch` \
     -nographic -m 1G \
     -kernel $KERNEL \
     -initrd initramfs.cpio \
