@@ -5,7 +5,7 @@ jobs:
   multikernel_tester:
     strategy:
       matrix:
-        kernel_flavor: [ amazonlinux2, debian, fedora, kali1, kali3, kali4, kali5-7, kali8-9, ubuntu ]
+        kernel_flavor: [ amazonlinux2, debian, fedora, kali1, kali3, kali4, kali5-7, kali8-9 ]
     runs-on: ubuntu-latest
     steps:
     - name: Running on Kernel Flavor ${{ matrix.kernel_flavor }}
