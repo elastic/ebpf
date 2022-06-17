@@ -37,12 +37,3 @@ else()
     set(VMLINUX_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/contrib/vmlinux/${ARCH})
 endif()
 
-# Skeleton generation
-macro(bpf_skeleton name)
-    set(_object_file_path ${TARGET_EBPF_DIR}/${name}.bpf.o)
-    set(_skeleton_file_path ${TARGET_INCLUDE_DIR}/${name}.skel.h)
-    add_custom_target(
-        ${name}_skeleton
-        COMMAND ${BPFTOOL} gen skeleton ${_object_file_path} > ${_skeleton_file_path}
-    )
-endmacro()

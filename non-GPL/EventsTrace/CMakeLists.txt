@@ -5,7 +5,7 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 add_executable(EventsTrace EventsTrace.c)
-add_dependencies(EventsTrace LibEbpfEvents EventProbe_skeleton libbpf libelf)
+add_dependencies(EventsTrace LibEbpfEvents libbpf libelf)
 target_link_libraries(EventsTrace LibEbpfEvents ${LIBBPF_LIB} ${LIBELF_LIB} -lz)
 
 if (BUILD_STATIC_EVENTSTRACE)
