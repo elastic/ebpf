@@ -1,4 +1,5 @@
 # eBPF
+[![Build Status](https://github.com/elastic/ebpf/workflows/eBPF%20CI/badge.svg)](https://github.com/elastic/ebpf/actions)
 
 Collection of BPF programs for Linux.
 
