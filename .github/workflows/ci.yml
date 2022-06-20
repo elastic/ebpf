@@ -26,15 +26,12 @@ jobs:
         run: sudo systemctl stop docker && sudo rm -rf /var/lib/docker && sudo mkdir -p /var/lib/docker && sudo mkdir -p ~/.cache/docker && sudo chown -fR root:root ~/.cache/docker && sudo mount --rbind ~/.cache/docker /var/lib/docker && sudo systemctl start docker
       - name: Test Build
         run: make build
-# TODO: What is a good way to check if the skeleton is up-to-date?
-#      - name: Install bpftool
-#        run: sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y linux-tools-common linux-tools-`uname -r`
-#      - name: Test Skeleton Generation
-#        run: make gen-skeleton
-#      - name: Test Skeleton Differences
-#        run: git diff --exit-code ./non-GPL/include/EventProbe.skel.h
-#      - name: Test for any differences
-#        run: git diff --exit-code
+      - name: Test Skeleton Generation
+        run: make gen-skeleton
+      - name: Test Skeleton Differences
+        run: git diff --exit-code ./non-GPL/include/EventProbe.skel.h
+      - name: Test for any other differences
+        run: git diff --exit-code
       - name: Test container image build
         run: make container
       - name: Fix Permissions (Last step)
