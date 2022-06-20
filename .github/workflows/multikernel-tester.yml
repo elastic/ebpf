@@ -14,6 +14,19 @@ jobs:
       run: sudo mkdir -p /kernel-images/${{ matrix.kernel_flavor }} && sudo chown -fR $USER:$USER /kernel-images
     - name: Checkout repository
       uses: actions/checkout@v2
+    - name: Docker Cache Hash
+      run: echo "GITHUB_CACHE_HASH=$(md5sum Makefile docker/Dockerfile.builder | md5sum | awk '{print $1}')" >> $GITHUB_ENV
+    - name: Setup docker cache
+      uses: actions/cache@v3
+      with:
+        path: ~/.dockercache
+        key: ${{ env.GITHUB_CACHE_HASH }}-v0
+        restore-keys: |
+          ${{ env.GITHUB_CACHE_HASH }}-v0
+    - name: Configure Docker
+      run: sudo systemctl stop docker && sudo rm -rf /var/lib/docker && sudo mkdir -p /var/lib/docker && sudo mkdir -p ~/.dockercache && sudo chown -fR root:root ~/.dockercache && sudo mount --rbind ~/.dockercache /var/lib/docker && sudo systemctl start docker
+    - name: Build eBPF
+      run: make build && make fix-permissions
     - name: Setup Kernel Image cache
       uses: actions/cache@v3
       with:
@@ -30,30 +43,11 @@ jobs:
       run: gsutil -m rsync -r gs://ebpf-ci-kernel-images/${{ matrix.kernel_flavor}} /kernel-images/${{ matrix.kernel_flavor }}
     - name: Install packages
       run: |
-        sudo DEBIAN_FRONTEND=noninteractive apt-get update && \
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-        gcc-9 \
-        g++-9 \
-        make \
-        bmake \
-        m4 \
-        build-essential \
-        autoconf \
-        automake \
-        wget \
-        linux-tools-`uname -r` linux-headers-`uname -r` \
-        llvm-11 \
-        clang-11 \
-        libz-dev \
-        curl \
-        parallel \
-        golang-go \
-        qemu-system
-    - name: Install cmake
-      run: sudo wget -qO- "https://cmake.org/files/v3.22/cmake-3.22.1-linux-`arch`.tar.gz" | sudo tar --strip-components=1 -xz -C /usr/local
-    - name: Update refs
-      run: sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-11 1 && sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-11 1 && sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 1 && sudo update-alternatives --install /usr/bin/llc llc /usr/bin/llc-11 1 && sudo update-alternatives --install /usr/bin/llvm-strip llvm-strip /usr/bin/llvm-strip-11 1
-    - name: Build ebpf
-      run: export C_INCLUDE_PATH=/usr/include/`arch`-linux-gnu && mkdir -p build && cd build && cmake -DBUILD_STATIC_EVENTSTRACE=TRUE ../ && make
+           sudo DEBIAN_FRONTEND=noninteractive apt-get update && \
+           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+           parallel \
+           golang-go \
+           libz-dev \
+           qemu-system
     - name: Run Tests
       run: cd testing && ./run_tests.sh -c /kernel-images

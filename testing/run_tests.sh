@@ -15,7 +15,7 @@ build_initramfs() {
 
     cp test_bins/bin/* $TEST_INFRA_DIR
     cp testrunner/testrunner $TEST_INFRA_DIR
-    cp ../build/non-GPL/EventsTrace/EventsTrace $TEST_INFRA_DIR
+    cp ../artifacts-`arch`/non-GPL/EventsTrace/EventsTrace $TEST_INFRA_DIR
 
     pushd $INITRAMFS_ROOT
     find . | cpio --format=newc -ov > $CPIO_OUT
