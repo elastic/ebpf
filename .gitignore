@@ -1,4 +1,5 @@
 /build/
+/artifacts-*
 /contrib/elftoolchain/build/
 /contrib/elftoolchain/build_obj/
 /contrib/libbpf/build/
