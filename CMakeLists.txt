@@ -33,8 +33,6 @@ include(arch)
 include(BPF)
 include(GoogleTest)
 
-include_directories(non-GPL/include)
-
 add_subdirectory(GPL/HostIsolation/KprobeConnectHook)
 add_subdirectory(GPL/HostIsolation/TcFilter)
 add_subdirectory(GPL/EventProbe)

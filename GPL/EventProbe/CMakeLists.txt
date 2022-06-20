@@ -65,5 +65,8 @@ target_include_directories(BPFEventsTests PRIVATE
 
 add_dependencies(BPFEventsTests BPFEventProbe)
 
+bpf_skeleton(EventProbe)
+add_dependencies(EventProbe_skeleton BPFEventProbe)
+
 target_link_libraries(BPFEventsTests ${LIBBPF_LIB} ${LIBELF_LIB} ${GTEST_LIB} -pthread -lz)
-add_dependencies(BPFEventsTests libbpf libelf gtest)
+add_dependencies(BPFEventsTests EventProbe_skeleton libbpf libelf gtest)

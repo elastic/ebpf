@@ -26,11 +26,7 @@ jobs:
         run: sudo systemctl stop docker && sudo rm -rf /var/lib/docker && sudo mkdir -p /var/lib/docker && sudo mkdir -p ~/.cache/docker && sudo chown -fR root:root ~/.cache/docker && sudo mount --rbind ~/.cache/docker /var/lib/docker && sudo systemctl start docker
       - name: Test Build
         run: make build
-      - name: Test Skeleton Generation
-        run: make gen-skeleton
-      - name: Test Skeleton Differences
-        run: git diff --exit-code ./non-GPL/include/EventProbe.skel.h
-      - name: Test for any other differences
+      - name: Test for any differences post build
         run: git diff --exit-code
       - name: Test container image build
         run: make container
