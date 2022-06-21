@@ -238,7 +238,21 @@ out_err:
 
 static void ebpf_resolve_pids_ss_cgroup_path_to_string(char *buf, const struct task_struct *task)
 {
-    struct kernfs_node *kn = BPF_CORE_READ(task, cgroups, subsys[pids_cgrp_id], cgroup, kn);
+    /*
+     * Since pids_cgrp_id is an enum value, we need to get it at runtime as it
+     * can change kernel-to-kernel depending on the kconfig or possibly not be
+     * enabled at all.
+     */
+    int cgrp_id;
+    if (bpf_core_enum_value_exists(enum cgroup_subsys_id, pids_cgrp_id)) {
+        cgrp_id = bpf_core_enum_value(enum cgroup_subsys_id, pids_cgrp_id);
+    } else {
+        /* Pids cgroup is not enabled on this kernel */
+        buf[0] = '\0';
+        return;
+    }
+
+    struct kernfs_node *kn = BPF_CORE_READ(task, cgroups, subsys[cgrp_id], cgroup, kn);
     ebpf_resolve_kernfs_node_to_string(buf, kn);
 }
 
