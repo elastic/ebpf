@@ -252,6 +252,16 @@ static void out_cred_info(const char *name, struct ebpf_cred_info *cred_info)
     out_object_end();
 }
 
+static void out_external_user(const char *name, char *buf)
+{
+    if (buf[0] == '\0') {
+        printf("\"%s\":\"\"", name);
+        return;
+    }
+
+    out_string(name, &buf[9]);
+}
+
 static void out_argv(const char *name, char *buf, size_t buf_size)
 {
     // Buf is the argv array, with each argument delimited by a '\0', rework
@@ -383,6 +393,9 @@ static void out_process_exec(struct ebpf_process_exec_event *evt)
     out_comma();
 
     out_argv("argv", evt->argv, sizeof(evt->argv));
+    out_comma();
+
+    out_external_user("k8s_user", evt->envv);
 
     out_object_end();
     out_newline();

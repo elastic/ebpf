@@ -95,6 +95,50 @@ static void memset(volatile char *buf, char data, size_t size)
         buf[i] = data;
 }
 
+static bool strncmp(const char *s1, const char *s2, size_t n) {
+    for (size_t i = 0; i < n; i++) {
+        if (s1[i] != s2[i])
+            return 1;
+    }
+    return 0;
+}
+
+static void ebpf_envv__fill(char *buf, size_t buf_size, const struct task_struct *task, const struct linux_binprm *bprm)
+{
+    unsigned long start, end, size, bytes_read;
+    int envc, max_vars_to_consider, n;
+    envc = BPF_CORE_READ(bprm, envc);
+    max_vars_to_consider = envc < ENVC_MAX ? envc : ENVC_MAX;
+    start = BPF_CORE_READ(task, mm, env_start);
+    end   = BPF_CORE_READ(task, mm, env_end);
+    bytes_read = 0;
+    n = 0;
+    size_t var_size = 0;
+    bool found = false;
+
+    memset(buf, '\0', buf_size);
+
+    while (n < max_vars_to_consider) {
+        size = (end - start) - bytes_read;
+        size = size > buf_size ? buf_size : size;
+        var_size = bpf_probe_read_user_str(buf, size, (void *)(start + bytes_read));
+        bytes_read += var_size;
+
+        if (var_size > 8 && strncmp(buf, "K8S_USER", 8) == 0) {
+            found = true;
+            break;
+        }
+        n++;
+    }
+
+    if (!found) {
+        buf[0] = '\0';
+    }
+
+    // Prevent buffer from being unterminated if buf is too small for args
+    buf[buf_size - 1] = '\0';
+}
+
 static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct *task)
 {
     unsigned long start, end, size;

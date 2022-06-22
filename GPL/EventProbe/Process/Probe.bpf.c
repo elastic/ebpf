@@ -77,6 +77,7 @@ int BPF_PROG(sched_process_exec,
     ebpf_cred_info__fill(&event->creds, task);
     ebpf_ctty__fill(&event->ctty, task);
     ebpf_argv__fill(event->argv, sizeof(event->argv), task);
+    ebpf_envv__fill(event->envv, sizeof(event->envv), task, binprm);
     ebpf_resolve_path_to_string(event->cwd, &task->fs->pwd, task);
     ebpf_resolve_pids_ss_cgroup_path_to_string(event->pids_ss_cgroup_path, task);
     bpf_probe_read_kernel_str(event->filename, sizeof(event->filename), binprm->filename);

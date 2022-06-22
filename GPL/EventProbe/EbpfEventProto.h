@@ -11,6 +11,8 @@
 #define EBPF_EVENTPROBE_EBPFEVENTPROTO_H
 
 #define ARGV_MAX 8192 // See issue #43, quite possibly too small
+#define ENVC_MAX 100 // TODO: Set better value
+#define ENVV_MAX 32768 // TODO: Set better value
 
 #define PATH_MAX 4096
 // When computing the path we need to allocate twice the size of PATH_MAX
@@ -113,6 +115,7 @@ struct ebpf_process_exec_event {
     char filename[PATH_MAX];
     char cwd[PATH_MAX];
     char argv[ARGV_MAX];
+    char envv[ENVV_MAX];
     char pids_ss_cgroup_path[PATH_MAX];
 } __attribute__((packed));
 
