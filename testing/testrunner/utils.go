@@ -107,17 +107,17 @@ type TtyWriteEvent struct {
 	Out       string  `json:"tty_out"`
 }
 
-func getJsonEventType(jsonLine string) string {
+func getJsonEventType(jsonLine string) (string, error) {
 	var jsonUnmarshaled struct {
 		EventType string `json:"event_type"`
 	}
 
 	err := json.Unmarshal([]byte(jsonLine), &jsonUnmarshaled)
 	if err != nil {
-		TestFail(err)
+		return "", err
 	}
 
-	return jsonUnmarshaled.EventType
+	return jsonUnmarshaled.EventType, nil
 }
 
 func runTestBin(binName string) []byte {

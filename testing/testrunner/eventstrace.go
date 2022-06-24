@@ -100,7 +100,11 @@ loop:
 	for {
 		select {
 		case line = <-et.StdoutChan:
-			eventType := getJsonEventType(line)
+			eventType, err := getJsonEventType(line)
+			if err != nil {
+				et.DumpStderr()
+				TestFail(fmt.Sprintf("Failed to unmarshal the following JSON: \"%s\": %s", line, err))
+			}
 
 			for _, a := range types {
 				if a == eventType {

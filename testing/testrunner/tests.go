@@ -11,6 +11,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 )
 
 func TestForkExit(et *EventsTraceInstance) {
@@ -62,7 +63,13 @@ func TestForkExec(et *EventsTraceInstance) {
 	for forkEvent == nil || execEvent == nil {
 		line := et.GetNextEventJson("PROCESS_FORK", "PROCESS_EXEC")
 
-		switch getJsonEventType(line) {
+		eventType, err := getJsonEventType(line)
+		if err != nil {
+			et.DumpStderr()
+			TestFail(fmt.Sprintf("Failed to unmarshal the following JSON: \"%s\": %s", line, err))
+		}
+
+		switch eventType {
 		case "PROCESS_FORK":
 			forkEvent = new(ProcessForkEvent)
 			if err := json.Unmarshal([]byte(line), &forkEvent); err != nil {
