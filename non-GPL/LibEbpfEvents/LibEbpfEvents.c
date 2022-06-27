@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 
 #include "EventProbe.skel.h"
@@ -263,15 +264,35 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
     return err;
 }
 
-static void probe_set_features(uint64_t *features)
+static int probe_set_features(uint64_t *features)
 {
     if (!features)
-        return;
+        return -EINVAL;
 
-    // default attach type for BPF_PROG_TYPE_TRACING is
-    // BPF_TRACE_FENTRY.
-    if (!libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_TRACING, NULL))
+    struct utsname buf;
+    if (uname(&buf) == -1)
+        return -errno;
+
+    /*
+     * Attaching to BPF fentry functions is only supported on x86_64 at
+     * present.
+     *
+     * As of June 2022, there is a patchset circulating that will add support
+     * to ARM64 (https://lwn.net/Articles/899093/). This check should be
+     * updated when that is merged into the mainline.
+     *
+     * While it may seem cleaner than an arch check, note that we cannot use
+     * libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_TRACING, NULL) here as it will
+     * return true on both aarch64 and x86_64. That function detects if a
+     * program type can be _loaded_ on the current machine.
+     * BPF_PROG_TYPE_TRACING can be loaded on aarch64, it will just fail to
+     * _attach_ (which that function doesn't indicate).
+     */
+    *features = 0;
+    if (strcmp(buf.machine, "x86_64") == 0)
         *features |= EBPF_FEATURE_BPF_TRAMP;
+
+    return 0;
 }
 
 static int libbpf_verbose_print(enum libbpf_print_level lvl, const char *fmt, va_list args)
@@ -305,8 +326,11 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
         goto out_destroy_probe;
     }
 
-    if (opts.features_autodetect)
-        probe_set_features(&opts.features);
+    if (opts.features_autodetect) {
+        err = probe_set_features(&opts.features);
+        if (err)
+            goto out_destroy_probe;
+    }
 
     probe->rodata->consumer_pid = getpid();
 
