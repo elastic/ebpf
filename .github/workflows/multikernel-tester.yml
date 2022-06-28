@@ -4,6 +4,9 @@ on: [ pull_request ]
 jobs:
   multikernel_tester:
     strategy:
+      # If a failure occurs, run the other arches/distros to the end. It's useful to see if it
+      # occurs on other kernels as well
+      fail-fast: false
       matrix:
         kernel_flavor: [ mainline ]
         arch: [ x86_64, aarch64 ]
