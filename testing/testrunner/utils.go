@@ -14,6 +14,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"reflect"
@@ -158,12 +159,33 @@ func AssertInt64NotEqual(a, b int64) {
 	}
 }
 
+func PrintBPFDebugOutput() {
+	file, err := os.Open("/sys/kernel/debug/tracing/trace")
+	if err != nil {
+		fmt.Println("Could not open /sys/kernel/debug/tracing/trace: %s", err)
+		return
+	}
+	defer file.Close()
+
+	b, err := io.ReadAll(file)
+	if err != nil {
+		fmt.Println("Could not read /sys/kernel/debug/tracing/trace: %s", err)
+		return
+	}
+
+	fmt.Print(string(b))
+}
+
 func TestFail(v ...interface{}) {
 	fmt.Println(v...)
 
 	fmt.Println("===== STACKTRACE FOR FAILED TEST =====")
 	debug.PrintStack()
 	fmt.Println("===== END STACKTRACE FOR FAILED TEST =====")
+
+	fmt.Println("===== CONTENTS OF /sys/kernel/debug/tracing/trace =====")
+	PrintBPFDebugOutput()
+	fmt.Println("===== END CONTENTS OF /sys/kernel/debug/tracing/trace =====")
 
 	fmt.Println("")
 	fmt.Println("####################################################")

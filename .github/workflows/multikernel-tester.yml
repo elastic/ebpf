@@ -15,7 +15,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
     - name: Build eBPF probes and userspace components
-      run: make build ARCH=${{ matrix.arch }}
+      run: make build ARCH=${{ matrix.arch }} EXTRA_CMAKE_FLAGS="-DBPF_DEBUG_TRACE=TRUE"
     - name: Auth GCP
       uses: 'google-github-actions/auth@v0'
       with:
