@@ -4,8 +4,7 @@ PWD = $(shell pwd)
 DOCKER_IMG_UBUNTU_VERSION ?= jammy
 BUILDER_PULL_TAG ?= us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder:20220621-0034
 BUILDER_TAG ?= us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder:${USER}-latest
-CMAKE_COMMON_FLAGS = -DARCH=${ARCH} -DBUILD_STATIC_EVENTSTRACE=True -DUSE_BUILTIN_VMLINUX=True -B${BUILD_DIR} -S${PWD}
-CMAKE_FLAGS = ${CMAKE_COMMON_FLAGS}
+CMAKE_FLAGS = -DARCH=${ARCH} -DBUILD_STATIC_EVENTSTRACE=True -DUSE_BUILTIN_VMLINUX=True -B${BUILD_DIR} -S${PWD}
 
 .PHONY = build build-debug build-local clean container fix-permissions format test-format
 
@@ -35,12 +34,15 @@ export AR=${ARCH}-linux-gnu-ar
 export LD=${ARCH}-linux-gnu-ld
 
 build:
-	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_PULL_TAG} /usr/bin/env make _internal-build ARCH=${ARCH}
+	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_PULL_TAG} \
+		/usr/bin/env make _internal-build ARCH=${ARCH} EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS}
 	sudo chown -fR ${USER}:${USER} ${BUILD_DIR}
 	@echo "\n++ Build Successful at `date` ++\n"
 
+# Convenience target to pass -DCMAKE_BUILD_TYPE=Debug and -DCMAKE_C_FLAGS="-g -O0"
 build-debug:
-	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_PULL_TAG} /usr/bin/env make _internal-build-debug ARCH=${ARCH}
+	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_PULL_TAG} \
+		/usr/bin/env make _internal-build-debug ARCH=${ARCH} EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS}
 	sudo chown -fR ${USER}:${USER} ${BUILD_DIR}
 	@echo "\n++ Build Successful at `date` ++\n"
 
@@ -48,7 +50,7 @@ _internal-build-debug: CMAKE_FLAGS = -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-
 _internal-build-debug: _internal-build
 _internal-build:
 	mkdir -p ${BUILD_DIR}/
-	cmake ${CMAKE_FLAGS}
+	cmake ${EXTRA_CMAKE_FLAGS} ${CMAKE_FLAGS}
 	make -C${BUILD_DIR} -j$(shell nproc)
 
 container:

@@ -15,7 +15,8 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
     - name: Build eBPF probes and userspace components
-      run: make build ARCH=${{ matrix.arch }}
+      # Enable BPF printk to dump useful information if tests fail
+      run: make build ARCH=${{ matrix.arch }} EXTRA_CMAKE_FLAGS="-DENABLE_BPF_PRINTK=TRUE"
     - name: Auth GCP
       uses: 'google-github-actions/auth@v0'
       with:
