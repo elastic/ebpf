@@ -4,8 +4,10 @@ PWD = $(shell pwd)
 DOCKER_IMG_UBUNTU_VERSION ?= jammy
 BUILDER_PULL_TAG ?= us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder:20220621-0034
 BUILDER_TAG ?= us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder:${USER}-latest
+CMAKE_COMMON_FLAGS = -DARCH=${ARCH} -DBUILD_STATIC_EVENTSTRACE=True -DUSE_BUILTIN_VMLINUX=True -B${BUILD_DIR} -S${PWD}
+CMAKE_FLAGS = ${CMAKE_COMMON_FLAGS}
 
-.PHONY = build build-local clean container fix-permissions format test-format
+.PHONY = build build-debug build-local clean container fix-permissions format test-format
 
 # Kludge to get around a missing header. If we don't do this, we'll get the following error when
 # building:
@@ -32,18 +34,25 @@ export CXX=${ARCH}-linux-gnu-g++
 export AR=${ARCH}-linux-gnu-ar
 export LD=${ARCH}-linux-gnu-ld
 
-container:
-	docker build -t ${BUILDER_TAG} -f docker/Dockerfile.builder .
-
-build-local:
-	mkdir -p ${BUILD_DIR}/
-	cmake -DARCH=${ARCH} -DBUILD_STATIC_EVENTSTRACE=True -DUSE_BUILTIN_VMLINUX=True -B${BUILD_DIR} -S${PWD}
-	make -C${BUILD_DIR} -j$(shell nproc)
-
 build:
-	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_PULL_TAG} /usr/bin/env make build-local ARCH=${ARCH}
+	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_PULL_TAG} /usr/bin/env make _internal-build ARCH=${ARCH}
 	sudo chown -fR ${USER}:${USER} ${BUILD_DIR}
 	@echo "\n++ Build Successful at `date` ++\n"
+
+build-debug:
+	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_PULL_TAG} /usr/bin/env make _internal-build-debug ARCH=${ARCH}
+	sudo chown -fR ${USER}:${USER} ${BUILD_DIR}
+	@echo "\n++ Build Successful at `date` ++\n"
+
+_internal-build-debug: CMAKE_FLAGS = -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-g -O0" ${CMAKE_COMMON_FLAGS}
+_internal-build-debug: _internal-build
+_internal-build:
+	mkdir -p ${BUILD_DIR}/
+	cmake ${CMAKE_FLAGS}
+	make -C${BUILD_DIR} -j$(shell nproc)
+
+container:
+	docker build -t ${BUILDER_TAG} -f docker/Dockerfile.builder .
 
 format:
 	find . \( -path ./contrib -o -path ./artifacts* \) -prune \
