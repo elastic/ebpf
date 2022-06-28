@@ -7,9 +7,9 @@
  * License 2.0.
  */
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <fcntl.h>   
 
 int main()
 {

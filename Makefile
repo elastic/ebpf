@@ -55,12 +55,12 @@ container:
 	docker build -t ${BUILDER_TAG} -f docker/Dockerfile.builder .
 
 format:
-	find . \( -path ./contrib -o -path ./artifacts* \) -prune \
-	-o -name "*.c" -o -name "*.cpp" -o -name "*.h" -print | xargs /usr/bin/env clang-format -i
+	find non-GPL/ GPL/ testing/test_bins/ -name "*.c" -o -name "*.h" -o -name "*.cpp" | \
+		xargs /usr/bin/env clang-format -i
 
 test-format:
-	find . \( -path ./contrib -o -path ./artifacts* \) -prune \
-	-o -name "*.c" -o -name "*.cpp" -o -name "*.h" -print | xargs /usr/bin/env clang-format --dry-run -Werror
+	find non-GPL/ GPL/ testing/test_bins/ -name "*.c" -o -name "*.h" -o -name "*.cpp" | \
+		xargs /usr/bin/env clang-format -i --dry-run -Werror
 
 clean:
 	sudo rm -rf artifacts-*

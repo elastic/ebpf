@@ -74,8 +74,8 @@ static const struct argp_option opts[] = {
     {},
 };
 
-uint64_t g_events_env   = 0;
-uint64_t g_features_env = 0;
+uint64_t g_events_env          = 0;
+uint64_t g_features_env        = 0;
 uint64_t g_features_autodetect = 0;
 
 bool g_print_initialized = 0;
@@ -664,11 +664,9 @@ int main(int argc, char **argv)
     if (g_libbpf_verbose)
         ebpf_set_verbose_logging();
 
-    struct ebpf_event_ctx_opts opts = {
-        .events   = g_events_env,
-        .features = g_features_env,
-        .features_autodetect = g_features_autodetect
-    };
+    struct ebpf_event_ctx_opts opts = {.events              = g_events_env,
+                                       .features            = g_features_env,
+                                       .features_autodetect = g_features_autodetect};
 
     err = ebpf_event_ctx__new(&ctx, event_ctx_callback, opts);
 
