@@ -6,7 +6,7 @@ BUILDER_PULL_TAG ?= us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder:2
 BUILDER_TAG ?= us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder:${USER}-latest
 CMAKE_FLAGS = -DARCH=${ARCH} -DBUILD_STATIC_EVENTSTRACE=True -DUSE_BUILTIN_VMLINUX=True -B${BUILD_DIR} -S${PWD}
 
-.PHONY = build build-debug build-local clean container fix-permissions format test-format
+.PHONY = build build-debug _internal-build clean container format test-format
 
 # Kludge to get around a missing header. If we don't do this, we'll get the following error when
 # building:
@@ -42,12 +42,10 @@ build:
 # Convenience target to pass -DCMAKE_BUILD_TYPE=Debug and -DCMAKE_C_FLAGS="-g -O0"
 build-debug:
 	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_PULL_TAG} \
-		/usr/bin/env make _internal-build-debug ARCH=${ARCH} EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS}
+		/usr/bin/env make _internal-build ARCH=${ARCH} EXTRA_CMAKE_FLAGS='-DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-g -O0"'
 	sudo chown -fR ${USER}:${USER} ${BUILD_DIR}
 	@echo "\n++ Build Successful at `date` ++\n"
 
-_internal-build-debug: CMAKE_FLAGS = -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-g -O0" ${CMAKE_COMMON_FLAGS}
-_internal-build-debug: _internal-build
 _internal-build:
 	mkdir -p ${BUILD_DIR}/
 	cmake ${EXTRA_CMAKE_FLAGS} ${CMAKE_FLAGS}
