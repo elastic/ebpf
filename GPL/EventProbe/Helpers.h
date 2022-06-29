@@ -30,6 +30,56 @@ const volatile int consumer_pid = 0;
         _ret;                                                                                      \
     })
 
+/*
+ *  Reads the specified argument from struct pt_regs without dereferencing it
+ *  (unlike FUNC_ARG_READ_PTREGS) (i.e. we get a  pointer to the argument, not
+ *  the argument itself). Note that we first have to read the value in struct
+ *  pt_regs into a volatile temporary (_dst). Without this, LLVM can generate
+ *  code like the following, which will fail to verify:
+ *
+ *  r3 = 8                      # The register value we want to read is at offset 8 in the context
+ *  r2 = r1                     # r1 = ctx pointer
+ *  r2 += r3                    # Increment ctx ptr to register value we're interested in
+ *  r3 = *(u64 *)(r2 +0)        # Dereference it (fail)
+ *  dereference of modified ctx ptr R2 off=8 disallowed
+ *
+ *  The verifier disallows dereferencing the context pointer when it's been
+ *  modified. This will often happen as an inlining optimization if dst is
+ *  immediately passed into a function. We instead want code like the following
+ *  to be generated:
+ *
+ *  r2 = r1                     # r1 = ctx pointer
+ *  r3 = *(u64 *)(r2 + 8)       # Dereference it, putting the increment in the dereference insn
+ *  ...pass r3 to a function
+ */
+#define FUNC_ARG_READ_PTREGS_NODEREF(dst, func, arg)                                               \
+    ({                                                                                             \
+        int ret = 0;                                                                               \
+        volatile typeof(dst) _dst;                                                                 \
+        switch (arg__##func##__##arg##__) {                                                        \
+        case 0:                                                                                    \
+            _dst = (typeof(dst))PT_REGS_PARM1(ctx);                                                \
+            break;                                                                                 \
+        case 1:                                                                                    \
+            _dst = (typeof(dst))PT_REGS_PARM2(ctx);                                                \
+            break;                                                                                 \
+        case 2:                                                                                    \
+            _dst = (typeof(dst))PT_REGS_PARM3(ctx);                                                \
+            break;                                                                                 \
+        case 3:                                                                                    \
+            _dst = (typeof(dst))PT_REGS_PARM4(ctx);                                                \
+            break;                                                                                 \
+        case 4:                                                                                    \
+            _dst = (typeof(dst))PT_REGS_PARM5(ctx);                                                \
+            break;                                                                                 \
+        default:                                                                                   \
+            ret = -1;                                                                              \
+        };                                                                                         \
+        dst = _dst;                                                                                \
+        barrier();                                                                                 \
+        ret;                                                                                       \
+    })
+
 #define FUNC_ARG_READ_PTREGS(dst, func, arg)                                                       \
     ({                                                                                             \
         int ret = 0;                                                                               \
