@@ -138,7 +138,7 @@ images at `mainline-kernels/images/`.
 To debug a kernel in this way, first run it in QEMU, passing `-s -S` to tell
 QEMU to wait for a debugger attach. See `scripts/run_single_test.sh` for how to
 do this for the architecture you're interested in. Additionally, add `-append
-"nokaslr"` which will disable kernel address space layout randomization( which
+"nokaslr"` which will disable kernel address space layout randomization (which
 is required so that function addresses line up with the data in the binary).
 
 On x86_64, for example, the invocation is:
