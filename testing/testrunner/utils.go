@@ -19,7 +19,6 @@ import (
 	"os/exec"
 	"reflect"
 	"runtime"
-	"runtime/debug"
 	"strings"
 	"time"
 )
@@ -180,19 +179,30 @@ func TestFail(v ...interface{}) {
 	fmt.Println(v...)
 
 	fmt.Println("===== STACKTRACE FOR FAILED TEST =====")
-	debug.PrintStack()
+	// Don't use debug.PrintStack here. It prints to stderr, which can cause
+	// Bluebox's init process to Log the stderr/stdout lines out of order (this
+	// is hard on the eyes when reading). Instead manually print the stacktrace
+	// to stdout so everything is going to the same stream and is serialized
+	// nicely.
+	b := make([]byte, 16384)
+	n := runtime.Stack(b, false)
+	s := string(b[:n])
+	fmt.Print(s)
 	fmt.Println("===== END STACKTRACE FOR FAILED TEST =====")
 
 	fmt.Println("===== CONTENTS OF /sys/kernel/debug/tracing/trace =====")
 	PrintBPFDebugOutput()
 	fmt.Println("===== END CONTENTS OF /sys/kernel/debug/tracing/trace =====")
 
-	fmt.Println("")
-	fmt.Println("####################################################")
-	fmt.Println("# BPF test failed, see errors and stacktrace above #")
-	fmt.Println("####################################################")
-	fmt.Println("")
+	fmt.Print("\n")
+	fmt.Println("#######################################################################")
+	fmt.Println("# NOTE: /sys/kernel/debug/tracing/trace will only be populated if     #")
+	fmt.Println("# -DBPF_ENABLE_PRINTK was set to true in the CMake build.             #")
+	fmt.Println("# CI builds do NOT enable -DBPF_ENABLE_PRINTK for performance reasons #")
+	fmt.Println("#######################################################################")
+	fmt.Print("\n")
 
+	fmt.Println("BPF test failed, see errors and stacktrace above")
 	os.Exit(1)
 }
 
