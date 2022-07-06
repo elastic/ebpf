@@ -12,6 +12,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os/exec"
@@ -24,6 +25,7 @@ type EventsTraceInstance struct {
 	Stderr     io.ReadCloser
 	StdoutChan chan string
 	StderrChan chan string
+	InitMsg    InitMsg
 }
 
 const streamChanSize = 200000
@@ -74,7 +76,11 @@ func (et *EventsTraceInstance) Start(ctx context.Context) {
 	// Block until EventsTrace logs its "probes ready" line, indicating it's
 	// done loading
 	select {
-	case <-et.StdoutChan:
+	case jsonLine := <-et.StdoutChan:
+		err := json.Unmarshal([]byte(jsonLine), &et.InitMsg)
+		if err != nil {
+			TestFail(fmt.Sprintf("Could not unmarshal EventsTrace init message: %s", err))
+		}
 		break
 	case <-ctx.Done():
 		et.DumpStderr()
@@ -132,7 +138,7 @@ func (et *EventsTraceInstance) Stop() error {
 
 func NewEventsTrace(ctx context.Context, args ...string) *EventsTraceInstance {
 	var et EventsTraceInstance
-	args = append(args, "--print-initialized", "--unbuffer-stdout", "--libbpf-verbose", "--features-autodetect")
+	args = append(args, "--print-features-on-init", "--unbuffer-stdout", "--libbpf-verbose", "--features-autodetect")
 	et.Cmd = exec.CommandContext(ctx, eventsTraceBinPath, args...)
 
 	stdout, err := et.Cmd.StdoutPipe()

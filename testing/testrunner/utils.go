@@ -34,6 +34,13 @@ type TestPidInfo struct {
 }
 
 // Definitions of types printed by EventsTrace for conversion from JSON
+type InitMsg struct {
+	InitSuccess bool `json:"probes_initialized"`
+	Features    struct {
+		BpfTramp bool `json:"bpf_tramp"`
+	} `json:"features"`
+}
+
 type PidInfo struct {
 	Tid         int64 `json:"tid"`
 	Tgid        int64 `json:"tgid"`
@@ -138,6 +145,18 @@ func AssertPidInfoEqual(tpi TestPidInfo, pi PidInfo) {
 	AssertInt64Equal(pi.Ppid, tpi.Ppid)
 	AssertInt64Equal(pi.Pgid, tpi.Pgid)
 	AssertInt64Equal(pi.Sid, tpi.Sid)
+}
+
+func AssertTrue(val bool) {
+	if val != true {
+		TestFail(fmt.Sprintf("Expected %t to be true", val))
+	}
+}
+
+func AssertFalse(val bool) {
+	if val != false {
+		TestFail(fmt.Sprintf("Expected %t to be false", val))
+	}
 }
 
 func AssertStringsEqual(a, b string) {
