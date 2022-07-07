@@ -81,7 +81,7 @@ run_tests() {
     mkdir -p results/
 
     PARALLEL_CMDS=''
-    for KERNEL_IMAGE in $DIR/*
+    for KERNEL_IMAGE in $KERNS
     do
         RESULTS_FILE="results/$(basename $KERNEL_IMAGE).txt"
         PARALLEL_CMDS="${PARALLEL_CMDS}\n./scripts/run_single_test.sh $ARCH $KERNEL_IMAGE $RESULTS_FILE"
@@ -105,19 +105,21 @@ check_kvm() {
 }
 
 usage() {
-    echo "Usage: ./run_tests.sh [-m] [-d gs_bucket] [-j jobs]"
-    echo "-d <bucket> -- Test on distro kernels located in the given GCS bucket"
-    echo "-j <jobs>   -- Spin up jobs VMs in parallel"
+    echo "Usage: ./run_tests.sh <-a arch> <-k kernel images> <-e EventsTrace> [-j jobs]"
+    echo "-a <arch>        -- Arch to test, can be \"x86_64\" or \"aarch64\""
+    echo "-k <kernels>     -- Paths to kernel images to test against"
+    echo "-e <EventsTrace> -- Path to a statically-linked EventsTrace binary"
+    echo "-j <jobs>        -- Spin up <jobs> VMs in parallel"
 }
 
-while getopts ":j:a:e:d:" opt
+while getopts ":j:a:e:k:" OPT
 do
-    case ${opt} in
+    case ${OPT} in
         a ) ARCH=$OPTARG
             ;;
         e ) EVENTSTRACE=$OPTARG
             ;;
-        d ) DIR=$OPTARG
+        k ) KERNS=$OPTARG
             ;;
         j ) JOBS=$OPTARG
             ;;
@@ -140,13 +142,19 @@ then
     exit 1
 fi
 
+if [[ -z "$KERNS" ]]
+then
+    echo "Kernel images to test must be provided with -k <images>"
+    exit 1
+fi
+
 rm -rf $RESULTS_DIR
 check_kvm
 build_initramfs $ARCH $EVENTSTRACE
 
 mkdir -p $RESULTS_DIR
 
-run_tests $ARCH $DIR
+run_tests $ARCH "$KERNS"
 
 grep "FAIL" $SUMMARY_FILE > /dev/null
 if [[ $? -eq 0 ]]
