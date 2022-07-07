@@ -72,8 +72,7 @@ sudo ./build_mainline_kernels.sh linux/
 What architectures and kernels to build for can be controlled by way of
 variables in the script. Note that building a bunch of kernels will take a long
 time on anything that doesn't have a large number of cores. Spinning up a
-powerful VM in your favorite cloud provider a quick way to do things. A
-`c2d-highcpu-112` VM in GCP compiles at about one minute per kernel.
+powerful VM in your favorite cloud provider a quick way to do things.
 
 ## KVM
 
