@@ -324,6 +324,16 @@ static bool system_has_bpf_tramp()
         goto out_free_btf;
     }
 
+    /*
+     * NB: This is a confusingly named API: bpf(BPF_RAW_TRACEPOINT_OPEN, ...)
+     * is used to attach an already-loaded BPF trampoline program (in addition
+     * to a raw tracepoint).
+     *
+     * A new, more intuitively named API was added later called BPF_LINK_CREATE
+     * (see kernel commit 8462e0b46fe2d4c56d0a7de705228e3bf1da03d9), but the
+     * BPF_RAW_TRACEPOINT_OPEN approach should continue to work on all kernels
+     * due to the kernel's userspace API guarantees.
+     */
     attach_fd = bpf_raw_tracepoint_open(NULL, prog_fd);
     if (attach_fd < 0) {
         ret = false;
