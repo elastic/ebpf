@@ -9,7 +9,7 @@ set -x
 # License 2.0.
 
 # Runs a BPF test on a single kernel.
-# Usage ./run_single_test.sh <kernel bzImage> <kernel initramfs> <kernel name> <results file>
+# Usage ./run_single_test.sh <arch> <kernel image> <results file>
 
 # This script is invoked by run_tests.sh, the testrunning logic is in its own
 # script to make it easy to pass a bunch of ./run_single_test.sh commands
