@@ -6,10 +6,12 @@
 # License 2.0; you may not use this file except in compliance with the Elastic
 # License 2.0.
 
-# Builds kernels with the correct kconfigs to run on the multi-kernel test infrastructure
-# Architectures. Kernels are built in a debian chroot (debootstrap must be installed).
-# Modify the ARCHES and KERNEL_VERSIONS variables in the kernel_builder script
-# output by this one to control which kernels are built.
+# Builds kernels with the correct kconfigs to run on the multi-kernel test
+# infrastructure. Kernels are built in a debian chroot (debootstrap must be
+# installed) so the build environment is totally reproducable and no setup on
+# the host system is required. Modify the ARCHES and KERNEL_VERSIONS variables
+# in the kernel_builder script output by this one to control which kernels are
+# built.
 
 output_kernel_builder() {
     cat <<"EOF" >$1
