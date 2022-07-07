@@ -6,6 +6,9 @@ BUILDER_PULL_TAG ?= us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder:2
 BUILDER_TAG ?= us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder:${USER}-latest
 CMAKE_FLAGS = -DARCH=${ARCH} -DBUILD_STATIC_EVENTSTRACE=True -DUSE_BUILTIN_VMLINUX=True -B${BUILD_DIR} -S${PWD}
 
+# Directories to search recursively for c/cpp source files to clang-format
+FORMAT_DIRS = GPL/ non-GPL/ testing/test_bins
+
 .PHONY = build build-debug _internal-build clean container format test-format
 
 # Kludge to get around a missing header. If we don't do this, we'll get the following error when
@@ -59,13 +62,11 @@ container:
 # clang-format 14 (default in the Ubuntu jammy repos).
 format:
 	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_PULL_TAG} \
-		find non-GPL/ GPL/ testing/test_bins/ -name "*.c" -o -name "*.h" -o -name "*.cpp" | \
-			xargs /usr/bin/env clang-format -i
+		sh -c 'find ${FORMAT_DIRS} -name "*.cpp" -name "*.c" -o -name "*.h" -o -name "*.cpp" | xargs /usr/bin/env clang-format -i'
 
 test-format:
 	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_PULL_TAG} \
-		find non-GPL/ GPL/ testing/test_bins/ -name "*.c" -o -name "*.h" -o -name "*.cpp" | \
-			xargs /usr/bin/env clang-format -i --dry-run -Werror
+		sh -c 'find ${FORMAT_DIRS} -name "*.cpp" -o -name "*.c" -o -name "*.h" -o -name "*.cpp" | xargs /usr/bin/env clang-format -i --dry-run -Werror'
 
 clean:
 	sudo rm -rf artifacts-*
