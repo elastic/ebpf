@@ -31,7 +31,7 @@ func TestFeaturesCorrect(et *EventsTraceInstance) {
 	}
 	arch := string(archBytes)
 
-	// BPF trampoolines are only supported on x86 at present.
+	// BPF trampolines are only supported on x86 at present.
 	//
 	// As of June 2022, there is a patchset circulating that will add support
 	// to ARM64 (https://lwn.net/Articles/899093/). This check should be
@@ -40,6 +40,11 @@ func TestFeaturesCorrect(et *EventsTraceInstance) {
 	// version with ARM64 BPF trampoline support>.
 	switch arch {
 	case "x86_64":
+		// All x86 kernels in the CI test matrix currently enable bpf
+		// trampolines (it's super ubiquitious on x86 as far as I can see), so
+		// just assertTrue on BPF tramp support on x86. If a kernel is added
+		// that doesn't enable BPF tramps on x86, logic should be added to
+		// handle it here.
 		AssertTrue(et.InitMsg.Features.BpfTramp)
 	case "aarch64":
 		AssertFalse(et.InitMsg.Features.BpfTramp)
