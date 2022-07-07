@@ -76,12 +76,12 @@ build_initramfs() {
 
 run_tests() {
     ARCH=$1
-    KERNS="$2"
+    shift 1
 
     mkdir -p results/
 
     PARALLEL_CMDS=''
-    for KERNEL_IMAGE in $KERNS
+    for KERNEL_IMAGE in "$@"
     do
         RESULTS_FILE="results/$(basename $KERNEL_IMAGE).txt"
         PARALLEL_CMDS="${PARALLEL_CMDS}\n./scripts/run_single_test.sh $ARCH $KERNEL_IMAGE $RESULTS_FILE"
@@ -142,7 +142,7 @@ then
     exit 1
 fi
 
-if [[ -z "$@" ]]
+if [[ -z $* ]]
 then
     echo "Kernel images to test must be provided"
     exit 1
@@ -154,7 +154,7 @@ build_initramfs $ARCH $EVENTSTRACE
 
 mkdir -p $RESULTS_DIR
 
-run_tests $ARCH "$@"
+run_tests $ARCH $@
 
 grep "FAIL" $SUMMARY_FILE > /dev/null
 if [[ $? -eq 0 ]]
