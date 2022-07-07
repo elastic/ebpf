@@ -30,7 +30,7 @@ To run tests, you will need to have a directory containing all the kernel
 images you want to test. Then invoke:
 
 ```
-./run_tests.sh -a <architecture> -k <paths to kernel images to test> -e <path to EventsTrace binary>
+./run_tests.sh -a <architecture> -e <path to EventsTrace binary> <kernel images>
 ```
 
 `architecture` can be one of `aarch64` or `x86_64`.

@@ -66,8 +66,8 @@ jobs:
       run: |
         ./run_tests.sh \
         -a ${{ matrix.arch }} \
-        -k /kernel-images/* \
-        -e ../artifacts-${{ matrix.arch }}/non-GPL/EventsTrace/EventsTrace
+        -e ../artifacts-${{ matrix.arch }}/non-GPL/EventsTrace/EventsTrace \
+        /kernel-images/*
     - name: Archive test summary
       if: always()
       uses: actions/upload-artifact@v3

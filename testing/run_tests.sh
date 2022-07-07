@@ -105,21 +105,19 @@ check_kvm() {
 }
 
 usage() {
-    echo "Usage: ./run_tests.sh <-a arch> <-k kernel images> <-e EventsTrace> [-j jobs]"
-    echo "-a <arch>        -- Arch to test, can be \"x86_64\" or \"aarch64\""
-    echo "-k <kernels>     -- Paths to kernel images to test against"
-    echo "-e <EventsTrace> -- Path to a statically-linked EventsTrace binary"
-    echo "-j <jobs>        -- Spin up <jobs> VMs in parallel"
+    echo "Usage: ./run_tests.sh <-a arch> <-e EventsTrace> [-j jobs] <kernel images>"
+    echo "-a <arch>        Arch to test, can be \"x86_64\" or \"aarch64\""
+    echo "-k <kernels>     Paths to kernel images to test against"
+    echo "-e <EventsTrace> Path to a statically-linked EventsTrace binary"
+    echo "-j <jobs>        Spin up <jobs> VMs in parallel"
 }
 
-while getopts ":j:a:e:k:" OPT
+while getopts ":j:a:e:" OPT
 do
     case ${OPT} in
         a ) ARCH=$OPTARG
             ;;
         e ) EVENTSTRACE=$OPTARG
-            ;;
-        k ) KERNS=$OPTARG
             ;;
         j ) JOBS=$OPTARG
             ;;
@@ -129,6 +127,8 @@ do
             ;;
     esac
 done
+
+shift $(( OPTIND - 1))
 
 if [[ -z $ARCH ]]
 then
@@ -142,9 +142,9 @@ then
     exit 1
 fi
 
-if [[ -z "$KERNS" ]]
+if [[ -z "$@" ]]
 then
-    echo "Kernel images to test must be provided with -k <images>"
+    echo "Kernel images to test must be provided"
     exit 1
 fi
 
@@ -154,7 +154,7 @@ build_initramfs $ARCH $EVENTSTRACE
 
 mkdir -p $RESULTS_DIR
 
-run_tests $ARCH "$KERNS"
+run_tests $ARCH "$@"
 
 grep "FAIL" $SUMMARY_FILE > /dev/null
 if [[ $? -eq 0 ]]
