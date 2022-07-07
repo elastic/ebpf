@@ -29,6 +29,7 @@ RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
         llvm \
         clang \
+        clang-format \
         gcc-aarch64-linux-gnu \
         g++-aarch64-linux-gnu \
         libz-dev:arm64 \

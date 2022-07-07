@@ -2,7 +2,7 @@ ARCH ?= $(shell arch)
 BUILD_DIR ?= artifacts-${ARCH}
 PWD = $(shell pwd)
 DOCKER_IMG_UBUNTU_VERSION ?= jammy
-BUILDER_PULL_TAG ?= us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder:20220621-0034
+BUILDER_PULL_TAG ?= us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder:20220707-1836
 BUILDER_TAG ?= us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder:${USER}-latest
 CMAKE_FLAGS = -DARCH=${ARCH} -DBUILD_STATIC_EVENTSTRACE=True -DUSE_BUILTIN_VMLINUX=True -B${BUILD_DIR} -S${PWD}
 
@@ -54,13 +54,18 @@ _internal-build:
 container:
 	docker build -t ${BUILDER_TAG} -f docker/Dockerfile.builder .
 
+# We dockerize code formatting because differences in clang-format versions can
+# lead to different formatting decisions. This way, everyone is using
+# clang-format 14 (default in the Ubuntu jammy repos).
 format:
-	find non-GPL/ GPL/ testing/test_bins/ -name "*.c" -o -name "*.h" -o -name "*.cpp" | \
-		xargs /usr/bin/env clang-format -i
+	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_TAG} \
+		find non-GPL/ GPL/ testing/test_bins/ -name "*.c" -o -name "*.h" -o -name "*.cpp" | \
+			xargs /usr/bin/env clang-format -i
 
 test-format:
-	find non-GPL/ GPL/ testing/test_bins/ -name "*.c" -o -name "*.h" -o -name "*.cpp" | \
-		xargs /usr/bin/env clang-format -i --dry-run -Werror
+	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_TAG} \
+		find non-GPL/ GPL/ testing/test_bins/ -name "*.c" -o -name "*.h" -o -name "*.cpp" | \
+			xargs /usr/bin/env clang-format -i --dry-run -Werror
 
 clean:
 	sudo rm -rf artifacts-*
