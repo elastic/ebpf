@@ -58,12 +58,12 @@ container:
 # lead to different formatting decisions. This way, everyone is using
 # clang-format 14 (default in the Ubuntu jammy repos).
 format:
-	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_TAG} \
+	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_PULL_TAG} \
 		find non-GPL/ GPL/ testing/test_bins/ -name "*.c" -o -name "*.h" -o -name "*.cpp" | \
 			xargs /usr/bin/env clang-format -i
 
 test-format:
-	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_TAG} \
+	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_PULL_TAG} \
 		find non-GPL/ GPL/ testing/test_bins/ -name "*.c" -o -name "*.h" -o -name "*.cpp" | \
 			xargs /usr/bin/env clang-format -i --dry-run -Werror
 
