@@ -76,7 +76,7 @@ build_initramfs() {
 
 run_tests() {
     ARCH=$1
-    DIR=$2
+    KERNS="$2"
 
     mkdir -p results/
 
