@@ -1,6 +1,6 @@
 FROM ubuntu:jammy
 
-ENV BPFTOOL_VERSION=5.15.0-33
+ENV LINUX_TOOLS_VERSION=5.15.0-33
 ENV DEBIAN_FRONTEND=noninteractive
 
 # https://askubuntu.com/a/1323570
@@ -40,7 +40,7 @@ RUN apt-get update -y && \
         build-essential \
         groff-base \
         bmake \
-        linux-tools-generic linux-tools-${BPFTOOL_VERSION}-generic && \
+        linux-tools-generic linux-tools-${LINUX_TOOLS_VERSION}-generic && \
     apt-get autoremove -y --purge && apt-get autoclean && apt-get clean && \
     sed -i -e 's/-soname /-soname=/g' /usr/share/mk/lib.mk && \
-    update-alternatives --install /usr/local/sbin/bpftool bpftool /usr/lib/linux-tools-${BPFTOOL_VERSION}/bpftool 1
+    update-alternatives --install /usr/local/sbin/bpftool bpftool /usr/lib/linux-tools-${LINUX_TOOLS_VERSION}/bpftool 1
