@@ -14,7 +14,8 @@ The code in this directory leverages
 [Bluebox](https://github.com/florianl/bluebox) to generate an
 [initramfs](https://www.kernel.org/doc/html/latest/filesystems/ramfs-rootfs-initramfs.html#what-is-initramfs)
 containing our test runner binary and statically linked test binaries found
-under `test_bins`. `testrunner` spins up
+under `test_bins`. Upon kernel startup, the Bluebox-generated init process runs
+`testrunner`, which spins up
 [EventsTrace](https://github.com/elastic/ebpf/tree/main/non-GPL/EventsTrace),
 and runs various test binaries, ensuring generated events are correct. This
 process is repeated on several different kernels run in QEMU.
@@ -134,13 +135,18 @@ a kernel _ELF binary_ (not a compressed image), _with_ debugging symbols. The
 binaries with debug info at `mainline-kernels/binaries/` and the compressed
 images at `mainline-kernels/images/`.
 
-To debug a kernel in this way, first run it in QEMU, passing `-s -S` to tell
-QEMU to wait for a debugger attach. See `scripts/run_single_test.sh` for how to
-do this for the architecture you're interested in. Additionally, add `-append
-"nokaslr"` which will disable kernel address space layout randomization (which
-is required so that function addresses line up with the data in the binary).
+To debug a kernel in this way, you'll first need to generate the test initramfs
+for the architecture you're interested in. A wrapper around Bluebox is provided
+at `scripts/gen_initramfs.sh` to do this:
 
-On x86_64, for example, the invocation is:
+```
+./scripts/gen_initramfs.sh <arch> <path to EventsTrace binary>
+```
+
+Where `arch` is one of `x86_64` or `aarch64`.
+
+Now you can run the tests for the kernel you're interested in in QEMU. For
+x86_64 the invocation looks like this:
 
 ```
 qemu-system-x86_64 \
@@ -148,9 +154,24 @@ qemu-system-x86_64 \
     -nographic -m 1G \
     -kernel <kernel image> \
     -initrd <initramfs cpio archive> \
-    -append "console=ttyS0" \
-    -append "nokaslr"
+    -append "console=ttyS0 nokaslr"
 ```
+
+For ARM64, the invocation looks like this:
+
+```
+qemu-system-aarch64 \
+    -s -S \
+    -nographic -m 1G \
+    -kernel <kernel image> \
+    -initrd <initramfs cpio archive> \
+    -M virt -cpu cortex-a57 \
+    -append "console=ttyAMA0 nokaslr"
+```
+
+`-s -S` tells QEMU to wait for a debugger attach. The `nokaslr` boot parameter
+disables Kernel ASLR, which is required so that debug info in the kernel binary
+matches the actual addresses functions are loaded at.
 
 Then, in another terminal, run `gdb` on your kernel ELF binary with debug
 symbols (usually called `vmlinux`). Connect to QEMU with `target remote
@@ -159,34 +180,36 @@ of Linux that matches the kernel you're debugging with `dir
 <path_to_linux_source>`.
 
 At this point, you'll be able to set breakpoints and continue execution with
-`c`. For example, to break at `start_kernel` (the main architecture-independent
-entry point on Linux), the whole process looks like this:
+`c`. For example, to break at `bpf_prog_load` (the function called by `bpf(2)`
+to load a BPF program), the whole process looks like this:
 
 ```
-$ gdb -q vmlinux
-Reading symbols from vmlinux...
-(gdb) dir linux
-Source directories searched: /home/vagrant/ebpf/testing/linux:$cdir:$cwd
+$ gdb -q ./vmlinux-x86_64-v5.18
+Reading symbols from ./vmlinux-x86_64-v5.18...
+(gdb) dir ~/linux
+Source directories searched: /home/vagrant/linux:$cdir:$cwd
+(gdb) b bpf_prog_load
+Breakpoint 1 at 0xffffffff8118f190: file kernel/bpf/syscall.c, line 2210.
 (gdb) target remote localhost:1234
 Remote debugging using localhost:1234
 0x000000000000fff0 in exception_stacks ()
-(gdb) b start_kernel
-Breakpoint 1 at 0xffffffff833c1b2b: file init/main.c, line 850.
 (gdb) c
 Continuing.
 
-Breakpoint 1, start_kernel () at init/main.c:850
-warning: Source file is more recent than executable.
-850     {
+Breakpoint 1, bpf_prog_load (attr=attr@entry=0xffffc9000020fe58, uattr=...) at kernel/bpf/syscall.c:2210
+2210    {
 (gdb) l
-845     {
-846             rest_init();
-847     }
-848
-849     asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
-850     {
-851             char *command_line;
-852             char *after_dashes;
-853
-854             set_task_stack_end_magic(&init_task);
+2205
+2206    /* last field in 'union bpf_attr' used by this command */
+2207    #define BPF_PROG_LOAD_LAST_FIELD core_relo_rec_size
+2208
+2209    static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr)
+2210    {
+2211            enum bpf_prog_type type = attr->prog_type;
+2212            struct bpf_prog *prog, *dst_prog = NULL;
+2213            struct btf *attach_btf = NULL;
+2214            int err;
 ```
+
+From here, you can e.g. make your way into the verifier entry point with a
+breakpoint on `bpf_check`.
