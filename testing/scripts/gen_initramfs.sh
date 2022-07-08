@@ -1,14 +1,43 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Elastic-2.0
 
-usage() {
-    echo "Usage: ./gen_initramfs.sh <arch> <EventsTrace>"
-    echo "where <arch> is one of x86_64 or aarch64"
+# Copyright 2022 Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under
+# one or more contributor license agreements. Licensed under the Elastic
+# License 2.0; you may not use this file except in compliance with the Elastic
+# License 2.0.
+
+readonly PROGNAME=$(basename $0)
+readonly ARGS="$@"
+
+is_empty() {
+    [[ -z $1 ]]
+}
+
+exit_error() {
+    echo $1
+    exit 1
+}
+
+exit_usage() {
+    cat <<- EOF
+Usage: $PROGNAME <arch> <EventsTrace>
+
+Generate an initramfs for use in a test run.
+
+EXAMPLE:
+    $PROGNAME x86_64 ../artifacts-x86_64/non-GPL/EventsTrace/EventsTrace
+EOF
+
+    exit 1
 }
 
 build_testrunner() {
+    local goarch=$1
+
     pushd testrunner > /dev/null
+
     go clean
-    GOARCH=$1 go build
+    GOARCH=$goarch go build
 
     if [[ $? -ne 0 ]]
     then
@@ -19,67 +48,73 @@ build_testrunner() {
 }
 
 build_testbins() {
-    ARCH=$1
-    pushd test_bins
+    local arch=$1
+    pushd test_bins > /dev/null
 
-    mkdir -p bin/$ARCH
+    mkdir -p bin/$arch
 
-    for C_SRC in *.c
-    do
-        BIN_PATH=bin/$ARCH/$(basename $C_SRC .c)
+    for c_src in *.c; do
+        local bin_path=bin/$arch/$(basename $c_src .c)
 
-        ${ARCH}-linux-gnu-gcc -static $C_SRC -o $BIN_PATH
-        if [[ $? -ne 0 ]]
-        then
-            echo "Compilation of $C_SRC for $ARCH failed (see above)"
-            exit 1
-        fi
+        ${arch}-linux-gnu-gcc -static $c_src -o $bin_path \
+            || exit_error "compilation of $c_src for $arch failed (see above)"
     done
 
-    popd
+    popd > /dev/null
 }
 
-ARCH=$1
-EVENTSTRACE=$2
+invoke_bluebox() {
+    local goarch=$1
+    local eventstrace=$2
+    local output_file=$3
 
-if [[ -z $ARCH ]]
-then
-    usage
-    exit 1
-fi
+    # Attempt to use common Go bin path of ~/go/bin if bluebox is not in $PATH
+    which bluebox \
+        || export PATH=~/go/bin:$PATH
 
-if [[ -z $EVENTSTRACE ]]
-then
-    usage
-    exit 1
-fi
+    local cmd="bluebox"
+    cmd+=" -a $goarch"
+    cmd+=" -e testrunner/testrunner"
+    cmd+=" -r $eventstrace"
+    cmd+=" -o $output_file"
+    for bin in test_bins/bin/$arch/*; do
+        cmd+=" -r $bin"
+    done
 
-if [[ $ARCH == "aarch64" ]]
-then
-    # GCC uses "aarch64" as an identifier, golang uses "arm64"
-    GOARCH="arm64"
-elif [[ $ARCH == "x86_64" ]]
-then
-    # GCC uses "x86_64" as an identifier, golang uses "amd64"
-    GOARCH="amd64"
-fi
+    $cmd \
+        || exit_error "failed to generate initramfs (see above)"
+}
 
-build_testrunner $GOARCH
-build_testbins $ARCH
+main() {
+    local arch=$1
+    local eventstrace=$2
+    local output_file=$3
 
-CMD="bluebox"
-CMD+=" -a $GOARCH"
-CMD+=" -e testrunner/testrunner"
-CMD+=" -r $EVENTSTRACE"
-CMD+=" -o initramfs-${ARCH}.cpio"
-for BIN in test_bins/bin/$ARCH/*
-do
-    CMD+=" -r $BIN"
-done
+    is_empty $arch \
+        && exit_usage
 
-$CMD
-if [[ $? -ne 0 ]]
-then
-    echo "Failed to generate initramfs"
-    exit 1
-fi
+    is_empty $eventstrace \
+        && exit_usage
+
+    is_empty $output_file \
+        && exit_usage
+
+    local goarch
+    if [[ $arch == "aarch64" ]]
+    then
+        # GCC uses "aarch64" as an identifier, golang uses "arm64"
+        goarch="arm64"
+    elif [[ $arch == "x86_64" ]]
+    then
+        # GCC uses "x86_64" as an identifier, golang uses "amd64"
+        goarch="amd64"
+    fi
+
+    build_testrunner $goarch
+    build_testbins $arch
+    invoke_bluebox $goarch $eventstrace $output_file
+
+    return 0
+}
+
+main $ARGS

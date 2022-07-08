@@ -58,15 +58,13 @@ jobs:
       with:
         go-version: '1.17'
     - name: Install Bluebox
-      run: |
-        go install github.com/florianl/bluebox@b8590fb1850f56df6e6d7786931fcabdc1e9173d
-        echo "$HOME/go" >> $GITHUB_PATH
+      run: go install github.com/florianl/bluebox@b8590fb1850f56df6e6d7786931fcabdc1e9173d
     - name: Run tests
       working-directory: testing
       run: |
         ./run_tests.sh \
-        -a ${{ matrix.arch }} \
-        -e ../artifacts-${{ matrix.arch }}/non-GPL/EventsTrace/EventsTrace \
+        ${{ matrix.arch }} \
+        ../artifacts-${{ matrix.arch }}/non-GPL/EventsTrace/EventsTrace \
         /kernel-images/*
     - name: Archive test summary
       if: always()

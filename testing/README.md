@@ -145,33 +145,14 @@ at `scripts/gen_initramfs.sh` to do this:
 
 Where `arch` is one of `x86_64` or `aarch64`.
 
-Now you can run the tests for the kernel you're interested in in QEMU. For
-x86_64 the invocation looks like this:
+Now you can run the tests for the kernel you're interested in in QEMU. A wrapper
+script around QEMU is provided for this purpose at `scripts/invoke_qemu.sh`. Make
+sure to pass the `-d` flag to instruct QEMU to wait for a debugger attach, for example,
+on x86_64, the invocation looks like this:
 
 ```
-qemu-system-x86_64 \
-    -s -S \
-    -nographic -m 1G \
-    -kernel <kernel image> \
-    -initrd <initramfs cpio archive> \
-    -append "console=ttyS0 nokaslr"
+./scripts/invoke_qemu.sh -d x86_64 <initramfs cpio archive> <kernel image>
 ```
-
-For ARM64, the invocation looks like this:
-
-```
-qemu-system-aarch64 \
-    -s -S \
-    -nographic -m 1G \
-    -kernel <kernel image> \
-    -initrd <initramfs cpio archive> \
-    -M virt -cpu cortex-a57 \
-    -append "console=ttyAMA0 nokaslr"
-```
-
-`-s -S` tells QEMU to wait for a debugger attach. The `nokaslr` boot parameter
-disables Kernel ASLR, which is required so that debug info in the kernel binary
-matches the actual addresses functions are loaded at.
 
 Then, in another terminal, run `gdb` on your kernel ELF binary with debug
 symbols (usually called `vmlinux`). Connect to QEMU with `target remote

@@ -1,102 +1,107 @@
 #!/usr/bin/env bash
-set -x
+# SPDX-License-Identifier: Elastic-2.0
 
-SUMMARY_FILE="bpf-check-summary.txt"
-RESULTS_DIR="results"
-JOBS=$(nproc)
+# Copyright 2022 Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under
+# one or more contributor license agreements. Licensed under the Elastic
+# License 2.0; you may not use this file except in compliance with the Elastic
+# License 2.0.
+set -x
+readonly PROGNAME=$(basename $0)
+readonly ARGS="$@"
+
+readonly SUCCESS_STRING="ALL BPF TESTS PASSED"
+readonly SUMMARY_FILE="bpf-check-summary.txt"
+readonly RESULTS_DIR="results"
+
+file_exists() {
+    [[ -f $1 ]]
+}
+
+is_empty() {
+    [[ -z $1 ]]
+}
+
+exit_error() {
+    echo "$1"
+    exit 1
+}
 
 run_tests() {
-    ARCH=$1
-    shift 1
+    local arch=$1
+    local initramfs=$2
+    local jobs=$3
+    shift 3
 
-    mkdir -p results/
+    rm -rf $RESULTS_DIR $SUMMARY_FILE
+    mkdir -p $RESULTS_DIR
 
-    PARALLEL_CMDS=''
-    for KERNEL_IMAGE in "$@"
-    do
-        RESULTS_FILE="results/$(basename $KERNEL_IMAGE).txt"
-        PARALLEL_CMDS="${PARALLEL_CMDS}\n./scripts/run_single_test.sh $ARCH $KERNEL_IMAGE $RESULTS_FILE"
+    parallel \
+        -k -j${jobs} \
+        ./scripts/invoke_qemu.sh $arch $initramfs {} ">" $RESULTS_DIR/{/}.txt ::: $@
+
+    echo "BPF-check run for $# $arch kernel(s) at $(date)" > $SUMMARY_FILE
+    for f in $RESULTS_DIR/*; do
+        local kern=$(basename $f .txt)
+        grep "$SUMMARY_STRING" $f \
+            && echo "[PASS] $kern" >> $SUMMARY_FILE \
+            || echo "[FAIL] $kern" >> $SUMMARY_FILE
     done
-
-    N_KERNS=$(echo -ne $PARALLEL_CMDS | wc | awk '{ print $1 }')
-
-    echo "Testing $N_KERNS $ARCH kernel(s) at $(date)" > $SUMMARY_FILE
-    echo -e $PARALLEL_CMDS | parallel -k -j${JOBS} | tee -a $SUMMARY_FILE
 }
 
-check_kvm() {
-    if ! [[ -e /dev/kvm ]]
-    then
-        echo "###########################################################"
-        echo "# WARNING: /dev/kvm does not exist                        #"
-        echo "# Tests will be fairly slow to execute                    #"
-        echo "# You will have a much better experience with KVM enabled # "
-        echo "###########################################################"
-    fi
+exit_usage() {
+    cat <<- EOF
+Usage: $PROGNAME [-j jobs] <arch> <EventsTrace> <kernel images>
+
+Perform a run of the BPF multi-kernel tester with the given kernel images
+on the given arch, with the given EventsTrace binary and with the given
+kernel images.
+
+OPTIONS:
+    -j <jobs>       Spin up <jobs> VMs in parallel (defaults to nproc)
+
+EXAMPLE:
+    $PROGNAME -j3 x86_64 EventsTrace linux-v5.12 linux-v5.13 linux-v5.14
+EOF
+
+    exit 1
 }
 
-usage() {
-    echo "Usage: ./run_tests.sh <-a arch> <-e EventsTrace> [-j jobs] <kernel images>"
-    echo "-a <arch>        Arch to test, can be \"x86_64\" or \"aarch64\""
-    echo "-k <kernels>     Paths to kernel images to test against"
-    echo "-e <EventsTrace> Path to a statically-linked EventsTrace binary"
-    echo "-j <jobs>        Spin up <jobs> VMs in parallel"
-}
+main() {
+    local arch=$1
+    local eventstrace=$2
+    local jobs=$(nproc)
 
-while getopts ":j:a:e:" OPT
-do
-    case ${OPT} in
-        a ) ARCH=$OPTARG
-            ;;
-        e ) EVENTSTRACE=$OPTARG
-            ;;
-        j ) JOBS=$OPTARG
-            ;;
-        \? )
-            usage
-            exit 1
-            ;;
-    esac
-done
+    while getopts "j:" opt; do
+        case ${opt} in
+            j ) jobs=$OPTARG
+                ;;
+            \? )
+                exit_usage
+                ;;
+        esac
+    done
+    shift $(( OPTIND - 1))
+    shift 3
 
-shift $(( OPTIND - 1))
+    is_empty $arch \
+        && exit_usage
 
-if [[ -z $ARCH ]]
-then
-    echo "Architecture must be specified with -a <x86_64/aarch64>"
-    exit 1
-fi
+    is_empty $eventstrace \
+        && exit_usage
 
-if [[ -z $EVENTSTRACE ]]
-then
-    echo "EventsTrace binary must be provided with -e <path>"
-    exit 1
-fi
+    is_empty $* \
+        && exit_usage
 
-if [[ -z $* ]]
-then
-    echo "Kernel images to test must be provided"
-    exit 1
-fi
+    local initramfs="initramfs-${arch}.cpio"
+    ./scripts/gen_initramfs.sh $arch $eventstrace $initramfs \
+        || exit_error "Could not build initramfs (see above)"
 
-rm -rf $RESULTS_DIR
-check_kvm
+    run_tests $arch $initramfs $jobs $@
 
-./scripts/gen_initramfs.sh $ARCH $EVENTSTRACE
-if [[ $? -ne 0 ]]
-then
-    echo "Could not build initramfs (see above)"
-    exit 1
-fi
+    grep "FAIL" $SUMMARY_FILE > /dev/null \
+        && exit_error "Some tests failed, see results files"
 
-mkdir -p $RESULTS_DIR
-
-run_tests $ARCH $@
-
-grep "FAIL" $SUMMARY_FILE > /dev/null
-if [[ $? -eq 0 ]]
-then
-    exit 1
-else
     exit 0
-fi
+}
+
+main $ARGS

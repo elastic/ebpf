@@ -10,13 +10,21 @@
 # infrastructure. Kernels are built in a debian chroot (debootstrap must be
 # installed) so the build environment is totally reproducable and no setup on
 # the host system is required. Modify the ARCHES and KERNEL_VERSIONS variables
-# in the kernel_builder script output by this one to control which kernels are
-# built.
+# in the kernel_builder.sh script output by this one to control which kernels
+# are built.
+
+readonly PROGNAME=$(basename $0)
+readonly ARGS="$@"
+set -x
 
 output_kernel_builder() {
     cat <<"EOF" >$1
 set -x
-config_common() {
+# Modify these to change what kernels we build
+readonly ARCHES="x86_64 aarch64"
+readonly BUILD_TAGS="v5.11 5.12"
+
+config_kernel() {
      # Enable BPF and force the JIT compiler (default on most distros)
     ./scripts/config \
         -e CONFIG_BPF_SYSCALL \
@@ -89,95 +97,116 @@ config_common() {
 
 
 build_kernel() {
-        ARCH=$1
-        VERSION=$2
+    local arch=$1
+    local tag=$2
 
-        if [[ $ARCH == "x86_64" ]]
-        then
-            MAKE_ARCH="x86_64"
-            MAKE_CC="x86_64-linux-gnu-"
-            MAKE_TARGET="bzImage"
-            OUTPUT_FILE="arch/x86/boot/bzImage"
-        elif [[ $ARCH == "aarch64" ]]
-        then
-            MAKE_ARCH="arm64" # Linux uses "arm64", others use "aarch64", aargh
-            MAKE_CC="aarch64-linux-gnu-"
-            MAKE_TARGET="Image"
-            OUTPUT_FILE="arch/arm64/boot/Image"
-        fi
+    local make_arch
+    local make_cc
+    local output_file
+    if [[ $arch == "x86_64" ]]
+    then
+        make_arch="x86_64"
+        make_cc="x86_64-linux-gnu-"
+        make_target="bzImage"
+        output_file="arch/x86/boot/bzImage"
+    elif [[ $arch == "aarch64" ]]
+    then
+        make_arch="arm64" # Linux uses "arm64", others use "aarch64", aargh
+        make_cc="aarch64-linux-gnu-"
+        make_target="Image"
+        output_file="arch/arm64/boot/Image"
+    fi
 
-		make clean
-		rm .config
+    make clean
+    rm .config
 
-        ARCH=${MAKE_ARCH} make defconfig
+    ARCH=${make_arch} make defconfig
 
-        config_common
+    config_kernel
 
-        yes | ARCH=${MAKE_ARCH} make olddefconfig
+    yes | ARCH=${make_arch} make olddefconfig
 
-        yes | ARCH=${MAKE_ARCH} CROSS_COMPILE=${MAKE_CC} make ${MAKE_TARGET} -j$(nproc)
-        mv $OUTPUT_FILE mainline-kernels/$ARCH/images/linux-image-${ARCH}-${VERSION}
-        mv vmlinux mainline-kernels/$ARCH/debug_binaries/vmlinux-${ARCH}-${VERSION}
+    yes | ARCH=${make_arch} CROSS_COMPILE=${make_cc} make ${make_target} -j$(nproc)
+    mv $output_file mainline-kernels/$arch/images/linux-image-${arch}-${tag}
+    mv vmlinux mainline-kernels/$arch/debug_binaries/vmlinux-${arch}-${tag}
 }
 
-dpkg --add-architecture arm64
-echo "deb http://deb.debian.org/debian bullseye-backports main" >> /etc/apt/sources.list
-apt-get -y update
+exit_error() {
+    echo $1
+    exit 1
+}
 
-apt-get -y install \
-    git gcc make libssl-dev bison flex bc libelf-dev python3 \
-    gcc-aarch64-linux-gnu
+install_packages() {
+    dpkg --add-architecture arm64
+    echo "deb http://deb.debian.org/debian bullseye-backports main" >> /etc/apt/sources.list
+    apt-get -y update
 
-# We need pahole >= 1.22 due to a bug in BTF generation pre 1.22. The default
-# version in the buster repos is 1.20. Backports version is 1.22.
-apt-get -y -t bullseye-backports install dwarves
+    apt-get -y install \
+        git gcc make libssl-dev bison flex bc libelf-dev python3 \
+        gcc-aarch64-linux-gnu
 
-# Modify these to change what kernels we build
-ARCHES="x86_64 aarch64"
-KERNEL_VERSIONS="v5.11"
-N_KERNS=$(( $(echo $ARCHES | wc -w) * $(echo $KERNEL_VERSIONS | wc -w) ))
+    # We need pahole >= 1.22 due to a bug in BTF generation pre 1.22. The default
+    # version in the buster repos is 1.20. Backports version is 1.22.
+    apt-get -y -t bullseye-backports install dwarves
+}
 
-cd linux
+main() {
+    install_packages
+    cd linux
 
-I=1
-for ARCH in $ARCHES
-do
-    mkdir -p mainline-kernels/$ARCH/images
-    mkdir -p mainline-kernels/$ARCH/debug_binaries
+    local i=1
+    local n_kerns=$(( $(echo $ARCHES | wc -w) * $(echo $BUILD_TAGS | wc -w) ))
+    for arch in $ARCHES; do
+        mkdir -p mainline-kernels/$arch/images
+        mkdir -p mainline-kernels/$arch/debug_binaries
 
-    for V in $KERNEL_VERSIONS
-    do
-        echo "[BUILD $I/$N_KERNS] $ARCH/$V"
+        for tag in $BUILD_TAGS; do
+            echo "[BUILD $i/$n_kerns] $arch/$v"
 
-        git checkout $V
-        if [[ $? -ne 0 ]]
-        then
-            echo "Could not checkout $V (see above)"
-            exit 1
-        fi
+            git checkout $tag \
+                || echo "Could not checkout $tag (see above)"
 
-        build_kernel $ARCH $V
-        I=$(($I + 1))
+            build_kernel $arch $tag
+            i=$(($i + 1))
+        done
     done
-done
+}
+
+main
 EOF
 }
 
-if [[ $EUID -ne 0 ]]
-then
-    echo "This script must be run as root (for chroot)"
+exit_error() {
+    echo $1
     exit 1
-fi
+}
 
-if [[ $# -ne 1 ]]
-then
-    echo "Usage ${0} <kernel source dir>"
+is_empty() {
+    [[ -z $1 ]]
+}
+
+exit_usage() {
+    echo "usage"
     exit 1
-fi
+}
 
-mkdir -p chroot
-sudo debootstrap --arch amd64 --variant=minbase bullseye chroot http://ftp.us.debian.org/debian/
+main() {
+    local kernel_src_dir=$1
 
-cp -r $1 chroot
-output_kernel_builder ./chroot/kernel_builder.sh
-chroot ./chroot /bin/bash /kernel_builder.sh
+    is_empty kernel_src_dir \
+        && exit_usage
+
+    [[ $EUID -ne 0 ]] \
+        && exit_error "This script must be run as root (for chroot)"
+
+    mkdir -p chroot
+
+    sudo debootstrap --arch amd64 --variant=minbase bullseye chroot http://ftp.us.debian.org/debian/ \
+        || exit_error "Could not bootstrap chroot"
+
+    cp -r $kernel_src_dir chroot/linux
+    output_kernel_builder ./chroot/kernel_builder.sh
+    chroot ./chroot /bin/bash /kernel_builder.sh
+}
+
+main $ARGS
