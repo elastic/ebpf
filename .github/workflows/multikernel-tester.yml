@@ -34,7 +34,7 @@ jobs:
       with:
         path: /kernel-images
         key: gcs-cache-${{ matrix.kernel_flavor }}-${{ matrix.arch }}-${{ env.TIMESTAMP }}
-        restore-keys: gcs-cache-
+        restore-keys: gcs-cache-${{ matrix.kernel_flavor }}-${{ matrix.arch }}
     - name: Rsync kernel images from GCS
       run: gsutil -m rsync -d -r gs://ebpf-ci-kernel-images/${{ matrix.kernel_flavor }}/${{ matrix.arch }}/images /kernel-images/
     - name: Install packages needed for testing
