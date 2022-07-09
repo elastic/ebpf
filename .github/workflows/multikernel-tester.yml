@@ -26,22 +26,17 @@ jobs:
       run: |
         sudo mkdir -p /kernel-images
         sudo chown -fR $USER:$USER /kernel-images
-    # We get the hash of every kernel image and then hash the result. This results in a re-fetch
-    # if anything in the GCS directory changes at all
-    - name: Calculate kernel image cache key
-      run: |
-        echo "GCS_HASH=$(gsutil hash -h $HASH_PATH | md5sum | awk '{ print $1 }')" >> $GITHUB_ENV
-      env:
-        HASH_PATH: gs://ebpf-ci-kernel-images/${{ matrix.kernel_flavor }}/${{ matrix.arch }}/images/*
-    - name: Attempt to get kernel images from cache
+    - name: Get current timestamp for GCS cache key
+      run: echo "TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
+    - name: Setup GCS cache
       id: cache
       uses: actions/cache@v3
       with:
         path: /kernel-images
-        key: ${{ matrix.kernel_flavor }}-${{ matrix.arch }}-${{ env.GCS_HASH }}-kernel-images
-    - name: Download kernel images from GCS (if uncached)
-      if: steps.cache.outputs.cache-hit != 'true'
-      run: gsutil -m rsync -r gs://ebpf-ci-kernel-images/${{ matrix.kernel_flavor}}/${{ matrix.arch }}/images /kernel-images/
+        key: gcs-cache-${{ matrix.kernel_flavor }}-${{ matrix.arch }}-${{ env.TIMESTAMP }}
+        restore-keys: gcs-cache-
+    - name: Rsync kernel images from GCS
+      run: gsutil -m rsync -d -r gs://ebpf-ci-kernel-images/${{ matrix.kernel_flavor }}/${{ matrix.arch }}/images /kernel-images/
     - name: Install packages needed for testing
       run: |
         sudo apt-get update
