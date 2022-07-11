@@ -22,8 +22,7 @@ RUN echo "deb [arch=arm64] http://ports.ubuntu.com/ jammy main restricted" >> /e
     && echo "deb [arch=arm64] http://ports.ubuntu.com/ jammy-updates multiverse" >> /etc/apt/sources.list.d/arm-sources.list \
     && echo "deb [arch=arm64] http://ports.ubuntu.com/ jammy-backports main restricted universe multiverse" >> /etc/apt/sources.list.d/arm-sources.list \
     && dpkg --add-architecture arm64 \
-    && sed -i 's/deb/deb [arch=amd64]/g' /etc/apt/sources.list \
-    && apt-get update
+    && sed -i 's/deb/deb [arch=amd64]/g' /etc/apt/sources.list
 
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \

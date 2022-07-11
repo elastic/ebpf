@@ -2,7 +2,7 @@ ARCH ?= $(shell arch)
 BUILD_DIR ?= artifacts-${ARCH}
 PWD = $(shell pwd)
 DOCKER_IMG_UBUNTU_VERSION ?= jammy
-BUILDER_PULL_TAG ?= us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder:20220707-1836
+BUILDER_PULL_TAG ?= us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder:20220711-1742
 BUILDER_TAG ?= us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder:${USER}-latest
 CMAKE_FLAGS = -DARCH=${ARCH} -DBUILD_STATIC_EVENTSTRACE=True -DUSE_BUILTIN_VMLINUX=True -B${BUILD_DIR} -S${PWD}
 
