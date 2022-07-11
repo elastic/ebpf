@@ -1,9 +1,12 @@
 ARCH ?= $(shell arch)
-BUILD_DIR ?= artifacts-${ARCH}
+
+DOCKER_IMAGE = us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder
+DOCKER_PULL_TAG = 20220711-1742
+DOCKER_LOCAL_TAG = ${USER}-latest
+CURRENT_DATE_TAG = $(shell date +%Y%m%d-%H%M)
+
 PWD = $(shell pwd)
-DOCKER_IMG_UBUNTU_VERSION ?= jammy
-BUILDER_PULL_TAG ?= us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder:20220711-1742
-BUILDER_TAG ?= us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder:${USER}-latest
+BUILD_DIR = artifacts-${ARCH}
 CMAKE_FLAGS = -DARCH=${ARCH} -DBUILD_STATIC_EVENTSTRACE=True -DUSE_BUILTIN_VMLINUX=True -B${BUILD_DIR} -S${PWD}
 
 # Directories to search recursively for c/cpp source files to clang-format
@@ -37,14 +40,14 @@ export AR=${ARCH}-linux-gnu-ar
 export LD=${ARCH}-linux-gnu-ld
 
 build:
-	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_PULL_TAG} \
+	docker run --rm -v${PWD}:${PWD} -w${PWD} ${DOCKER_IMAGE}:${DOCKER_PULL_TAG} \
 		/usr/bin/env make _internal-build ARCH=${ARCH} EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS}
 	sudo chown -fR ${USER}:${USER} ${BUILD_DIR}
 	@echo "\n++ Build Successful at `date` ++\n"
 
 # Convenience target to pass -DCMAKE_BUILD_TYPE=Debug and -DCMAKE_C_FLAGS="-g -O0"
 build-debug:
-	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_PULL_TAG} \
+	docker run --rm -v${PWD}:${PWD} -w${PWD} ${DOCKER_IMAGE}:${DOCKER_PULL_TAG} \
 		/usr/bin/env make _internal-build ARCH=${ARCH} EXTRA_CMAKE_FLAGS='-DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-g -O0"'
 	sudo chown -fR ${USER}:${USER} ${BUILD_DIR}
 	@echo "\n++ Build Successful at `date` ++\n"
@@ -55,17 +58,21 @@ _internal-build:
 	make -C${BUILD_DIR} -j$(shell nproc)
 
 container:
-	docker build -t ${BUILDER_TAG} -f docker/Dockerfile.builder .
+	docker build -t ${DOCKER_LOCAL_TAG} -f docker/Dockerfile.builder .
+
+tag-container:
+	docker tag ${DOCKER_IMAGE}:${DOCKER_LOCAL_TAG} ${DOCKER_IMAGE}:$CURRENT_DATE_TAG
+	@echo "\n++ Tagged image as ${DOCKER_IMAGE}:${CURRENT_DATE_TAG} ++\n"
 
 # We dockerize code formatting because differences in clang-format versions can
 # lead to different formatting decisions. This way, everyone is using
 # clang-format 14 (default in the Ubuntu jammy repos).
 format:
-	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_PULL_TAG} \
+	docker run --rm -v${PWD}:${PWD} -w${PWD} ${DOCKER_IMAGE}:${DOCKER_PULL_TAG} \
 		sh -c 'find ${FORMAT_DIRS} -name "*.cpp" -name "*.c" -o -name "*.h" -o -name "*.cpp" | xargs /usr/bin/env clang-format -i'
 
 test-format:
-	docker run --rm -v${PWD}:${PWD} -w${PWD} ${BUILDER_PULL_TAG} \
+	docker run --rm -v${PWD}:${PWD} -w${PWD} ${DOCKER_PULL_TAG} \
 		sh -c 'find ${FORMAT_DIRS} -name "*.cpp" -o -name "*.c" -o -name "*.h" -o -name "*.cpp" | xargs /usr/bin/env clang-format -i --dry-run -Werror'
 
 clean:
