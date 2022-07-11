@@ -194,3 +194,34 @@ Breakpoint 1, bpf_prog_load (attr=attr@entry=0xffffc9000020fe58, uattr=...) at k
 
 From here, you can e.g. make your way into the verifier entry point with a
 breakpoint on `bpf_check`.
+
+Breakpoints can also be set in userspace. Use `add-symbol-file` to inform GDB
+about symbols in a binary compiled with debug info. Breakpoints can then be set
+on those userspace symbols and code execution can be followed into the deepest
+regions of the kernel from userspace code. As an example, here's how to break
+at `main` of the `fork_exit` test binary.
+
+```
+(gdb) add-symbol-file test_bins/bin/x86_64/fork_exit
+add symbol table from file "test_bins/bin/x86_64/fork_exit"
+(y or n) y
+Reading symbols from test_bins/bin/x86_64/fork_exit...
+(gdb) b main
+Breakpoint 1 at 0x401857: file fork_exit.c, line 18.
+(gdb) c
+Continuing.
+
+Breakpoint 1, main () at fork_exit.c:18
+18      {
+(gdb) l
+13      #include <unistd.h>
+14
+15      #include "common.h"
+16
+17      int main()
+18      {
+19          pid_t pid;
+20          CHECK(pid = fork(), -1);
+21
+22          if (pid != 0) {
+```

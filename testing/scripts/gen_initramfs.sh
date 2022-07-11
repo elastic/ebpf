@@ -56,7 +56,7 @@ build_testbins() {
     for c_src in *.c; do
         local bin_path=bin/$arch/$(basename $c_src .c)
 
-        ${arch}-linux-gnu-gcc -static $c_src -o $bin_path \
+        ${arch}-linux-gnu-gcc -g -static $c_src -o $bin_path \
             || exit_error "compilation of $c_src for $arch failed (see above)"
     done
 
