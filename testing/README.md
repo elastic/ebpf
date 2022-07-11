@@ -140,7 +140,7 @@ for the architecture you're interested in. A wrapper around Bluebox is provided
 at `scripts/gen_initramfs.sh` to do this:
 
 ```
-./scripts/gen_initramfs.sh <arch> <path to EventsTrace binary>
+./scripts/gen_initramfs.sh <arch> <path to EventsTrace binary> <output file>
 ```
 
 Where `arch` is one of `x86_64` or `aarch64`.

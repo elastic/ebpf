@@ -20,12 +20,12 @@ exit_error() {
 
 exit_usage() {
     cat <<- EOF
-Usage: $PROGNAME <arch> <EventsTrace>
+Usage: $PROGNAME <arch> <EventsTrace> <output file>
 
 Generate an initramfs for use in a test run.
 
 EXAMPLE:
-    $PROGNAME x86_64 ../artifacts-x86_64/non-GPL/EventsTrace/EventsTrace
+    $PROGNAME x86_64 ../artifacts-x86_64/non-GPL/EventsTrace/EventsTrace initramfs-x86_64.cpio
 EOF
 
     exit 1
