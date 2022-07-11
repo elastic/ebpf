@@ -75,18 +75,6 @@ variables in the script. Note that building a bunch of kernels will take a long
 time on anything that doesn't have a large number of cores. Spinning up a
 powerful VM in your favorite cloud provider a quick way to do things.
 
-## KVM
-
-Running tests will be _much_ faster if you have KVM (hardware acceleration)
-enabled. `./run_tests.sh` will check for KVM support and print a warning
-if it's disabled.
-
-If you're working inside a VM to begin with, you'll need to have nested
-virtualization enabled for KVM to work. Note that nested virtualization on
-Intel CPUs appears to be not much faster than software emulation unless your
-CPU supports [VMCS
-shadowing](https://forums.virtualbox.org/viewtopic.php?f=1&t=98708&p=478598#p478598).
-
 ## Getting a Shell in a Test Kernel Image
 
 If a kernel fails the checker,
