@@ -24,14 +24,14 @@ exit_error() {
 
 exit_usage() {
     cat <<EOF
-Usage: $PROGNAME [-d] <arch> <initramfs> <kernel image>
+Usage: $PROGNAME [-d] [-k] <arch> <initramfs> <kernel image>
 
 Runs the given kernel image in a headless QEMU machine of the specified
-arch (can be "x86_64" or "aarch64"), with the given initramfs CPIO archive
-and piping all serial console output to the given output file.
+arch (can be "x86_64" or "aarch64"), with the given initramfs CPIO archive.
 
 OPTIONS:
     -d Wait for a debugger to attach before starting the VM
+    -k Attempt to use KVM if available
 
 EXAMPLE:
     $PROGNAME x86_64 initramfs-x86_64.cpio linux-image-v5.13
@@ -41,9 +41,12 @@ EOF
 
 main() {
     local debug
+    local kvm_requested
     while getopts "d" opt; do
         case ${opt} in
             d ) debug="1"
+                ;;
+            k ) kvm_requested="1"
                 ;;
             \? )
                 exit_usage
@@ -69,12 +72,15 @@ main() {
     [[ $arch != "x86_64" && $arch != "aarch64" ]] \
         && exit_usage
 
-    local extra_args
+    local extra_args=""
+    local bootparams=""
 
-    [[ $debug == "1" ]] \
-        && extra_args+='-s -S -append "nokaslr"'
+    if [[ $debug == "1" ]]; then
+        extra_args+="-s -S"
+        bootparams+="nokaslr"
+    fi
 
-    file_exists /dev/kvm && [[ $host_arch == $arch ]] \
+    file_exists /dev/kvm && [[ $host_arch == $arch ]] && [[ kvm_requested == "1" ]] \
         && extra_args+=" -enable-kvm -cpu host"
 
     if [[ $arch == "aarch64" ]]; then
@@ -82,20 +88,21 @@ main() {
         # for a generic aarch64 machine (we don't care about hardware specifics)
         extra_args+=" -M virt"
 
-        # aarch64 uses ttyAMA0 for the first serial port
-        extra_args+=' -append "console=ttyAMA0"'
-
         # Need to specify a cpu for aarch64
         extra_args+=" -cpu cortex-a57"
+
+        # aarch64 uses ttyAMA0 for the first serial port
+        bootparams+=" console=ttyAMA0"
     elif [[ $arch == "x86_64" ]]; then
         # x86_64 uses ttyS0 for the first serial port
-        extra_args+=' -append "console=ttyS0"'
+        bootparams+=" console=ttyS0"
     fi
 
     qemu-system-${arch} \
         -nographic -m 1G \
         -kernel $kernel \
         -initrd $initramfs \
+        -append "$bootparams" \
         $extra_args &
 
     # QEMU ignores SIGINT and just about everything else, run it in the
