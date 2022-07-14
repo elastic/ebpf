@@ -69,7 +69,7 @@ tag-container:
 # clang-format 14 (default in the Ubuntu jammy repos).
 format:
 	docker run --rm -v${PWD}:${PWD} -w${PWD} ${DOCKER_IMAGE}:${DOCKER_PULL_TAG} \
-		sh -c 'find ${FORMAT_DIRS} -name "*.cpp" -name "*.c" -o -name "*.h" -o -name "*.cpp" | xargs /usr/bin/env clang-format -i'
+		sh -c 'find ${FORMAT_DIRS} -name "*.cpp" -o -name "*.c" -o -name "*.h" -o -name "*.cpp" | xargs /usr/bin/env clang-format -i'
 
 test-format:
 	docker run --rm -v${PWD}:${PWD} -w${PWD} ${DOCKER_IMAGE}:${DOCKER_PULL_TAG} \
