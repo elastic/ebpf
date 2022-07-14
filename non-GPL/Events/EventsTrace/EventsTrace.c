@@ -20,7 +20,6 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-#define __aligned_u64 __u64 __attribute__((aligned(8)))
 #include <EbpfEvents.h>
 
 const char *argp_program_version     = "EventsTrace 0.0.0";
