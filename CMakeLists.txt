@@ -36,12 +36,4 @@ add_subdirectory(GPL/HostIsolation/KprobeConnectHook)
 add_subdirectory(GPL/HostIsolation/TcFilter)
 add_subdirectory(GPL/EventProbe)
 
-add_subdirectory(non-GPL/LibEbpfEvents)
-add_subdirectory(non-GPL/HostIsolation)
-add_subdirectory(non-GPL/EventsTrace)
-
-# LibEbpfEventsTestLoader
-# Include an executable that loads the probe with different combination
-# of features, to have a quick feedback in case something breaks during
-# development.
-add_subdirectory(non-GPL/LibEbpfEventsTestLoader)
+add_subdirectory(non-GPL)
