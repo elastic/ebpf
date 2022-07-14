@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include <LibEbpfEvents.h>
+#include <EbpfEvents.h>
 
 static void print_features(uint64_t features)
 {

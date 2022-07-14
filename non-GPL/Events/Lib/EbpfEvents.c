@@ -8,7 +8,7 @@
  */
 
 #define __aligned_u64 __u64 __attribute__((aligned(8)))
-#include "LibEbpfEvents.h"
+#include "EbpfEvents.h"
 
 #include <bpf/bpf.h>
 #include <bpf/btf.h>
