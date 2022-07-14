@@ -18,7 +18,6 @@ set(TARGET_TEST_DIR "${TARGET_DIR}/test")
 set(TARGET_INCLUDE_DIR "${TARGET_DIR}/include")
 set(TARGET_EBPF_DIR "${TARGET_DIR}/ebpf")
 
-# target
 file(MAKE_DIRECTORY ${TARGET_DIR})
 file(MAKE_DIRECTORY ${TARGET_TMP_DIR})
 file(MAKE_DIRECTORY ${TARGET_INCLUDE_DIR})
@@ -32,8 +31,5 @@ include(arch)
 include(BPF)
 include(GoogleTest)
 
-add_subdirectory(GPL/HostIsolation/KprobeConnectHook)
-add_subdirectory(GPL/HostIsolation/TcFilter)
-add_subdirectory(GPL/EventProbe)
-
+add_subdirectory(GPL)
 add_subdirectory(non-GPL)
