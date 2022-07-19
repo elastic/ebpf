@@ -12,32 +12,35 @@
 
 #include <LibEbpfEvents.h>
 
-static void print_features(uint64_t features, bool autodetect)
+static void print_features(uint64_t features)
 {
     printf("features: ");
     if (features & EBPF_FEATURE_BPF_TRAMP)
         printf("bpf_tramp,");
-    printf(" (autodetect=%s) \n", autodetect ? "true" : "false");
 }
 
-static void test_with(uint64_t features, bool autodetect)
+static void test_with(uint64_t features)
 {
     struct ebpf_event_ctx_opts opts = {};
     opts.features                   = features;
-    opts.features_autodetect        = autodetect;
     if (ebpf_event_ctx__new(NULL, NULL, opts)) {
         printf("probe could not load with ");
         goto out;
     }
     printf("probe did load successfully with ");
+
 out:
-    print_features(features, autodetect);
+    print_features(features);
 }
 
 int main(int argc, char **argv)
 {
-    test_with(EBPF_FEATURE_BPF_TRAMP, false);
-    test_with(0, false);
-    test_with(0, true);
+    test_with(EBPF_FEATURE_BPF_TRAMP);
+    test_with(0);
+
+    uint64_t autodetect_features;
+    ebpf_detect_system_features(&autodetect_features);
+    test_with(autodetect_features);
+
     return 0;
 }

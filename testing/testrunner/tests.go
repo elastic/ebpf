@@ -11,7 +11,47 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"syscall"
 )
+
+func TestFeaturesCorrect(et *EventsTraceInstance) {
+	var buf syscall.Utsname
+	if err := syscall.Uname(&buf); err != nil {
+		TestFail(fmt.Sprintf("Failed to run uname: %s", err))
+	}
+
+	archBytes := []byte{}
+	for _, b := range buf.Machine {
+		if b == 0 {
+			break
+		}
+
+		archBytes = append(archBytes, byte(b))
+	}
+	arch := string(archBytes)
+
+	// BPF trampolines are only supported on x86 at present.
+	//
+	// As of June 2022, there is a patchset circulating that will add support
+	// to ARM64 (https://lwn.net/Articles/899093/). This check should be
+	// updated when that is merged into the mainline such that it ensures BPF
+	// trampolines are disabled on all aarch64 kernels pre-<first Linux
+	// version with ARM64 BPF trampoline support>.
+	switch arch {
+	case "x86_64":
+		// All x86 kernels in the CI test matrix currently enable bpf
+		// trampolines (it's super ubiquitious on x86 as far as I can see), so
+		// just assertTrue on BPF tramp support on x86. If a kernel is added
+		// that doesn't enable BPF tramps on x86, logic should be added to
+		// handle it here.
+		AssertTrue(et.InitMsg.Features.BpfTramp)
+	case "aarch64":
+		AssertFalse(et.InitMsg.Features.BpfTramp)
+	default:
+		TestFail(fmt.Sprintf("Unknown arch %s, please add to the TestFeaturesCorrect test", arch))
+	}
+}
 
 func TestForkExit(et *EventsTraceInstance) {
 	outputStr := runTestBin("fork_exit")
@@ -62,7 +102,13 @@ func TestForkExec(et *EventsTraceInstance) {
 	for forkEvent == nil || execEvent == nil {
 		line := et.GetNextEventJson("PROCESS_FORK", "PROCESS_EXEC")
 
-		switch getJsonEventType(line) {
+		eventType, err := getJsonEventType(line)
+		if err != nil {
+			et.DumpStderr()
+			TestFail(fmt.Sprintf("Failed to unmarshal the following JSON: \"%s\": %s", line, err))
+		}
+
+		switch eventType {
 		case "PROCESS_FORK":
 			forkEvent = new(ProcessForkEvent)
 			if err := json.Unmarshal([]byte(line), &forkEvent); err != nil {

@@ -329,12 +329,12 @@ int BPF_KPROBE(kprobe__vfs_rename)
         new_dentry = rd.new_dentry;
     } else {
         /* Dentries are accessible from ctx */
-        err = FUNC_ARG_READ_PTREGS(old_dentry, vfs_rename, old_dentry);
+        err = FUNC_ARG_READ_PTREGS_NODEREF(old_dentry, vfs_rename, old_dentry);
         if (err) {
             bpf_printk("kprobe__vfs_rename: error reading old_dentry\n");
             return 0;
         }
-        err = FUNC_ARG_READ_PTREGS(new_dentry, vfs_rename, new_dentry);
+        err = FUNC_ARG_READ_PTREGS_NODEREF(new_dentry, vfs_rename, new_dentry);
         if (err) {
             bpf_printk("kprobe__vfs_rename: error reading new_dentry\n");
             return 0;

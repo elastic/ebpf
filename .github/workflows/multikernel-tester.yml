@@ -1,0 +1,75 @@
+name: Multi Kernel Testing
+on: [ pull_request ]
+
+jobs:
+  multikernel_tester:
+    strategy:
+      # If a failure occurs, run the other arches/distros to the end. It's useful to see if it
+      # occurs on other kernels as well
+      fail-fast: false
+      matrix:
+        kernel_flavor: [ mainline ]
+        arch: [ x86_64, aarch64 ]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+    - name: Build eBPF probes and userspace components
+      run: make build ARCH=${{ matrix.arch }}
+    - name: Auth GCP
+      uses: 'google-github-actions/auth@v0'
+      with:
+        credentials_json: '${{ secrets.ACTIONS_GCP_JSON_CREDENTIALS }}'
+    - name: 'Setup gcloud'
+      uses: 'google-github-actions/setup-gcloud@v0'
+    - name: Create kernel images directory
+      run: |
+        sudo mkdir -p /kernel-images
+        sudo chown -fR $USER:$USER /kernel-images
+    - name: Get current timestamp for GCS cache key
+      run: echo "TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
+    - name: Setup GCS cache
+      id: cache
+      uses: actions/cache@v3
+      with:
+        path: /kernel-images
+        key: gcs-cache-${{ matrix.kernel_flavor }}-${{ matrix.arch }}-${{ env.TIMESTAMP }}
+        restore-keys: gcs-cache-${{ matrix.kernel_flavor }}-${{ matrix.arch }}
+    - name: Rsync kernel images from GCS
+      run: gsutil -m rsync -d -r gs://ebpf-ci-kernel-images/${{ matrix.kernel_flavor }}/${{ matrix.arch }}/images /kernel-images/
+    - name: Install packages needed for testing
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+        gcc-aarch64-linux-gnu \
+        libc6-dev-arm64-cross \
+        parallel \
+        qemu-system-x86 \
+        qemu-system-arm
+      env:
+        DEBIAN_FRONTEND: noninteractive
+    - name: Install Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: '1.17'
+    - name: Install Bluebox
+      run: go install github.com/florianl/bluebox@b8590fb1850f56df6e6d7786931fcabdc1e9173d
+    - name: Run tests
+      working-directory: testing
+      run: |
+        ./run_tests.sh \
+        ${{ matrix.arch }} \
+        ../artifacts-${{ matrix.arch }}/non-GPL/EventsTrace/EventsTrace \
+        /kernel-images/*
+    - name: Archive test summary
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: run-summary-${{ matrix.kernel_flavor }}-${{ matrix.arch }}.txt
+        path: testing/bpf-check-summary.txt
+    - name: Archive individual test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: results-${{ matrix.kernel_flavor }}-${{ matrix.arch }}
+        path: testing/results

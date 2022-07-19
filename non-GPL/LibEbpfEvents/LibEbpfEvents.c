@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 
 #include "EventProbe.skel.h"
@@ -263,15 +264,103 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
     return err;
 }
 
-static void probe_set_features(uint64_t *features)
+static bool system_has_bpf_tramp()
+{
+    /*
+     * This is somewhat-fragile but as far as I can see, is the most robust
+     * possible way to detect BPF trampoline support on any given kernel, (i.e.
+     * if we can load "fentry/" and "fexit/" programs). BPF trampoline support
+     * was introduced on x86 with kernel commit
+     * fec56f5890d93fc2ed74166c397dc186b1c25951 in 5.5.
+     *
+     * To detect it, you not only need to load a BPF trampoline program, but
+     * you also need to _attach_ to that program. Loading will succeed even if
+     * BPF trampoline support is absent, only attaching will fail.
+     *
+     * To load + attach, we need to pass a BTF id to the attach_btf_id
+     * corresponding to the BTF type (of kind BTF_KIND_FUNC) of a valid
+     * function in the kernel that this program is supposed to be attached to.
+     * Loading will otherwise fail. The most robust thing to do here would be
+     * to iterate over the list of all BTF types and just pick the first one
+     * where kind == BTF_KIND_FUNC (i.e. just pick an arbitrary function that
+     * we know exists on the currently running kernel). Unfortunately this
+     * isn't possible, as some functions are marked with the __init attribute
+     * in the kernel, thus they cease to exist after bootup and can't be
+     * attached to.
+     *
+     * Instead we just use the taskstats_exit function. It's been in the kernel
+     * since 2006 and we already attach to it with a BPF probe, so if it's
+     * removed, more visible parts of the code should break as well, indicating
+     * this needs to be updated.
+     */
+
+    int prog_fd, attach_fd, btf_id;
+    bool ret        = true;
+    struct btf *btf = btf__load_vmlinux_btf();
+
+    /*
+     * r0 = 0
+     * exit
+     *
+     * This could be done more clearly with BPF_MOV64_IMM and BPF_EXIT_INSN
+     * macros in the kernel sources but unfortunately they're not exported to
+     * userspace.
+     */
+    struct bpf_insn insns[] = {
+        {.code    = BPF_ALU64 | BPF_MOV | BPF_K,
+         .dst_reg = BPF_REG_0,
+         .src_reg = 0,
+         .off     = 0,
+         .imm     = 0},
+        {.code = BPF_EXIT | BPF_JMP, .dst_reg = 0, .src_reg = 0, .off = 0, .imm = 0}};
+    int insns_cnt = 2;
+
+    btf_id = btf__find_by_name(btf, "taskstats_exit");
+    LIBBPF_OPTS(bpf_prog_load_opts, opts, .log_buf = NULL, .log_level = 0,
+                .expected_attach_type = BPF_TRACE_FENTRY, .attach_btf_id = btf_id);
+    prog_fd = bpf_prog_load(BPF_PROG_TYPE_TRACING, NULL, "GPL", insns, insns_cnt, &opts);
+    if (prog_fd < 0) {
+        ret = false;
+        goto out_free_btf;
+    }
+
+    /*
+     * NB: This is a confusingly named API: bpf(BPF_RAW_TRACEPOINT_OPEN, ...)
+     * is used to attach an already-loaded BPF trampoline program (in addition
+     * to a raw tracepoint).
+     *
+     * A new, more intuitively named API was added later called BPF_LINK_CREATE
+     * (see kernel commit 8462e0b46fe2d4c56d0a7de705228e3bf1da03d9), but the
+     * BPF_RAW_TRACEPOINT_OPEN approach should continue to work on all kernels
+     * due to the kernel's userspace API guarantees.
+     */
+    attach_fd = bpf_raw_tracepoint_open(NULL, prog_fd);
+    if (attach_fd < 0) {
+        ret = false;
+        goto out_close_prog_fd;
+    }
+
+    /* Successfully attached, we know BPF trampolines work, clean everything up */
+    close(attach_fd);
+
+out_close_prog_fd:
+    close(prog_fd);
+out_free_btf:
+    btf__free(btf);
+
+    return ret;
+}
+
+int ebpf_detect_system_features(uint64_t *features)
 {
     if (!features)
-        return;
+        return -EINVAL;
 
-    // default attach type for BPF_PROG_TYPE_TRACING is
-    // BPF_TRACE_FENTRY.
-    if (!libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_TRACING, NULL))
+    *features = 0;
+    if (system_has_bpf_tramp())
         *features |= EBPF_FEATURE_BPF_TRAMP;
+
+    return 0;
 }
 
 static int libbpf_verbose_print(enum libbpf_print_level lvl, const char *fmt, va_list args)
@@ -304,9 +393,6 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
         err = -ENOENT;
         goto out_destroy_probe;
     }
-
-    if (opts.features_autodetect)
-        probe_set_features(&opts.features);
 
     probe->rodata->consumer_pid = getpid();
 

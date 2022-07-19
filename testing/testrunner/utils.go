@@ -14,13 +14,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"reflect"
 	"runtime"
-	"runtime/debug"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -35,6 +34,13 @@ type TestPidInfo struct {
 }
 
 // Definitions of types printed by EventsTrace for conversion from JSON
+type InitMsg struct {
+	InitSuccess bool `json:"probes_initialized"`
+	Features    struct {
+		BpfTramp bool `json:"bpf_tramp"`
+	} `json:"features"`
+}
+
 type PidInfo struct {
 	Tid         int64 `json:"tid"`
 	Tgid        int64 `json:"tgid"`
@@ -107,17 +113,17 @@ type TtyWriteEvent struct {
 	Out       string  `json:"tty_out"`
 }
 
-func getJsonEventType(jsonLine string) string {
+func getJsonEventType(jsonLine string) (string, error) {
 	var jsonUnmarshaled struct {
 		EventType string `json:"event_type"`
 	}
 
 	err := json.Unmarshal([]byte(jsonLine), &jsonUnmarshaled)
 	if err != nil {
-		TestFail(err)
+		return "", err
 	}
 
-	return jsonUnmarshaled.EventType
+	return jsonUnmarshaled.EventType, nil
 }
 
 func runTestBin(binName string) []byte {
@@ -141,6 +147,18 @@ func AssertPidInfoEqual(tpi TestPidInfo, pi PidInfo) {
 	AssertInt64Equal(pi.Sid, tpi.Sid)
 }
 
+func AssertTrue(val bool) {
+	if val != true {
+		TestFail(fmt.Sprintf("Expected %t to be true", val))
+	}
+}
+
+func AssertFalse(val bool) {
+	if val != false {
+		TestFail(fmt.Sprintf("Expected %t to be false", val))
+	}
+}
+
 func AssertStringsEqual(a, b string) {
 	if a != b {
 		TestFail(fmt.Sprintf("Test assertion failed %s != %s", a, b))
@@ -159,31 +177,56 @@ func AssertInt64NotEqual(a, b int64) {
 	}
 }
 
+func PrintBPFDebugOutput() {
+	file, err := os.Open("/sys/kernel/debug/tracing/trace")
+	if err != nil {
+		fmt.Println("Could not open /sys/kernel/debug/tracing/trace: %s", err)
+		return
+	}
+	defer file.Close()
+
+	b, err := io.ReadAll(file)
+	if err != nil {
+		fmt.Println("Could not read /sys/kernel/debug/tracing/trace: %s", err)
+		return
+	}
+
+	fmt.Print(string(b))
+}
+
 func TestFail(v ...interface{}) {
 	fmt.Println(v...)
 
 	fmt.Println("===== STACKTRACE FOR FAILED TEST =====")
-	debug.PrintStack()
+	// Don't use debug.PrintStack here. It prints to stderr, which can cause
+	// Bluebox's init process to Log the stderr/stdout lines out of order (this
+	// is hard on the eyes when reading). Instead manually print the stacktrace
+	// to stdout so everything is going to the same stream and is serialized
+	// nicely.
+	b := make([]byte, 16384)
+	n := runtime.Stack(b, false)
+	s := string(b[:n])
+	fmt.Print(s)
 	fmt.Println("===== END STACKTRACE FOR FAILED TEST =====")
 
-	fmt.Println("")
-	fmt.Println("####################################################")
-	fmt.Println("# BPF test failed, see errors and stacktrace above #")
-	fmt.Println("####################################################")
-	fmt.Println("")
+	fmt.Println("===== CONTENTS OF /sys/kernel/debug/tracing/trace =====")
+	PrintBPFDebugOutput()
+	fmt.Println("===== END CONTENTS OF /sys/kernel/debug/tracing/trace =====")
 
-	PowerOff()
+	fmt.Print("\n")
+	fmt.Println("#######################################################################")
+	fmt.Println("# NOTE: /sys/kernel/debug/tracing/trace will only be populated if     #")
+	fmt.Println("# -DBPF_ENABLE_PRINTK was set to true in the CMake build.             #")
+	fmt.Println("# CI builds do NOT enable -DBPF_ENABLE_PRINTK for performance reasons #")
+	fmt.Println("#######################################################################")
+	fmt.Print("\n")
+
+	fmt.Println("BPF test failed, see errors and stacktrace above")
+	os.Exit(1)
 }
 
 func AllTestsPassed() {
 	fmt.Println("ALL BPF TESTS PASSED")
-}
-
-func PowerOff() {
-	fmt.Println("Powering off VM")
-	if err := syscall.Reboot(syscall.LINUX_REBOOT_CMD_POWER_OFF); err != nil {
-		panic(fmt.Sprintf("Power off failed: %s", err))
-	}
 }
 
 func IsOverlayFsSupported() bool {
@@ -210,7 +253,7 @@ func IsOverlayFsSupported() bool {
 
 func RunTest(f func(*EventsTraceInstance), args ...string) {
 	testFuncName := runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
-	ctx, cancel := context.WithTimeout(context.TODO(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.TODO(), 30*time.Second)
 
 	et := NewEventsTrace(ctx, args...)
 	et.Start(ctx)

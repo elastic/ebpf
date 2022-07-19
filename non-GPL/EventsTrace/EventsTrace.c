@@ -34,10 +34,10 @@ const char argp_program_doc[] =
     "[--process-fork] [--process-exec] [--process-exit] [--process-setsid] [--process-setuid] "
     "[--process-setgid] [--process-tty-write]\n"
     "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n"
-    "[--print-initialized] [--unbuffer-stdout] [--libbpf-verbose]\n";
+    "[--print-features-on-init] [--unbuffer-stdout] [--libbpf-verbose]\n";
 
 static const struct argp_option opts[] = {
-    {"print-initialized", 'i', NULL, false,
+    {"print-features-on-init", 'i', NULL, false,
      "Whether or not to print a message when probes have been successfully loaded", 1},
     {"unbuffer-stdout", 'u', NULL, false, "Don't buffer stdout in userspace at all", 1},
     {"libbpf-verbose", 'v', NULL, false, "Log verbose libbpf logs to stderr", 1},
@@ -68,23 +68,25 @@ static const struct argp_option opts[] = {
      "Whether or not to consider network connection attempted events", 1},
     {"net-conn-closed", EBPF_EVENT_NETWORK_CONNECTION_CLOSED, NULL, false,
      "Whether or not to consider network connection closed events", 1},
+    {"features-autodetect", 'd', NULL, false, "Autodetect features based on running kernel", 2},
     {"set-bpf-tramp", EBPF_FEATURE_BPF_TRAMP, NULL, false, "Set feature supported: bpf trampoline",
      2},
     {},
 };
 
-uint64_t g_events_env   = 0;
-uint64_t g_features_env = 0;
+uint64_t g_events_env          = 0;
+uint64_t g_features_env        = 0;
+uint64_t g_features_autodetect = 0;
 
-bool g_print_initialized = 0;
-bool g_unbuffer_stdout   = 0;
-bool g_libbpf_verbose    = 0;
+bool g_print_features_init = 0;
+bool g_unbuffer_stdout     = 0;
+bool g_libbpf_verbose      = 0;
 
 static error_t parse_arg(int key, char *arg, struct argp_state *state)
 {
     switch (key) {
     case 'i':
-        g_print_initialized = 1;
+        g_print_features_init = 1;
         break;
     case 'u':
         g_unbuffer_stdout = 1;
@@ -94,6 +96,9 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
         break;
     case 'a':
         g_events_env = UINT64_MAX;
+        break;
+    case 'd':
+        g_features_autodetect = 1;
         break;
     case EBPF_EVENT_FILE_DELETE:
     case EBPF_EVENT_FILE_CREATE:
@@ -625,6 +630,13 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
     return 0;
 }
 
+static void print_init_msg(uint64_t features)
+{
+    printf("{\"probes_initialized\": true, \"features\": {");
+    printf("\"bpf_tramp\": %s", (features & EBPF_FEATURE_BPF_TRAMP) ? "true" : "false");
+    printf("}}\n");
+}
+
 int main(int argc, char **argv)
 {
     int err                    = 0;
@@ -659,10 +671,11 @@ int main(int argc, char **argv)
     if (g_libbpf_verbose)
         ebpf_set_verbose_logging();
 
-    struct ebpf_event_ctx_opts opts = {
-        .events   = g_events_env,
-        .features = g_features_env,
-    };
+    struct ebpf_event_ctx_opts opts = {.events = g_events_env, .features = g_features_env};
+
+    if (g_features_autodetect)
+        ebpf_detect_system_features(&opts.features);
+
     err = ebpf_event_ctx__new(&ctx, event_ctx_callback, opts);
 
     if (err < 0) {
@@ -670,9 +683,9 @@ int main(int argc, char **argv)
         goto out;
     }
 
-    if (g_print_initialized) {
-        printf("{ \"eventstrace_message\": \"probes initialized\"}\n");
-    }
+    if (g_print_features_init)
+        print_init_msg(opts.features);
+
     while (!exiting) {
         err = ebpf_event_ctx__next(ctx, 10);
         if (err < 0) {

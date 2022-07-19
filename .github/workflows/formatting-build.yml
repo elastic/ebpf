@@ -1,0 +1,47 @@
+name: Formatting and Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  formatting-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Test code formatting
+        run: make test-format
+      - name: Cache hash
+        run: echo "GITHUB_CACHE_HASH=$(md5sum Makefile docker/Dockerfile.builder | md5sum | awk '{print $1}')" >> $GITHUB_ENV
+      - name: Setup docker cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/docker
+          key: ${{ env.GITHUB_CACHE_HASH }}-v0
+          restore-keys: |
+            ${{ env.GITHUB_CACHE_HASH }}-v0
+      - name: Configure Docker
+        run: |
+          sudo systemctl stop docker
+          sudo rm -rf /var/lib/docker
+          sudo mkdir -p /var/lib/docker
+          sudo mkdir -p ~/.cache/docker
+          sudo chown -fR root:root ~/.cache/docker
+          sudo mount --rbind ~/.cache/docker /var/lib/docker
+          sudo systemctl start docker
+      - name: Test build
+        run: make build
+      - name: Test for source differences post-build
+        run: git diff --exit-code
+      - name: Test container image build
+        run: make container
+      - name: Fix permissions (last step)
+        run: |
+          docker system prune -f
+          sudo systemctl stop docker
+          sudo umount /var/lib/docker
+          sudo chown -R $USER:$USER ~/.cache/docker
+          sudo rm -rf ~/.cache/docker/volumes/backingFsBlockDev
+          sudo find ~/.cache/docker -name work | sudo xargs chmod -R 700

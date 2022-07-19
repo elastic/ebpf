@@ -7,7 +7,7 @@
 
 # BPF program
 
-if (CMAKE_BUILD_TYPE STREQUAL Debug)
+if (CMAKE_BUILD_TYPE STREQUAL Debug OR ENABLE_BPF_PRINTK)
     set(BPF_DEBUG_TRACE 1)
 else()
     set(BPF_DEBUG_TRACE 0)
