@@ -36,7 +36,7 @@ is meant be used in cases where a host is known or suspected to be compromised,
 allowing security teams more time to locate the threat at hand.
 
 Host isolation BPF code is found under `GPL/Events` and associated userspace
-tools can be found under `non-GPL/Events`. See
+tools can be found under `non-GPL/HostIsolation`. See
 [docs/hostisolation.md](docs/hostisolation.md) for detailed information on the
 host isolation code.
 
