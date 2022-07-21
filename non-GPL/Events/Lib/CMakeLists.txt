@@ -12,4 +12,3 @@ target_include_directories(EbpfEvents PRIVATE
     "${LIBBPF_UAPI_INCLUDE_DIR}")
 
 configure_file(EbpfEvents.h ${TARGET_INCLUDE_DIR} COPYONLY)
-add_subdirectory(TestLoader)
