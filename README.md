@@ -9,7 +9,7 @@ Security](https://www.elastic.co/security/endpoint-security).
 
 Elastic Endpoint on Linux currently leverages eBPF for two use-cases: host
 isolation and event sourcing, with all code pertaining to the two being hosted
-here. At a high level, this repository is divided up on licensing grounds. BPF
+here. At a high level, this repository is divided up on licensing grounds. eBPF
 code, which must be GPL-licensed for the kernel to accept and load it, is
 located under the `GPL/` directory while all non-GPL code is located under the
 `non-GPL` directory.
@@ -22,7 +22,7 @@ process execution, file creation, file rename). On older kernels, this data is
 sourced via
 [tracefs](https://www.kernel.org/doc/Documentation/trace/ftrace.txt) instead.
 
-Event sourcing BPF code is found under `GPL/Events` and associated userspace
+Event sourcing eBPF code is found under `GPL/Events` and associated userspace
 tools can be found under `non-GPL/Events`. See [docs/events.md](docs/events.md)
 for detailed information on the event sourcing code.
 
@@ -35,7 +35,7 @@ to communicate with the outside world. It can be manually enabled in Kibana and
 is meant be used in cases where a host is known or suspected to be compromised,
 allowing security teams more time to locate the threat at hand.
 
-Host isolation BPF code is found under `GPL/HostIsolation` and associated userspace
+Host isolation eBPF code is found under `GPL/HostIsolation` and associated userspace
 tools can be found under `non-GPL/HostIsolation`. See
 [docs/hostisolation.md](docs/hostisolation.md) for detailed information on the
 host isolation code.
@@ -55,12 +55,12 @@ container with all required dependencies bundled inside.
 
 ```
 .
-|-- GPL                              # Dual BSD/GPLv2-licensed sources (mainly BPF code)
-|   |-- Events                       # Event sourcing BPF code
+|-- GPL                              # Dual BSD/GPLv2-licensed sources (mainly eBPF code)
+|   |-- Events                       # Event sourcing eBPF code
 |   |   |-- File                     # Code to source file events
-|   |   |-- Network                  # BPF code to source network events
-|   |   `-- Process                  # BPF code to source process events
-|   `-- HostIsolation                # Host isolation BPF code and tests
+|   |   |-- Network                  # eBPF code to source network events
+|   |   `-- Process                  # eBPF code to source process events
+|   `-- HostIsolation                # Host isolation eBPF code and tests
 |       |-- KprobeConnectHook
 |       `-- TcFilter
 |-- cmake
@@ -82,7 +82,7 @@ container with all required dependencies bundled inside.
 |   `-- HostIsolation                # Userspace tools and libraries related to host isolation
 |       |-- Demos                    # Demo binaries for the various, granular parts of host isolation
 |       `-- Lib                      # Userspace library that allows for use of host isolation functionality
-`-- testing                          # Infrastructure to test BPF code on many kernels (see testing/README.md)
+`-- testing                          # Infrastructure to test eBPF code on many kernels (see testing/README.md)
 ```
 
 ## Testing
