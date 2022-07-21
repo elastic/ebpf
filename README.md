@@ -16,7 +16,7 @@ located under the `GPL/` directory while all non-GPL code is located under the
 
 ## Event Sourcing
 
-On newer kernels (5.11+), Elastic endpoint uses eBPF to source the various
+On newer kernels (5.10.10+), Elastic endpoint uses eBPF to source the various
 security events it ultimately sends up to an Elasticsearch cluster (e.g.
 process execution, file creation, file rename). On older kernels, this data is
 sourced via
