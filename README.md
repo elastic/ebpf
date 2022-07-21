@@ -70,7 +70,7 @@ container with all required dependencies bundled inside.
 |   |-- googletest
 |   |-- kernel_hdrs                  # Kernel headers used in HostIsolation eBPF code (copied from kernel)
 |   |-- libbpf
-|   `-- vmlinux                      # bpftool-generated vmlinux.h for systems too old to support BTF
+|   `-- vmlinux                      # bpftool-generated vmlinux.h (see contrib/vmlinux/README.md)
 |       |-- aarch64
 |       `-- x86_64
 |-- docker                           # Dockerfiles used to build/test
