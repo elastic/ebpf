@@ -5,8 +5,13 @@
 # you may not use this file except in compliance with the Elastic License 2.0.
 
 if (NOT ARCH)
-    set(ARCH "${CMAKE_HOST_SYSTEM_PROCESSOR}")
+    log(FATAL_ERROR "An architecture must be specified, either \"aarch64\" or \"x86_64\" via -DARCH=<arch>")
 endif()
-if (NOT ARCH_TRUNC)
-    string(REPLACE "x86_64" "x86" ARCH_TRUNC ${ARCH})
+
+if (ARCH STREQUAL "x86_64")
+    set(ARCH_TRUNC "x86")
+elseif(ARCH STREQUAL "aarch64")
+    set(ARCH_TRUNC "arm64")
+else()
+    log(FATAL_ERROR "Invalid architecture ${ARCH}")
 endif()

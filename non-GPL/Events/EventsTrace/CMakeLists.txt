@@ -6,18 +6,12 @@
 
 add_executable(EventsTrace EventsTrace.c)
 add_dependencies(EventsTrace EbpfEvents EventProbe_skeleton libbpf libelf)
-target_link_libraries(EventsTrace EbpfEvents ${LIBBPF_LIB} ${LIBELF_LIB} -lz)
+target_link_libraries(EventsTrace EbpfEvents)
 
 if (BUILD_STATIC_EVENTSTRACE)
     target_link_libraries(EventsTrace -static)
 endif()
 
 target_include_directories(EventsTrace PRIVATE
-    "${LIBBPF_TARGET_INCLUDE_DIR}"
-    "${LIBBPF_UAPI_INCLUDE_DIR}"
-    "${LIBBPF_INCLUDE_DIR}"
     "${CMAKE_SOURCE_DIR}/GPL/Events"
-    "${TARGET_INCLUDE_DIR}"
-    "${LIBBPF_TARGET_INCLUDE_DIR}"
-    "${LIBBPF_UAPI_INCLUDE_DIR}"
 )
