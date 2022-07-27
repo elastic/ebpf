@@ -1,116 +1,96 @@
-# eBPF
-[![Build Status](https://github.com/elastic/ebpf/workflows/eBPF%20CI/badge.svg)](https://github.com/elastic/ebpf/actions)
+# eBPF Code for Elastic Endpoint
 
-Collection of BPF programs for Linux.
+[![Formatting and Build](https://github.com/elastic/ebpf/actions/workflows/formatting-build.yml/badge.svg)](https://github.com/elastic/ebpf/actions/workflows/formatting-build.yml)
+[![Multi Kernel Testing](https://github.com/elastic/ebpf/actions/workflows/multikernel-tester.yml/badge.svg)](https://github.com/elastic/ebpf/actions/workflows/multikernel-tester.yml)
 
-- [Host Isolation](#host-isolation)
+This repository contains eBPF code as well as associated userspace tools and
+components used in the Linux build of [Elastic Endpoint
+Security](https://www.elastic.co/security/endpoint-security).
+
+Elastic Endpoint on Linux currently leverages eBPF for two use-cases: host
+isolation and event sourcing, with all code pertaining to the two being hosted
+here. At a high level, this repository is divided up on licensing grounds. eBPF
+code, which must be GPL-licensed for the kernel to accept and load it, is
+located under the `GPL/` directory while all non-GPL code is located under the
+`non-GPL` directory.
+
+## Event Sourcing
+
+On newer kernels (5.10.10+), Elastic endpoint uses eBPF to source the various
+security events it ultimately sends up to an Elasticsearch cluster (e.g.
+process execution, file creation, file rename). On older kernels, this data is
+sourced via
+[tracefs](https://www.kernel.org/doc/Documentation/trace/ftrace.txt) instead.
+
+Event sourcing eBPF code is found under `GPL/Events` and associated userspace
+tools can be found under `non-GPL/Events`. See [docs/events.md](docs/events.md)
+for detailed information on the event sourcing code.
+
 ## Host Isolation
 
-### Programs
+[Host
+isolation](https://www.elastic.co/guide/en/security/current/host-isolation-api.html)
+is essentially an incredibly strict firewall that allows only Elastic Endpoint
+to communicate with the outside world. It can be manually enabled in Kibana and
+is meant be used in cases where a host is known or suspected to be compromised,
+allowing security teams more time to locate the threat at hand.
 
-- **KprobeConnectHook** hooks into tcp_v4_connect and adds destination IP to allowlist if PID is allowed
-- **TcFilter** attaches to network interface and filters packets based on allowed IPs
+Host isolation eBPF code is found under `GPL/HostIsolation` and associated userspace
+tools can be found under `non-GPL/HostIsolation`. See
+[docs/hostisolation.md](docs/hostisolation.md) for detailed information on the
+host isolation code.
 
-### Demo
+## Building
 
-- **UpdateIPsDemo** Userspace tool for updating IP and subnet allowlist
-- **UpdatePidsDemo** Userspace tool for updating PID allowlist
-- **KprobeConnectHookDemo** Loader for KprobeConnectHook eBPF program
-- **TcLoaderDemo** Loader for TcFilter eBPF program, attaches to ens33 interface by default
-
-<details>
-  <summary>Run the demos</summary>
-
-1. Follow the build section to build the project so that you have the `build/` folder
-1. Run `cd build/target/ebpf`
-1. Run `sudo ../../non-GPL/TcLoader/TcLoaderDemo` - packet filter is now attached to ens33
-1. Run `sudo ../../non-GPL/HostIsolation/KprobeConnectHook/KprobeConnectHookDemo` - connect hook is attached
-1. Run `firefox` in another tab - verify that all internet access is blocked
-1. Run `pgrep firefox` to get the PID of the browser
-1. Run `sudo ../../non-GPL/HostIsolationMapsUtil/UpdatePidsDemo <firefox PID>`
-1. Verify that firefox connects to any page
-1. Quit KprobeConnectHook with Ctrl+C and run `sudo ../../non-GPL/TcLoader/TcLoaderDemo unload` to detach both eBPF programs
-
-</details>
-
-### Tests (BPF_PROG_TEST_RUN)
-
-#### BPFTcFilterTests
-
-`BPFTcFilterTests` test suite for the `TcFilter.bpf.o` program
-
-**Usage**
-
-```bash
-cd build/target/ebpf
-sudo ../test/BPFTcFilterTests
-```
-
-Or if you want to use a custom path for the eBPF object file.
-
-```bash
-sudo ELASTIC_EBPF_TC_FILTER_OBJ_PATH=build/target/ebpf/TcFilter.bpf.o  build/target/test/BPFTcFilterTests
-```
-
-
-## Build dependencies
-Some distros might not have bmake
-or an older CMake, compiling them from source is usually a good alternative.
-
-bmake is the NetBSD make tool and it's used to build elftoolchain's libelf, the BSD Licensed ELF library
-we use as alternative to the GNU/Linux licensed elfutils's libelf.
-
-**Ubuntu/Debian**
-
-```bash
-apt install clang llvm cmake bmake zlib1g-dev m4 gcc g++ libc6-dev-i386
-```
-
-**CentOS/Fedora/AL2**
+To build all artifacts in the repository, run:
 
 ```
-yum install gcc g++ clang llvm zlib-devel m4 bmake
+make build ARCH=<arch>
 ```
 
-## Build
+Where `arch` is one of `x86_64` or `aarch64`. The build is run in a docker
+container with all required dependencies bundled inside.
 
-The build is a pretty standard CMake project.
-
-```
-mkdir build
-cd build
-cmake ..
-make
-```
-
-Besides the usual CMake variables, you can set the following variables which are specific to this project.
-
-| Variable         | Description                                                                |
-| ---------------- | -------------------------------------------------------------------------- |
-| -DTARGET_DIR     | Directory to use to store the compiled targets                             |
-| -DLIBBPF_CONTRIB | Alternative directory to use for libbpf sources instead of the bundled one |
+## Repository Layout
 
 ```
-target
-├── ebpf
-│   ├── KprobeConnectHook.bpf.o
-│   └── TcFilter.bpf.o
-├── include
-│   ├── Common.h
-│   ├── KprobeLoader.h
-│   ├── TcLoader.h
-│   └── UpdateMaps.h
-├── libeBPF.a
-└── test
-    └── BPFTcFilterTests
+.
+|-- GPL                              # Dual BSD/GPLv2-licensed sources (mainly eBPF code)
+|   |-- Events                       # Event sourcing eBPF code
+|   |   |-- File                     # Code to source file events
+|   |   |-- Network                  # eBPF code to source network events
+|   |   `-- Process                  # eBPF code to source process events
+|   `-- HostIsolation                # Host isolation eBPF code and tests
+|       |-- KprobeConnectHook
+|       `-- TcFilter
+|-- cmake
+|   `-- modules                      # CMake modules to build third party dependencies
+|-- contrib                          # Third party dependency sources
+|   |-- elftoolchain
+|   |-- googletest
+|   |-- kernel_hdrs                  # Kernel headers used in HostIsolation eBPF code (copied from kernel)
+|   |-- libbpf
+|   `-- vmlinux                      # bpftool-generated vmlinux.h (see contrib/vmlinux/README.md)
+|       |-- aarch64
+|       `-- x86_64
+|-- docker                           # Dockerfiles used to build/test
+|-- licenses                         # Licenses used in the codebase
+|-- non-GPL                          # Elastic-2.0 licensed code (userspace tools and libraries)
+|   |-- Events                       # Userspace tools and libraries related to event sourcing
+|   |   |-- EventsTrace              # Simple command-line utility to load and use event probes
+|   |   |-- Lib                      # Userspace library to load and use event probes used by EventsTrace
+|   `-- HostIsolation                # Userspace tools and libraries related to host isolation
+|       |-- Demos                    # Demo binaries for the various, granular parts of host isolation
+|       `-- Lib                      # Userspace library that allows for use of host isolation functionality
+`-- testing                          # Infrastructure to test eBPF code on many kernels (see testing/README.md)
 ```
 
-## Directory layout:
+## Testing
 
-- `contrib/` external dependencies, libraries
-  - `contrib/elftoolchain` repo: [github.com/elftoolchain/elftoolchain@11d16eab](https://github.com/elftoolchain/elftoolchain/commit/11d16eab)
-  - `contrib/kernel_hdrs` headers with eBPF definitions, copied 1:1 from kernel sources
-  - `contrib/libbpf` repo: [github.com/libbpf/libbpf@0.7.0](https://github.com/libbpf/libbpf/releases/tag/v0.7.0)
-  - `contrib/googletest` repo: [github.com/google/googletest@955c7f83](https://github.com/google/googletest/commit/955c7f83)
-- `GPL` eBPF programs which are GPL licensed
-- `non-GPL` tools, utilities with Elastic non-GPL license
+This repository contains infrastructure to test our eBPF code against a wide
+array of kernels. See [testing/README.md](testing/README.md) for more
+information.
+
+## Licensing
+
+Various licenses are used in this repository, see the [LICENSE.txt](LICENSE.txt) file for details.

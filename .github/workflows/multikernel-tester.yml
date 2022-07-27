@@ -59,7 +59,7 @@ jobs:
       run: |
         ./run_tests.sh \
         ${{ matrix.arch }} \
-        ../artifacts-${{ matrix.arch }}/non-GPL/EventsTrace/EventsTrace \
+        ../artifacts-${{ matrix.arch }}/non-GPL/Events/EventsTrace/EventsTrace \
         /kernel-images/*
     - name: Archive test summary
       if: always()

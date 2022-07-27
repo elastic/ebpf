@@ -1,5 +1,4 @@
-
-# SPDX-License-Identifier: LicenseRef-Elastic-License-2.0
+# SPDX-License-Identifier: Elastic-2.0
 
 # Copyright 2021 Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
 # or more contributor license agreements. Licensed under the Elastic License 2.0;

@@ -52,21 +52,5 @@ if (NOT CMAKE_BUILD_TYPE STREQUAL Debug)
         COMMENT "[bpf] stripping ${EVENTS_PROBE_BPF_OUTPUT}")
 endif()
 
-
-# BPF_PROG_TEST_RUN gtests
-add_executable(BPFEventsTests BPFEventsTests.cpp ${GTEST_MAIN})
-set_target_properties(BPFEventsTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${TARGET_TEST_DIR})
-target_include_directories(BPFEventsTests PRIVATE
-    "${LIBBPF_TARGET_INCLUDE_DIR}"
-    "${LIBBPF_UAPI_INCLUDE_DIR}"
-    "${LIBBPF_INCLUDE_DIR}"
-    "${TARGET_INCLUDE_DIR}"
-    "${GTEST_INCLUDE}")
-
-add_dependencies(BPFEventsTests BPFEventProbe)
-
 bpf_skeleton(EventProbe)
 add_dependencies(EventProbe_skeleton BPFEventProbe)
-
-target_link_libraries(BPFEventsTests ${LIBBPF_LIB} ${LIBELF_LIB} ${GTEST_LIB} -pthread -lz)
-add_dependencies(BPFEventsTests EventProbe_skeleton libbpf libelf gtest)
