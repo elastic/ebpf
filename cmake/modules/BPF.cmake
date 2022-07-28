@@ -11,7 +11,7 @@ set(LLC "llc")
 set(LLVM_STRIP "llvm-strip")
 set(BPFTOOL "bpftool")
 set(BTF_FILE "/sys/kernel/btf/vmlinux")
-option(USE_BUILTIN_VMLINUX "If true, use the builtin vmlinux.h for building BPF probes instead of generating one from system BTF" True)
+option(USE_BUILTIN_VMLINUX "If true, use the builtin vmlinux.h for building eBPF probes instead of generating one from system BTF" True)
 
 # Standard includes
 execute_process(COMMAND ${CLANG} -print-file-name=include
