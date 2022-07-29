@@ -11,7 +11,7 @@ set(LLC "llc")
 set(LLVM_STRIP "llvm-strip")
 set(BPFTOOL "bpftool")
 set(BTF_FILE "/sys/kernel/btf/vmlinux")
-option(USE_BUILTIN_VMLINUX "Whether or not to use the builtin vmlinux.h for building the BPF programs instead of trying to generate one from the system" True)
+option(USE_BUILTIN_VMLINUX "If true, use the builtin vmlinux.h for building eBPF probes instead of generating one from system BTF" True)
 
 # Standard includes
 execute_process(COMMAND ${CLANG} -print-file-name=include
@@ -38,8 +38,8 @@ endif()
 
 # Skeleton generation
 macro(bpf_skeleton name)
-    set(_object_file_path ${TARGET_EBPF_DIR}/${name}.bpf.o)
-    set(_skeleton_file_path ${TARGET_INCLUDE_DIR}/${name}.skel.h)
+    set(_object_file_path ${CMAKE_CURRENT_BINARY_DIR}/${name}.bpf.o)
+    set(_skeleton_file_path ${CMAKE_CURRENT_BINARY_DIR}/${name}.skel.h)
     add_custom_target(
         ${name}_skeleton
         COMMAND ${BPFTOOL} gen skeleton ${_object_file_path} > ${_skeleton_file_path}

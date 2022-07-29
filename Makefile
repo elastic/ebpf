@@ -55,7 +55,7 @@ build-debug:
 _internal-build:
 	mkdir -p ${BUILD_DIR}/
 	cmake ${EXTRA_CMAKE_FLAGS} ${CMAKE_FLAGS}
-	make -C${BUILD_DIR} -j$(shell nproc)
+	make VERBOSE=1 -C${BUILD_DIR} -j$(shell nproc)
 
 container:
 	docker build -t ${DOCKER_LOCAL_TAG} -f docker/Dockerfile.builder .

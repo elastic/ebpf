@@ -4,11 +4,14 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-add_library(EbpfEvents EbpfEvents.c)
+add_library(EbpfEvents STATIC EbpfEvents.c)
 add_dependencies(EbpfEvents EventProbe_skeleton libbpf BPFEventProbe)
-target_include_directories(EbpfEvents PRIVATE
-    "${TARGET_INCLUDE_DIR}"
-    "${LIBBPF_TARGET_INCLUDE_DIR}"
-    "${LIBBPF_UAPI_INCLUDE_DIR}")
+target_link_libraries(EbpfEvents libbpf)
 
-configure_file(EbpfEvents.h ${TARGET_INCLUDE_DIR} COPYONLY)
+target_include_directories(EbpfEvents
+    PRIVATE
+    "${LIBBPF_UAPI_INCLUDE_DIR}"
+    PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${PROJECT_BINARY_DIR}/GPL/Events"  # For the skeleton header
+    "${PROJECT_SOURCE_DIR}/GPL/Events") # For EbpfEventProto.h

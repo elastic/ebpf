@@ -11,16 +11,6 @@ project(ebpf)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O2 -Wall -fPIC")
-set(TARGET_DIR_DEFAULT "${CMAKE_CURRENT_BINARY_DIR}/target")
-set(TARGET_DIR "${TARGET_DIR_DEFAULT}" CACHE STRING "Custom target directory")
-set(TARGET_TEST_DIR "${TARGET_DIR}/test")
-set(TARGET_INCLUDE_DIR "${TARGET_DIR}/include")
-set(TARGET_EBPF_DIR "${TARGET_DIR}/ebpf")
-
-file(MAKE_DIRECTORY ${TARGET_DIR})
-file(MAKE_DIRECTORY ${TARGET_INCLUDE_DIR})
-file(MAKE_DIRECTORY ${TARGET_EBPF_DIR})
-file(MAKE_DIRECTORY ${TARGET_TEST_DIR})
 
 include(ExternalProject)
 include(libelf)
