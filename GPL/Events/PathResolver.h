@@ -243,22 +243,16 @@ static void ebpf_resolve_pids_ss_cgroup_path_to_string(char *buf, const struct t
      * can change kernel-to-kernel depending on the kconfig or possibly not be
      * enabled at all.
      */
-    // NOTE: This code is commented out to get this PR building and in a
-    // reviewable state as our toolchain currently uses LLVM 12, which doesn't
-    // support bpf_core_enum_value_exists. @stanek-michal is currently working
-    // on updating to LLVM 14. This will be removed when the toolchain is
-    // updated.
-    //
-    //    int cgrp_id;
-    //    if (bpf_core_enum_value_exists(enum cgroup_subsys_id, pids_cgrp_id)) {
-    //        cgrp_id = bpf_core_enum_value(enum cgroup_subsys_id, pids_cgrp_id);
-    //    } else {
-    //        /* Pids cgroup is not enabled on this kernel */
-    //        buf[0] = '\0';
-    //        return;
-    //    }
+    int cgrp_id;
+    if (bpf_core_enum_value_exists(enum cgroup_subsys_id, pids_cgrp_id)) {
+        cgrp_id = bpf_core_enum_value(enum cgroup_subsys_id, pids_cgrp_id);
+    } else {
+        /* Pids cgroup is not enabled on this kernel */
+        buf[0] = '\0';
+        return;
+    }
 
-    struct kernfs_node *kn = BPF_CORE_READ(task, cgroups, subsys[pids_cgrp_id], cgroup, kn);
+    struct kernfs_node *kn = BPF_CORE_READ(task, cgroups, subsys[cgrp_id], cgroup, kn);
     ebpf_resolve_kernfs_node_to_string(buf, kn);
 }
 
