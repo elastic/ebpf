@@ -6,12 +6,26 @@
 
 
 # Tools and defines
-set(CLANG "clang")
-set(LLC "llc")
-set(LLVM_STRIP "llvm-strip")
-set(BPFTOOL "bpftool")
-set(BTF_FILE "/sys/kernel/btf/vmlinux")
 option(USE_BUILTIN_VMLINUX "If true, use the builtin vmlinux.h for building eBPF probes instead of generating one from system BTF" True)
+option(USE_ZIG_BPF_COMPILER "If true, use zig's drop in replacement to clang/llvm compiler" True)
+
+if (USE_ZIG_BPF_COMPILER)
+    set(BPF_COMPILER zig)
+    set(BPF_COMPILER_FLAGS
+        cc
+        -Qunused-arguments
+        --target=bpfel-freestanding-none
+    )
+else()
+    set(BPF_COMPILER clang)
+    set(BPF_COMPILER_FLAGS
+        -target=bpf
+    )
+endif()
+
+set(LLVM_STRIP llvm-strip)
+set(BPFTOOL bpftool)
+set(BTF_FILE "/sys/kernel/btf/vmlinux")
 
 # Standard includes
 execute_process(COMMAND ${CLANG} -print-file-name=include

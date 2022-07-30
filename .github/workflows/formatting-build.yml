@@ -11,8 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Test code formatting
-        run: make test-format
       - name: Cache hash
         run: echo "GITHUB_CACHE_HASH=$(md5sum Makefile docker/Dockerfile.builder | md5sum | awk '{print $1}')" >> $GITHUB_ENV
       - name: Setup docker cache
@@ -31,6 +29,8 @@ jobs:
           sudo chown -fR root:root ~/.cache/docker
           sudo mount --rbind ~/.cache/docker /var/lib/docker
           sudo systemctl start docker
+      - name: Test code formatting
+        run: make test-format
       - name: Test build
         run: make build
       - name: Test for source differences post-build

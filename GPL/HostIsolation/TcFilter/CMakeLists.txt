@@ -6,7 +6,7 @@
 # may choose either one of them if you use this software.
 
 set(TCFILTER_CFLAGS
-                -g -O2 -nostdinc -isystem ${NOSTDINC_INCLUDES}
+                -g -O2 -nostdinc
                 -I${PROJECT_SOURCE_DIR}/contrib/kernel_hdrs
                 -I${LIBBPF_UAPI_INCLUDE_DIR}
                 -D__KERNEL__
@@ -24,7 +24,7 @@ set(TCFILTER_CFLAGS
 
 set(TCFILTER_BPF_OUTPUT ${HOSTISOLATION_EBPF_OBJECT_DIR}/TcFilter.bpf.o)
 add_custom_command(OUTPUT ${TCFILTER_BPF_OUTPUT}
-                  COMMAND ${EBPF_EXTERNAL_ENV_FLAGS} ${CLANG} ${TCFILTER_CFLAGS} -emit-llvm -c ${CMAKE_CURRENT_SOURCE_DIR}/TcFilter.bpf.c -o - | ${LLC} -march=bpf -mcpu=v2 -filetype=obj -o  ${TCFILTER_BPF_OUTPUT}
+                  COMMAND ${EBPF_EXTERNAL_ENV_FLAGS} ${BPF_COMPILER} ${BPF_COMPILER_FLAGS} ${TCFILTER_CFLAGS} -c ${CMAKE_CURRENT_SOURCE_DIR}/TcFilter.bpf.c -o ${TCFILTER_BPF_OUTPUT}
                   COMMENT "Building  ${TCFILTER_BPF_OUTPUT}"
                   IMPLICIT_DEPENDS C ${CMAKE_CURRENT_SOURCE_DIR}/TcFilter.bpf.c)
 

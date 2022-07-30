@@ -36,9 +36,10 @@ ExternalProject_Add(
     libbpf-external
     DOWNLOAD_COMMAND ""
     CONFIGURE_COMMAND ""
-    BUILD_COMMAND CC=${CMAKE_C_COMPILER} ${EBPF_EXTERNAL_ENV_FLAGS} make -C ${LIBBPF_SRC} BUILD_STATIC_ONLY=1 NO_PKG_CONFIG=1 OBJDIR=${LIBBPF_BUILD_DIR} INCLUDEDIR= LIBDIR= UAPIDIR= CFLAGS=${CMAKE_C_FLAGS} DESTDIR=${LIBBPF_TARGET_INCLUDE_DIR} install
+    BUILD_COMMAND CC=${CMAKE_C_COMPILER} ${EBPF_EXTERNAL_ENV_FLAGS} make -j${NPROC} -C ${LIBBPF_SRC} BUILD_STATIC_ONLY=1 NO_PKG_CONFIG=1 OBJDIR=${LIBBPF_BUILD_DIR} INCLUDEDIR= LIBDIR= UAPIDIR= CFLAGS=${CMAKE_C_FLAGS} DESTDIR=${LIBBPF_TARGET_INCLUDE_DIR} install
     BUILD_IN_SOURCE 0
     INSTALL_COMMAND ""
+    DEPENDS libelf libz
     BUILD_BYPRODUCTS ${LIBBPF_LIB} ${LIBBPF_TARGET_INCLUDE_DIR}
 )
 
@@ -52,11 +53,5 @@ file(MAKE_DIRECTORY "${LIBBPF_TARGET_INCLUDE_DIR}")
 add_library(libbpf STATIC IMPORTED GLOBAL)
 set_property(TARGET libbpf PROPERTY IMPORTED_LOCATION "${LIBBPF_LIB}")
 set_property(TARGET libbpf PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${LIBBPF_TARGET_INCLUDE_DIR}")
-
-# TODO: Update this to be libelf;libz when we've vendored-in libz, and remove
-# -lz from all targets that link to it. If we do -lz here, targets linking to
-# libEbpfEvents will dynamically link to libz, which is not desirable in
-# endpoint
-set_property(TARGET libbpf PROPERTY INTERFACE_LINK_LIBRARIES "libelf")
-
+set_property(TARGET libbpf PROPERTY INTERFACE_LINK_LIBRARIES "libelf;libz")
 add_dependencies(libbpf libbpf-external)

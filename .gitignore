@@ -6,6 +6,9 @@
 /non-GPL/HostIsolation/KprobeConnectHook/build/
 /non-GPL/HostIsolationMapsUtil/build/
 /non-GPL/TcLoader/build/
+.vscode
+ctags
+cscope.out
 
 # Test results and other stuff in testing/
 testing/bpf-check-summary.txt

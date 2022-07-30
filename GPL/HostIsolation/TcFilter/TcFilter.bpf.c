@@ -162,7 +162,7 @@ int classifier(struct __sk_buff *skb)
 
     if (protocol == IPPROTO_UDP) {
         /* handle UDP */
-        struct udphdr *udp = ip + 1;
+        struct udphdr *udp = (struct udphdr *)(ip + 1);
         if (udp + 1 > data_end) {
             rv = DROP_PACKET;
             goto out;
@@ -177,7 +177,7 @@ int classifier(struct __sk_buff *skb)
         }
     } else if (protocol == IPPROTO_TCP) {
         /* handle TCP */
-        struct tcphdr *tcp = ip + 1;
+        struct tcphdr *tcp = (struct tcphdr *)(ip + 1);
         if (tcp + 1 > data_end) {
             rv = DROP_PACKET;
             goto out;
