@@ -1,0 +1,24 @@
+on:
+  workflow_call:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [ x86_64, aarch64 ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Configure System
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y qemu-user-static
+        env:
+          DEBIAN_FRONTEND: noninteractive
+      - name: Test Formatting
+        run: make test-format ARCH=${{matrix.arch}}
+      - name: Test build
+        run: make build ARCH=${{matrix.arch}}
+      - name: Test for source differences post-build
+        run: git diff --exit-code

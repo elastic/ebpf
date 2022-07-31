@@ -1,0 +1,32 @@
+name: GITHUB ACTIONS CI
+
+on:
+  push:
+    branches:
+    - main
+    - "[0-9]*.[0-9]*"
+  pull_request:
+    branches:
+    - main
+    - "[0-9]*.[0-9]*"
+
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-build:
+    name: Container Image Build
+    uses: ./.github/workflows/local-build.yml
+    secrets: inherit
+  build:
+    name: Platform Build
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+  multikernel-tester:
+    name: Multi-Kernel Testing
+    needs:
+      - build
+      - local-build
+    uses: ./.github/workflows/multikernel-tester.yml
+    secrets: inherit

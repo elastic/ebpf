@@ -1,5 +1,5 @@
-name: Multi Kernel Testing
-on: [ pull_request ]
+on:
+  workflow_call:
 
 jobs:
   multikernel_tester:
@@ -14,6 +14,18 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
+    - name: Install packages needed for testing
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+        gcc-aarch64-linux-gnu \
+        libc6-dev-arm64-cross \
+        parallel \
+        qemu-system-x86 \
+        qemu-system-arm \
+        qemu-user-static
+      env:
+        DEBIAN_FRONTEND: noninteractive
     - name: Build eBPF probes and userspace components
       run: make build ARCH=${{ matrix.arch }}
     - name: Auth GCP
@@ -37,17 +49,6 @@ jobs:
         restore-keys: gcs-cache-${{ matrix.kernel_flavor }}-${{ matrix.arch }}
     - name: Rsync kernel images from GCS
       run: gsutil -m rsync -d -r gs://ebpf-ci-kernel-images/${{ matrix.kernel_flavor }}/${{ matrix.arch }}/images /kernel-images/
-    - name: Install packages needed for testing
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y --no-install-recommends \
-        gcc-aarch64-linux-gnu \
-        libc6-dev-arm64-cross \
-        parallel \
-        qemu-system-x86 \
-        qemu-system-arm
-      env:
-        DEBIAN_FRONTEND: noninteractive
     - name: Install Go
       uses: actions/setup-go@v3
       with:
