@@ -6,7 +6,7 @@
 # may choose either one of them if you use this software.
 
 set(TCFILTER_CFLAGS
-                -g -O2 -nostdinc
+                -g -O2 -nostdinc -mcpu=v2
                 -I${PROJECT_SOURCE_DIR}/contrib/kernel_hdrs
                 -I${LIBBPF_UAPI_INCLUDE_DIR}
                 -D__KERNEL__

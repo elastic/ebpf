@@ -13,7 +13,6 @@ if (USE_ZIG_BPF_COMPILER)
     set(BPF_COMPILER zig)
     set(BPF_COMPILER_FLAGS
         cc
-        -Qunused-arguments
         --target=bpfel-freestanding-none
     )
 else()
