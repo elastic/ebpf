@@ -22,7 +22,9 @@ func main() {
 	RunTest(TestFileCreate, "--file-create")
 	RunTest(TestFileDelete, "--file-delete")
 	RunTest(TestFileRename, "--file-rename")
-	RunTest(TestTtyWrite, "--process-tty-write")
+
+	// TODO: Re-enable tty_write probe when BTF issues are fixed
+	// RunTest(TestTtyWrite, "--process-tty-write")
 
 	// These tests rely on overlayfs support. Distro kernels commonly compile
 	// overlayfs as a module, thus it's not available to us in our
