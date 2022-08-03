@@ -7,9 +7,10 @@
 
 set(KPROBECONNECTHOOK_CFLAGS
                         -g -O2
-                        -target bpf
                         -D__TARGET_ARCH_${ARCH_TRUNC}
                         -D__${ARCH}__
+                        -I${PROJECT_SOURCE_DIR}/contrib/libbpf/include
+                        -I/usr/include
                         -I${LIBBPF_TARGET_INCLUDE_DIR}
                         -I${LIBBPF_UAPI_INCLUDE_DIR}
                         -I${CMAKE_SOURCE_DIR}/non-GPL/Common
@@ -17,7 +18,7 @@ set(KPROBECONNECTHOOK_CFLAGS
 
 set(KPROBECONNECTHOOK_BPF_OUTPUT ${HOSTISOLATION_EBPF_OBJECT_DIR}/KprobeConnectHook.bpf.o)
 add_custom_command(OUTPUT ${KPROBECONNECTHOOK_BPF_OUTPUT}
-                  COMMAND ${EBPF_EXTERNAL_ENV_FLAGS} ${CLANG} ${KPROBECONNECTHOOK_CFLAGS} -c ${CMAKE_CURRENT_SOURCE_DIR}/KprobeConnectHook.bpf.c -o ${KPROBECONNECTHOOK_BPF_OUTPUT}
+                  COMMAND ${EBPF_EXTERNAL_ENV_FLAGS} ${BPF_COMPILER} ${BPF_COMPILER_FLAGS} ${KPROBECONNECTHOOK_CFLAGS} -c ${CMAKE_CURRENT_SOURCE_DIR}/KprobeConnectHook.bpf.c -o ${KPROBECONNECTHOOK_BPF_OUTPUT}
                   COMMENT "Building ${KPROBECONNECTHOOK_BPF_OUTPUT}"
                   DEPENDS libbpf
                   IMPLICIT_DEPENDS C ${CMAKE_CURRENT_SOURCE_DIR}/KprobeConnectHook.bpf.c)
