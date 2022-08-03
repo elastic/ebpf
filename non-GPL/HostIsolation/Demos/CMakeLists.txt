@@ -10,8 +10,7 @@ function(add_demo name)
         "${LIBBPF_UAPI_INCLUDE_DIR}"
         "${PROJECT_SOURCE_DIR}/non-GPL/HostIsolation/Lib")
 
-    # TODO: Remove -lz once we've vendored in libz
-    target_link_libraries("${name}" PRIVATE EbpfHostIsolation libbpf -lz)
+    target_link_libraries("${name}" PRIVATE EbpfHostIsolation libbpf)
 endfunction()
 
 add_demo(TcLoaderDemo)

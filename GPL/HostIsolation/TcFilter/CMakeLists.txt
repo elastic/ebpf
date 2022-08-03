@@ -39,7 +39,6 @@ target_include_directories(BPFTcFilterTests
 
 add_dependencies(BPFTcFilterTests BPFTcFilter)
 
-# TODO: Remove "-lz" once we've vendored in libz
-target_link_libraries(BPFTcFilterTests libbpf ${GTEST_LIB} -pthread -lz)
+target_link_libraries(BPFTcFilterTests libbpf ${GTEST_LIB} -pthread)
 add_dependencies(BPFTcFilterTests libbpf libelf gtest)
 
