@@ -16,11 +16,14 @@
 #include "Helpers.h"
 #include "PathResolver.h"
 
+// TODO: Re-enable tty_write probe when BTF issues are fixed
+#if 0
 /* tty_write */
 DECL_FUNC_ARG(tty_write, from);
 DECL_FUNC_ARG(tty_write, buf);
 DECL_FUNC_ARG(tty_write, count);
 DECL_FUNC_ARG_EXISTS(tty_write, from);
+#endif
 
 SEC("tp_btf/sched_process_fork")
 int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct task_struct *child)
@@ -241,6 +244,8 @@ int BPF_KPROBE(kprobe__commit_creds, struct cred *new)
     return commit_creds__enter(new);
 }
 
+// TODO: Re-enable tty_write probe when BTF issues are fixed
+#if 0
 static int tty_write__enter(const char *buf, ssize_t count)
 {
     if (is_consumer())
@@ -322,3 +327,4 @@ int BPF_KPROBE(kprobe__tty_write)
 out:
     return 0;
 }
+#endif

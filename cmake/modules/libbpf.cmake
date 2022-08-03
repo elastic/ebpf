@@ -52,5 +52,11 @@ file(MAKE_DIRECTORY "${LIBBPF_TARGET_INCLUDE_DIR}")
 add_library(libbpf STATIC IMPORTED GLOBAL)
 set_property(TARGET libbpf PROPERTY IMPORTED_LOCATION "${LIBBPF_LIB}")
 set_property(TARGET libbpf PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${LIBBPF_TARGET_INCLUDE_DIR}")
-set_property(TARGET libbpf PROPERTY INTERFACE_LINK_LIBRARIES "libelf;-lz")
+
+# TODO: Update this to be libelf;libz when we've vendored-in libz, and remove
+# -lz from all targets that link to it. If we do -lz here, targets linking to
+# libEbpfEvents will dynamically link to libz, which is not desirable in
+# endpoint
+set_property(TARGET libbpf PROPERTY INTERFACE_LINK_LIBRARIES "libelf")
+
 add_dependencies(libbpf libbpf-external)

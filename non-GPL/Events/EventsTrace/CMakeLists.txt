@@ -6,7 +6,9 @@
 
 add_executable(EventsTrace EventsTrace.c)
 add_dependencies(EventsTrace EbpfEvents EventProbe_skeleton libbpf libelf)
-target_link_libraries(EventsTrace EbpfEvents)
+
+# TODO: Remove "libbpf -lz" once we've vendored in libz
+target_link_libraries(EventsTrace EbpfEvents libbpf -lz)
 
 if (BUILD_STATIC_EVENTSTRACE)
     target_link_libraries(EventsTrace -static)

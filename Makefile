@@ -1,7 +1,7 @@
 ARCH ?= $(shell arch)
 
 DOCKER_IMAGE = us-docker.pkg.dev/elastic-security-dev/ebpf-public/builder
-DOCKER_PULL_TAG = 20220711-1742
+DOCKER_PULL_TAG = 20220803-1801
 DOCKER_LOCAL_TAG = ${USER}-latest
 CURRENT_DATE_TAG = $(shell date +%Y%m%d-%H%M)
 
@@ -58,10 +58,10 @@ _internal-build:
 	make VERBOSE=1 -C${BUILD_DIR} -j$(shell nproc)
 
 container:
-	docker build -t ${DOCKER_LOCAL_TAG} -f docker/Dockerfile.builder .
+	docker build -t ${DOCKER_IMAGE}:${DOCKER_LOCAL_TAG} -f docker/Dockerfile.builder .
 
 tag-container:
-	docker tag ${DOCKER_IMAGE}:${DOCKER_LOCAL_TAG} ${DOCKER_IMAGE}:$CURRENT_DATE_TAG
+	docker tag ${DOCKER_IMAGE}:${DOCKER_LOCAL_TAG} ${DOCKER_IMAGE}:${CURRENT_DATE_TAG}
 	@echo "\n++ Tagged image as ${DOCKER_IMAGE}:${CURRENT_DATE_TAG} ++\n"
 
 # We dockerize code formatting because differences in clang-format versions can
