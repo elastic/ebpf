@@ -16,7 +16,6 @@
 #include "Helpers.h"
 #include "PathResolver.h"
 
-
 // TODO: Re-enable tty_write probe when BTF issues are fixed
 #if 0
 /* tty_write */
