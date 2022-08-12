@@ -1,0 +1,6 @@
+FROM docker.io/ubuntu:latest
+COPY / /kernel-img-repository/
+
+LABEL org.opencontainers.image.source https://github.co/elastic/ebpf
+
+CMD ["/bin/bash", "-c", "cp -r /kernel-img-repository/* /kernel-images/"]

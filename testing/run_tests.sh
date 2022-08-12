@@ -74,20 +74,24 @@ main() {
     while getopts "j:" opt; do
         case ${opt} in
             j ) jobs=$OPTARG
+                shift 1
                 ;;
             \? )
                 exit_usage
                 ;;
         esac
     done
-    shift $(( OPTIND - 1))
-    shift 3
+
+    shift 2
 
     is_empty $arch \
         && exit_usage
 
     is_empty $eventstrace \
         && exit_usage
+
+    echo "Images are:"
+    echo $*
 
     is_empty $* \
         && exit_usage

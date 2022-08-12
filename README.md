@@ -1,7 +1,6 @@
 # eBPF Code for Elastic Endpoint
 
-[![Formatting and Build](https://github.com/elastic/ebpf/actions/workflows/formatting-build.yml/badge.svg)](https://github.com/elastic/ebpf/actions/workflows/formatting-build.yml)
-[![Multi Kernel Testing](https://github.com/elastic/ebpf/actions/workflows/multikernel-tester.yml/badge.svg)](https://github.com/elastic/ebpf/actions/workflows/multikernel-tester.yml)
+[![CI](https://github.com/elastic/ebpf/actions/workflows/ci.yml/badge.svg)](https://github.com/elastic/ebpf/actions/workflows/ci.yml)
 
 This repository contains eBPF code as well as associated userspace tools and
 components used in the Linux build of [Elastic Endpoint
