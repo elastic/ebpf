@@ -24,9 +24,8 @@ jobs:
     uses: ./.github/workflows/build.yml
     secrets: inherit
   multikernel-tester:
-    name: Multi-Kernel Testing
+    name: Kernel Tests
     needs:
       - build
-      - local-build
     uses: ./.github/workflows/multikernel-tester.yml
     secrets: inherit

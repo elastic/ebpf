@@ -16,6 +16,9 @@ CONTAINER_REPOSITORY ?= ghcr.io/elastic/ebpf-builder
 CONTAINER_PULL_TAG ?= 20220731-1104
 CONTAINER_LOCAL_TAG ?= ebpf-builder:${USER}-latest
 
+IMAGEPACK_REPOSITORY ?= ghcr.io/elastic/ebpf-imagepack
+IMAGEPACK_PULL_TAG ?= 20220812-1344
+
 ifdef BUILD_CONTAINER_IMAGE
 	CONTAINER_IMAGE = ${CONTAINER_LOCAL_TAG}
 else
@@ -40,7 +43,7 @@ endif
 # Directories to search recursively for c/cpp source files to clang-format
 FORMAT_DIRS = GPL/ non-GPL/ testing/test_bins
 
-.PHONY = build clean container format test-format release-container fix-permissions
+.PHONY = build clean container format test-format release-container fix-permissions update-kims kip
 
 build:
 ifdef NOCONTAINER
@@ -105,6 +108,32 @@ ifdef BUILD_CONTAINER_IMAGE
 endif
 	${CONTAINER_RUN_CMD} make test-format
 endif
+
+# Update kernel images from gcs
+update-kims:
+	@mkdir -p LargeFiles
+	gsutil -m rsync -r gs://ebpf-ci-kernel-images LargeFiles
+
+# Build Containerized Kernel Image Pack
+build-kip:
+	${CONTAINER_ENGINE} build --no-cache -t ${IMAGEPACK_REPOSITORY}:${CURRENT_DATE_TAG} -f docker/Dockerfile.imagepack ./LargeFiles
+
+get-kernel-images:
+	mkdir -p ./kernel-images/
+ifdef IMG_FILTER
+	${CONTAINER_ENGINE} run --rm -v${PWD}/kernel-images:/kernel-images ${IMAGEPACK_REPOSITORY}:${IMAGEPACK_PULL_TAG} cp -r /kernel-img-repository/${IMG_FILTER} ./kernel-images/
+else
+	${CONTAINER_ENGINE} run --rm -v${PWD}/kernel-images:/kernel-images ${IMAGEPACK_REPOSITORY}:${IMAGEPACK_PULL_TAG}
+endif
+	${SUDO} chown -fR ${USER}:${USER} .
+
+multi-kernel-test:
+ifndef IMG_FILTER
+	@echo Must set IMG_FILTER
+	exit 1
+endif
+	go install github.com/florianl/bluebox@b8590fb1850f56df6e6d7786931fcabdc1e9173d
+	cd testing && ./run_tests.sh ${ARCH} ${PWD}/artifacts-${ARCH}/non-GPL/Events/EventsTrace/EventsTrace ${PWD}/kernel-images/${IMG_FILTER}/${ARCH}/*
 
 fix-permissions:
 	${SUDO} chown -fR ${USER}:${USER} .

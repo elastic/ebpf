@@ -2,14 +2,17 @@ on:
   workflow_call:
 
 jobs:
-  multikernel_tester:
+  test:
     strategy:
       # If a failure occurs, run the other arches/distros to the end. It's useful to see if it
       # occurs on other kernels as well
       fail-fast: false
       matrix:
-        kernel_flavor: [ mainline ]
+        kernel_flavor: [ amazonlinux2, debian, fedora, kali1, kali3, kali4, kali5-7, kali8-9, mainline ]
         arch: [ x86_64, aarch64 ]
+        exclude:
+          - kernel_flavor: amazonlinux2
+            arch: aarch64
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
@@ -28,40 +31,16 @@ jobs:
         DEBIAN_FRONTEND: noninteractive
     - name: Build eBPF probes and userspace components
       run: make build ARCH=${{ matrix.arch }}
-    - name: Auth GCP
-      uses: 'google-github-actions/auth@v0'
-      with:
-        credentials_json: '${{ secrets.ACTIONS_GCP_JSON_CREDENTIALS }}'
-    - name: 'Setup gcloud'
-      uses: 'google-github-actions/setup-gcloud@v0'
-    - name: Create kernel images directory
-      run: |
-        sudo mkdir -p /kernel-images
-        sudo chown -fR $USER:$USER /kernel-images
-    - name: Get current timestamp for GCS cache key
-      run: echo "TIMESTAMP=$(date +%s)" >> $GITHUB_ENV
-    - name: Setup GCS cache
-      id: cache
-      uses: actions/cache@v3
-      with:
-        path: /kernel-images
-        key: gcs-cache-${{ matrix.kernel_flavor }}-${{ matrix.arch }}-${{ env.TIMESTAMP }}
-        restore-keys: gcs-cache-${{ matrix.kernel_flavor }}-${{ matrix.arch }}
-    - name: Rsync kernel images from GCS
-      run: gsutil -m rsync -d -r gs://ebpf-ci-kernel-images/${{ matrix.kernel_flavor }}/${{ matrix.arch }}/images /kernel-images/
     - name: Install Go
       uses: actions/setup-go@v3
       with:
         go-version: '1.17'
     - name: Install Bluebox
       run: go install github.com/florianl/bluebox@b8590fb1850f56df6e6d7786931fcabdc1e9173d
+    - name: Get Kernel Images
+      run: make get-kernel-images IMG_FILTER=${{ matrix.kernel_flavor }}
     - name: Run tests
-      working-directory: testing
-      run: |
-        ./run_tests.sh \
-        ${{ matrix.arch }} \
-        ../artifacts-${{ matrix.arch }}/non-GPL/Events/EventsTrace/EventsTrace \
-        /kernel-images/*
+      run: make multi-kernel-test IMG_FILTER=${{ matrix.kernel_flavor }} ARCH=${{ matrix.arch }}
     - name: Archive test summary
       if: always()
       uses: actions/upload-artifact@v3

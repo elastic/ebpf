@@ -1,4 +1,6 @@
 /build/
+/LargeFiles
+/kernel-images
 /artifacts-*
 /contrib/elftoolchain/build/
 /contrib/elftoolchain/build_obj/
