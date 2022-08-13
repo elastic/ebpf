@@ -29,3 +29,14 @@ jobs:
       - build
     uses: ./.github/workflows/multikernel-tester.yml
     secrets: inherit
+  merge-auditor:
+    name: CI Merge Auditor
+    needs:
+      - build
+      - local-build
+      - multikernel-tester
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate results
+        run: echo "Result - PASS"
+
