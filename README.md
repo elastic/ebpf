@@ -1,4 +1,4 @@
-# eBPF Code for Elastic Endpoint
+<img alt="elastic-loves-ebpf" src="https://user-images.githubusercontent.com/8242268/184464400-f485dfab-c4c1-49d2-850e-d419256bdecc.png">
 
 [![CI](https://github.com/elastic/ebpf/actions/workflows/ci.yml/badge.svg)](https://github.com/elastic/ebpf/actions/workflows/ci.yml)
 
