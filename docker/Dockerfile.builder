@@ -128,5 +128,4 @@ ENV PATH="${PATH}:/usr/local/bin"
 ENV NOCONTAINER=TRUE
 ENV MAKESYSPATH=/usr/share/mk
 
-LABEL org.opencontainers.image.source https://github.co/elastic/ebpf
-
+LABEL org.opencontainers.image.source https://github.com/elastic/ebpf
