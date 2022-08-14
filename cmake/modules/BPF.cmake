@@ -27,34 +27,93 @@ set(BPFTOOL bpftool)
 set(BTF_FILE "/sys/kernel/btf/vmlinux")
 
 # Standard includes
-execute_process(COMMAND ${CLANG} -print-file-name=include
-                OUTPUT_VARIABLE NOSTDINC_INCLUDES ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
-
-if(NOT USE_BUILTIN_VMLINUX)
-    set(VMLINUX_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/vmlinux)
-
-    # Vmlinux generation
-    file(MAKE_DIRECTORY ${VMLINUX_INCLUDE_DIR})
-    execute_process(
-        COMMAND ${BPFTOOL} btf dump file ${BTF_FILE} format c
-        OUTPUT_FILE ${VMLINUX_INCLUDE_DIR}/vmlinux.h
-        ERROR_VARIABLE BPFTOOL_VMLINUX_ERROR
-        RESULT_VARIABLE BPFTOOL_VMLINUX_RESULT
-    )
-
-    if(NOT ${BPFTOOL_VMLINUX_RESULT} EQUAL 0)
-        message(FATAL_ERROR "Failed to dump vmlinux.h with bpftool: ${BPFTOOL_VMLINUX_ERROR}")
-    endif()
-else()
-    set(VMLINUX_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/contrib/vmlinux/${ARCH})
+if(NOT USE_ZIG_BPF_COMPILER)
+    execute_process(COMMAND ${CLANG} -print-file-name=include
+                    OUTPUT_VARIABLE NOSTDINC_INCLUDES ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 
-# Skeleton generation
-macro(bpf_skeleton name)
-    set(_object_file_path ${CMAKE_CURRENT_BINARY_DIR}/${name}.bpf.o)
-    set(_skeleton_file_path ${CMAKE_CURRENT_BINARY_DIR}/${name}.skel.h)
-    add_custom_target(
-        ${name}_skeleton
-        COMMAND ${BPFTOOL} gen skeleton ${_object_file_path} > ${_skeleton_file_path}
+if(NOT USE_BUILTIN_VMLINUX)
+    set(VMLINUX_INSTALL_COMMAND /bin/sh -c "${BPFTOOL} btf dump file ${BTF_FILE} format c > ${EBPF_INSTALL_DIR}/include/vmlinux.h")
+else()
+    set(VMLINUX_INSTALL_COMMAND /bin/sh -c "cp ${PROJECT_SOURCE_DIR}/contrib/vmlinux/${ARCH}/vmlinux.h ${EBPF_INSTALL_DIR}/include/vmlinux.h")
+endif()
+
+ExternalProject_Add(
+    vmlinux-external
+    DOWNLOAD_COMMAND ""
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    BUILD_IN_SOURCE 0
+    INSTALL_COMMAND ${VMLINUX_INSTALL_COMMAND}
+    BUILD_BYPRODUCTS ${EBPF_INSTALL_DIR}/include/vmlinux.h
+)
+
+add_library(vmlinux INTERFACE)
+set_property(TARGET vmlinux PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${EBPF_INSTALL_DIR}/include)
+add_dependencies(vmlinux vmlinux-external)
+
+
+function (ebpf_probe_target target)
+    set(options OPTIONAL GENSKELETON INSTALL)
+    set(multiValueArgs FLAGS SOURCES DEPENDENCIES PUBLIC_HEADERS)
+
+    cmake_parse_arguments(EBPF_PROBE "${options}" ""
+        "${multiValueArgs}" ${ARGN})
+
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/public-headers)
+    set(OUT_FILE ${CMAKE_CURRENT_BINARY_DIR}/${target}.bpf.o)
+
+    if (EBPF_PROBE_GENSKELETON)
+        set(SKEL_FILE ${CMAKE_CURRENT_BINARY_DIR}/public-headers/${target}.skel.h)
+        set(SKELETON_CMD ${BPFTOOL} gen skeleton ${OUT_FILE} > ${SKEL_FILE})
+    else()
+        set(SKELETON_CMD /bin/sh)
+    endif()
+
+    if (NOT CMAKE_BUILD_TYPE STREQUAL Debug)
+        set(STRIP_CMD ${LLVM_STRIP} -d -g -S ${OUT_FILE})
+    else()
+        set(STRIP_CMD /bin/sh)
+    endif()
+
+    set(EBPF_PROBE_DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/${target}.bpf.d)
+
+    add_custom_target(${target}_Probe
+        COMMAND ${EBPF_EXTERNAL_ENV_FLAGS} ${BPF_COMPILER} ${BPF_COMPILER_FLAGS} -MD -MF ${EBPF_PROBE_DEPFILE} ${EBPF_PROBE_FLAGS} -c ${EBPF_PROBE_SOURCES} -o ${OUT_FILE}
+        COMMAND ${SKELETON_CMD}
+        COMMAND ${STRIP_CMD}
+        BYPRODUCTS ${OUT_FILE} ${SKEL_FILE}
     )
-endmacro()
+
+    add_dependencies(${target}_Probe ${EBPF_PROBE_DEPENDENCIES} libbpf vmlinux)
+
+    add_library(${target} INTERFACE)
+    add_dependencies(${target} ${target}_Probe)
+
+    foreach(HDR ${EBPF_PROBE_PUBLIC_HEADERS})
+        configure_file(${HDR} ${CMAKE_CURRENT_BINARY_DIR}/public-headers/${HDR} COPYONLY)
+    endforeach()
+
+    if (EBPF_PROBE_GENSKELETON)
+        set(EBPF_PROBE_PUBLIC_HEADERS ${EBPF_PROBE_PUBLIC_HEADERS} ${SKEL_FILE})
+    endif()
+
+    set_property(TARGET ${target} PROPERTY PUBLIC_HEADER
+        ${EBPF_PROBE_PUBLIC_HEADERS}
+    )
+
+    set_property(TARGET ${target} PROPERTY RESOURCE
+        ${OUT_FILE}
+    )
+
+    target_include_directories(${target} INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/public-headers)
+
+    if (EBPF_PROBE_INSTALL)
+        install(TARGETS
+            ${target}
+            RESOURCE DESTINATION ${EBPF_INSTALL_DIR}/probes
+            PUBLIC_HEADER DESTINATION ${EBPF_INSTALL_DIR}/include
+        )
+    endif()
+
+endfunction()

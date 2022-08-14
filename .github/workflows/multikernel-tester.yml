@@ -35,8 +35,6 @@ jobs:
       uses: actions/setup-go@v3
       with:
         go-version: '1.17'
-    - name: Install Bluebox
-      run: go install github.com/florianl/bluebox@b8590fb1850f56df6e6d7786931fcabdc1e9173d
     - name: Get Kernel Images
       run: make get-kernel-images IMG_FILTER=${{ matrix.kernel_flavor }}
     - name: Run tests

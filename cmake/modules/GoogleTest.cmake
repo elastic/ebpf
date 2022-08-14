@@ -4,22 +4,42 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-set(GTEST_SRC "${PROJECT_SOURCE_DIR}/contrib/googletest/googletest")
-set(GTEST_MAIN "${GTEST_SRC}/src/gtest_main.cc")
-set(GTEST_INCLUDE "${GTEST_SRC}/include")
-set(GTEST_BUILD_DIR "${PROJECT_BINARY_DIR}/gtest-prefix/src/gtest-build")
-set(GTEST_LIB "${GTEST_BUILD_DIR}/gtest-all.o")
-message(STATUS "[contrib] gtest in '${GTEST_SRC}'")
 
-file(MAKE_DIRECTORY ${GTEST_BUILD_DIR})
+function(ebpf_gtest_binary target)
+    set(options OPTIONAL INSTALL)
+    set(multiValueArgs SOURCES LINK DEPENDENCIES)
 
-set(GTEST_CXXFLAGS -g -Wall -Wextra -pthread)
-ExternalProject_Add(
-    gtest
-    DOWNLOAD_COMMAND ""
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ${CMAKE_CXX_COMPILER} ${GTEST_CXXFLAGS} -I${GTEST_INCLUDE} -I${GTEST_SRC} -c ${GTEST_SRC}/src/gtest-all.cc -o ${GTEST_LIB}
-    BUILD_IN_SOURCE 0
-    INSTALL_COMMAND ""
-    BUILD_BYPRODUCTS ${GTEST_LIB}
-)
+    cmake_parse_arguments(GTEST_BIN "${options}" ""
+        "${multiValueArgs}" ${ARGN})
+
+    set(GTEST_SRC "${PROJECT_SOURCE_DIR}/contrib/googletest/googletest")
+
+
+    add_executable(
+        ${target}
+        ${GTEST_BIN_SOURCES}
+        ${GTEST_SRC}/src/gtest_main.cc
+        ${GTEST_SRC}/src/gtest-all.cc
+    )
+
+    target_link_libraries(${target} ${GTEST_BIN_LINK})
+    target_compile_options(${target} PRIVATE -g -Wall -Wextra -fno-rtti)
+    target_link_options(${target} PRIVATE -pthread)
+    target_include_directories(${target} PRIVATE ${GTEST_SRC}/include ${GTEST_SRC})
+
+    if (NOT CMAKE_BUILD_TYPE STREQUAL Debug)
+        add_custom_command(
+            TARGET ${target}
+            POST_BUILD
+            COMMAND ${STRIP} ${CMAKE_CURRENT_BINARY_DIR}/${target}
+            VERBATIM
+        )
+    endif()
+
+    if (GTEST_BIN_INSTALL)
+        install(TARGETS
+            ${target}
+            RUNTIME DESTINATION ${EBPF_INSTALL_DIR}/bin
+        )
+    endif()
+endfunction()
