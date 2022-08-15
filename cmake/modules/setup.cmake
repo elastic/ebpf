@@ -4,7 +4,10 @@ if (NOT STRIP)
     set(STRIP strip)
 endif()
 
-set(EBPF_INSTALL_DIR "${PROJECT_BINARY_DIR}/package")
+if (NOT EBPF_INSTALL_DIR)
+    set(EBPF_INSTALL_DIR "${PROJECT_BINARY_DIR}/package")
+endif()
+
 file(MAKE_DIRECTORY "${EBPF_INSTALL_DIR}/include")
 
 function(ebpf_get_includes OUT_VAR TARGET)

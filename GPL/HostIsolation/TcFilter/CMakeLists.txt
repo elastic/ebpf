@@ -24,7 +24,7 @@ set(TCFILTER_CFLAGS
     -fno-ident)
 
 
-ebpf_probe_target(BPFTcFilter
+ebpf_probe_target(TcFilter
     SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/TcFilter.bpf.c
     DEPENDENCIES libbpf vmlinux
     FLAGS ${TCFILTER_CFLAGS}
@@ -34,6 +34,6 @@ ebpf_probe_target(BPFTcFilter
 
 ebpf_gtest_binary(BPFTcFilterTests
     SOURCES BPFTcFilterTests.cpp
-    LINK BPFTcFilter libbpf
+    LINK TcFilter libbpf
     INSTALL
 )

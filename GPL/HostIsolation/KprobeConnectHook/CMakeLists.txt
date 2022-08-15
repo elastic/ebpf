@@ -15,10 +15,7 @@ set(KPROBECONNECTHOOK_CFLAGS
     ${LIBBPF_INCLUDES}
     -fno-ident)
 
-set(KPROBECONNECTHOOK_BPF_OUTPUT ${HOSTISOLATION_EBPF_OBJECT_DIR}/KprobeConnectHook.bpf.o)
-set(KPROBECONNECTHOOK_BPF_SKELETON_PATH ${HOSTISOLATION_EBPF_OBJECT_DIR}/KprobeConnectHook.skel.h)
-
-ebpf_probe_target(BPFKprobeConnectHook
+ebpf_probe_target(KprobeConnectHook
     SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/KprobeConnectHook.bpf.c
     DEPENDENCIES libbpf vmlinux
     FLAGS ${KPROBECONNECTHOOK_CFLAGS}
