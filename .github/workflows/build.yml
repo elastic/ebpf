@@ -18,7 +18,18 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
       - name: Test Formatting
         run: make test-format ARCH=${{matrix.arch}}
-      - name: Test build
+      - name: Test Build
         run: make build ARCH=${{matrix.arch}}
+      - name: Test Packaging
+        run: make package ARCH=${{matrix.arch}}
       - name: Test for source differences post-build
         run: git diff --exit-code
+      - name: Get Env
+        run: echo "ELASTIC_EBPF_VERSION=$(cat VERSION)" >> $GITHUB_ENV && echo "PWD=$(pwd)" >> $GITHUB_ENV
+      - name: Archive Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: elastic-ebpf-${{ matrix.arch }}
+          path: ${{ env.PWD }}/artifacts-${{ matrix.arch }}/elastic-ebpf-${{ env.ELASTIC_EBPF_VERSION }}-SNAPSHOT.tar.gz
+          if-no-files-found: error
+          retention-days: 3

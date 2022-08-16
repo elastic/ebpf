@@ -12,9 +12,9 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O2 -Wall -fPIC")
 
-string(JOIN " " EBPF_EXT_ENV_FLAGS ${EBPF_EXTERNAL_ENV_FLAGS})
 
 include(ExternalProject)
+include(setup)
 include(arch)
 include(libz)
 include(libelf)

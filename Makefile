@@ -2,6 +2,7 @@ ARCH ?= $(shell arch)
 SUDO ?= $(shell which sudo 2>/dev/null)
 USER ?= $(shell whoami)
 CURRENT_DATE_TAG ?= $(shell date +%Y%m%d-%H%M)
+PKG_VERSION ?= $(shell cat VERSION)
 
 # bmake Settings
 MAKE_SYS_PATH ?= /usr/share/mk
@@ -33,8 +34,11 @@ else
 endif
 
 PWD = $(shell pwd)
-BUILD_DIR = artifacts-${ARCH}
-CMAKE_FLAGS = -DARCH=${ARCH} -DBUILD_STATIC_EVENTSTRACE=True
+BUILD_DIR ?= ${PWD}/artifacts-${ARCH}
+PKG_DIR ?= ${BUILD_DIR}/package
+MDATA_DIR ?= ${BUILD_DIR}/package/share/elastic/ebpf
+CMAKE_FLAGS = -DARCH=${ARCH}
+EVENTSTRACE_PATH ?= ${PWD}/artifacts-${ARCH}/non-GPL/Events/EventsTrace/EventsTrace
 
 # Debug settings
 ifdef DEBUG
@@ -43,7 +47,7 @@ endif
 # Directories to search recursively for c/cpp source files to clang-format
 FORMAT_DIRS = GPL/ non-GPL/ testing/test_bins
 
-.PHONY = build clean container format test-format release-container fix-permissions update-kims kip
+.PHONY = build package clean container format test-format release-container fix-permissions update-kims kip
 
 build:
 ifdef NOCONTAINER
@@ -57,6 +61,25 @@ ifdef BUILD_CONTAINER_IMAGE
 endif
 	${CONTAINER_RUN_CMD} \
 	make build DEBUG=${DEBUG} ARCH=${ARCH} EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS}
+	make fix-permissions
+endif
+
+package:
+ifdef NOCONTAINER
+	@echo "Packaging ebpf version: ${PKG_VERSION}"
+	cmake --install ${BUILD_DIR} --prefix ${PKG_DIR}
+	mkdir -p ${MDATA_DIR}
+	cp VERSION ${MDATA_DIR}
+	cp NOTICE.txt ${MDATA_DIR}
+	cp LICENSE.txt ${MDATA_DIR}
+	cd ${PKG_DIR} && tar -czf ${BUILD_DIR}/elastic-ebpf-${PKG_VERSION}-SNAPSHOT.tar.gz *
+	@echo -e "\n++ Packaging Successful at `date` ++\n"
+else
+ifdef BUILD_CONTAINER_IMAGE
+	make container
+endif
+	${CONTAINER_RUN_CMD} \
+	make package DEBUG=${DEBUG} ARCH=${ARCH} EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS}
 	make fix-permissions
 endif
 
@@ -127,13 +150,13 @@ else
 endif
 	${SUDO} chown -fR ${USER}:${USER} .
 
-multi-kernel-test:
+run-multikernel-test:
 ifndef IMG_FILTER
 	@echo Must set IMG_FILTER
 	exit 1
 endif
 	go install github.com/florianl/bluebox@b8590fb1850f56df6e6d7786931fcabdc1e9173d
-	cd testing && ./run_tests.sh ${ARCH} ${PWD}/artifacts-${ARCH}/non-GPL/Events/EventsTrace/EventsTrace ${PWD}/kernel-images/${IMG_FILTER}/${ARCH}/*
+	cd testing && ./run_tests.sh ${ARCH} ${EVENTSTRACE_PATH} ${PWD}/kernel-images/${IMG_FILTER}/${ARCH}/*
 
 fix-permissions:
 	${SUDO} chown -fR ${USER}:${USER} .

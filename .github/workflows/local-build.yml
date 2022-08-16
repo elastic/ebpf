@@ -20,3 +20,5 @@ jobs:
         run: make test-format BUILD_CONTAINER_IMAGE=True ARCH=${{matrix.arch}}
       - name: Test Container Image Build
         run: make build BUILD_CONTAINER_IMAGE=True ARCH=${{matrix.arch}}
+      - name: Test Packaging
+        run: make package BUILD_CONTAINER_IMAGE=True ARCH=${{matrix.arch}}

@@ -10,7 +10,7 @@
 #ifndef EBPF_KPROBELOADER_H
 #define EBPF_KPROBELOADER_H
 
-#include <Common.h>
+#include "Common.h"
 
 enum ebpf_load_method {
     EBPF_METHOD_NO_OVERRIDE = 0,

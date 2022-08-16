@@ -4,8 +4,5 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0;
 # you may not use this file except in compliance with the Elastic License 2.0.
 
-set(HOSTISOLATION_EBPF_OBJECT_DIR "${CMAKE_CURRENT_BINARY_DIR}/ebpf-objects")
-file(MAKE_DIRECTORY ${HOSTISOLATION_EBPF_OBJECT_DIR})
-
 add_subdirectory(KprobeConnectHook)
 add_subdirectory(TcFilter)

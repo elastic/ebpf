@@ -39,4 +39,3 @@ jobs:
     steps:
       - name: Aggregate results
         run: echo "Result - PASS"
-
