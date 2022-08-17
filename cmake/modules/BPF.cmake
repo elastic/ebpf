@@ -80,8 +80,8 @@ function (ebpf_probe_target target)
 
     add_custom_target(${target}_Probe
         COMMAND ${EBPF_EXTERNAL_ENV_FLAGS} ${BPF_COMPILER} ${BPF_COMPILER_FLAGS} -MD -MF ${EBPF_PROBE_DEPFILE} ${EBPF_PROBE_FLAGS} -c ${EBPF_PROBE_SOURCES} -o ${OUT_FILE}
-        COMMAND ${SKELETON_CMD}
         COMMAND ${STRIP_CMD}
+        COMMAND ${SKELETON_CMD}
         BYPRODUCTS ${OUT_FILE} ${SKEL_FILE}
     )
 

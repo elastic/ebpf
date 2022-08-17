@@ -14,7 +14,6 @@ function(ebpf_gtest_binary target)
 
     set(GTEST_SRC "${PROJECT_SOURCE_DIR}/contrib/googletest/googletest")
 
-
     add_executable(
         ${target}
         ${GTEST_BIN_SOURCES}
@@ -22,6 +21,7 @@ function(ebpf_gtest_binary target)
         ${GTEST_SRC}/src/gtest-all.cc
     )
 
+    set_target_properties(${target} PROPERTIES UNITY_BUILD false)
     target_link_libraries(${target} ${GTEST_BIN_LINK})
     target_compile_options(${target} PRIVATE -g -Wall -Wextra -fno-rtti)
     target_link_options(${target} PRIVATE -pthread)
