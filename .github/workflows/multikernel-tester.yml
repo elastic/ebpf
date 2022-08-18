@@ -15,8 +15,8 @@ on:
         description: Stringified JSON string of kernels, for example '[ "debian", "fedora" ]'
 
 jobs:
-  test:
-    name: Test Kernel
+  test-kernel:
+    name: Kernel
     strategy:
       fail-fast: false
       matrix:
