@@ -58,11 +58,11 @@ ifdef NOCONTAINER
 	@echo -e "\n++ Build Successful at `date` ++\n"
 else
 ifdef BUILD_CONTAINER_IMAGE
-	make container
+	${MAKE} container
 endif
 	${CONTAINER_RUN_CMD} \
-	make build DEBUG=${DEBUG} ARCH=${ARCH} EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS}
-	make fix-permissions
+	${MAKE} build DEBUG=${DEBUG} ARCH=${ARCH} EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS}
+	${MAKE} fix-permissions
 endif
 
 package:
@@ -77,11 +77,11 @@ ifdef NOCONTAINER
 	@echo -e "\n++ Packaging Successful at `date` ++\n"
 else
 ifdef BUILD_CONTAINER_IMAGE
-	make container
+	${MAKE} container
 endif
 	${CONTAINER_RUN_CMD} \
-	make package DEBUG=${DEBUG} ARCH=${ARCH} EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS}
-	make fix-permissions
+	${MAKE} package DEBUG=${DEBUG} ARCH=${ARCH} EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS}
+	${MAKE} fix-permissions
 endif
 
 container:
@@ -117,10 +117,10 @@ ifdef NOCONTAINER
 	sh -c 'find ${FORMAT_DIRS} -name "*.cpp" -o -name "*.c" -o -name "*.h" -o -name "*.cpp" | xargs clang-format -i'
 else
 ifdef BUILD_CONTAINER_IMAGE
-	make container
+	${MAKE} container
 endif
-	${CONTAINER_RUN_CMD} make format
-	make fix-permissions
+	${CONTAINER_RUN_CMD} ${MAKE} format
+	${MAKE} fix-permissions
 endif
 
 test-format:
@@ -128,9 +128,9 @@ ifdef NOCONTAINER
 	sh -c 'find ${FORMAT_DIRS} -name "*.cpp" -o -name "*.c" -o -name "*.h" -o -name "*.cpp" | xargs clang-format -i --dry-run -Werror'
 else
 ifdef BUILD_CONTAINER_IMAGE
-	make container
+	@${MAKE} container
 endif
-	${CONTAINER_RUN_CMD} make test-format
+	${CONTAINER_RUN_CMD} ${MAKE} test-format
 endif
 
 # Update kernel images from gcs
@@ -145,7 +145,7 @@ build-kips:
 	done
 
 publish-kips:
-	@make build-kips CURRENT_DATE_TAG=${CURRENT_DATE_TAG}
+	@${MAKE} build-kips CURRENT_DATE_TAG=${CURRENT_DATE_TAG}
 	@for dir in $(shell ls ./LargeFiles); do \
     ${CONTAINER_ENGINE} push ${IMAGEPACK_REPOSITORY}:$${dir}-${CURRENT_DATE_TAG}; \
 	done

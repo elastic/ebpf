@@ -66,8 +66,6 @@ jobs:
   merge-auditor:
     name: CI Merge Auditor
     needs:
-      - build-x86_64
-      - build-aarch64
       - local-build-x86_64
       - local-build-aarch64
       - multikernel-tester-x86_64
