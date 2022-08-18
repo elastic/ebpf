@@ -1,5 +1,6 @@
 FROM docker.io/ubuntu:latest
-COPY / /kernel-img-repository/
+ARG IMGPACK_FILTER=
+COPY / /kernel-img-repository/${IMGPACK_FILTER}
 
 LABEL org.opencontainers.image.source https://github.com/elastic/ebpf
 
