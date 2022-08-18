@@ -1,13 +1,19 @@
 on:
   workflow_call:
+    inputs:
+      architecture:
+        required: true
+        type: string
+        description: Architecture string, for example aarch64
+      runner:
+        required: true
+        type: string
+        description: The runner to execute the build on, for example ubuntu-latest
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [ x86_64, aarch64 ]
-    runs-on: ubuntu-latest
+    name: Build
+    runs-on: ${{ inputs.runner }}
     steps:
       - uses: actions/checkout@v2
       - name: Configure System
@@ -17,11 +23,11 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
       - name: Test Formatting
-        run: make test-format ARCH=${{matrix.arch}}
+        run: make test-format ARCH=${{inputs.architecture}}
       - name: Test Build
-        run: make build ARCH=${{matrix.arch}}
+        run: make build ARCH=${{inputs.architecture}}
       - name: Test Packaging
-        run: make package ARCH=${{matrix.arch}}
+        run: make package ARCH=${{inputs.architecture}}
       - name: Test for source differences post-build
         run: git diff --exit-code
       - name: Get Env
@@ -29,7 +35,7 @@ jobs:
       - name: Archive Build Artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: elastic-ebpf-${{ matrix.arch }}
-          path: ${{ env.PWD }}/artifacts-${{ matrix.arch }}/elastic-ebpf-${{ env.ELASTIC_EBPF_VERSION }}-SNAPSHOT.tar.gz
+          name: elastic-ebpf-${{ inputs.architecture }}
+          path: ${{ env.PWD }}/artifacts-${{ inputs.architecture }}/elastic-ebpf-${{ env.ELASTIC_EBPF_VERSION }}-SNAPSHOT.tar.gz
           if-no-files-found: error
           retention-days: 3

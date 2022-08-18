@@ -18,7 +18,7 @@ CONTAINER_PULL_TAG ?= 20220731-1104
 CONTAINER_LOCAL_TAG ?= ebpf-builder:${USER}-latest
 
 IMAGEPACK_REPOSITORY ?= ghcr.io/elastic/ebpf-imagepack
-IMAGEPACK_PULL_TAG ?= 20220812-1344
+IMAGEPACK_PULL_TAG ?= 20220818-0711
 
 ifdef BUILD_CONTAINER_IMAGE
 	CONTAINER_IMAGE = ${CONTAINER_LOCAL_TAG}
@@ -38,12 +38,13 @@ BUILD_DIR ?= ${PWD}/artifacts-${ARCH}
 PKG_DIR ?= ${BUILD_DIR}/package
 MDATA_DIR ?= ${BUILD_DIR}/package/share/elastic/ebpf
 CMAKE_FLAGS = -DARCH=${ARCH}
-EVENTSTRACE_PATH ?= ${PWD}/artifacts-${ARCH}/non-GPL/Events/EventsTrace/EventsTrace
+EVENTSTRACE_PATH ?= ${PWD}/artifacts-${ARCH}/package/bin/EventsTrace
 
 # Debug settings
 ifdef DEBUG
 	CMAKE_FLAGS = ${CMAKE_FLAGS} -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-g -O0"
 endif
+
 # Directories to search recursively for c/cpp source files to clang-format
 FORMAT_DIRS = GPL/ non-GPL/ testing/test_bins
 
@@ -135,22 +136,30 @@ endif
 # Update kernel images from gcs
 update-kims:
 	@mkdir -p LargeFiles
-	gsutil -m rsync -r gs://ebpf-ci-kernel-images LargeFiles
+	gsutil -m rsync -d -r gs://ebpf-ci-kernel-images LargeFiles
 
-# Build Containerized Kernel Image Pack
-build-kip:
-	${CONTAINER_ENGINE} build --no-cache -t ${IMAGEPACK_REPOSITORY}:${CURRENT_DATE_TAG} -f docker/Dockerfile.imagepack ./LargeFiles
+# Build Containerized Kernel Image Pack(s)
+build-kips:
+	for dir in $(shell ls ./LargeFiles); do \
+	${CONTAINER_ENGINE} build -t ${IMAGEPACK_REPOSITORY}:$${dir}-${CURRENT_DATE_TAG} -f docker/Dockerfile.imagepack --build-arg IMGPACK_FILTER=$${dir} ./LargeFiles/$${dir}; \
+	done
+
+publish-kips:
+	@make build-kips CURRENT_DATE_TAG=${CURRENT_DATE_TAG}
+	@for dir in $(shell ls ./LargeFiles); do \
+    ${CONTAINER_ENGINE} push ${IMAGEPACK_REPOSITORY}:$${dir}-${CURRENT_DATE_TAG}; \
+	done
 
 get-kernel-images:
 	mkdir -p ./kernel-images/
-ifdef IMG_FILTER
-	${CONTAINER_ENGINE} run --rm -v${PWD}/kernel-images:/kernel-images ${IMAGEPACK_REPOSITORY}:${IMAGEPACK_PULL_TAG} cp -r /kernel-img-repository/${IMG_FILTER} ./kernel-images/
-else
-	${CONTAINER_ENGINE} run --rm -v${PWD}/kernel-images:/kernel-images ${IMAGEPACK_REPOSITORY}:${IMAGEPACK_PULL_TAG}
+ifndef IMG_FILTER
+	@echo Must set IMG_FILTER
+	exit 1
 endif
+	${CONTAINER_ENGINE} run --rm -v${PWD}/kernel-images:/kernel-images ${IMAGEPACK_REPOSITORY}:${IMG_FILTER}-${IMAGEPACK_PULL_TAG} cp -r /kernel-img-repository/${IMG_FILTER} ./kernel-images/
 	${SUDO} chown -fR ${USER}:${USER} .
 
-run-multikernel-test:
+run-multikernel-test: get-kernel-images
 ifndef IMG_FILTER
 	@echo Must set IMG_FILTER
 	exit 1

@@ -1,19 +1,27 @@
 on:
   workflow_call:
+    inputs:
+      architecture:
+        required: true
+        type: string
+        description: Architecture string, for example aarch64
+      runner:
+        required: true
+        type: string
+        description: The runner to execute the build on, for example ubuntu-latest
+      kernels:
+        required: true
+        type: string
+        description: Stringified JSON string of kernels, for example '[ "debian", "fedora" ]'
 
 jobs:
   test:
+    name: Test Kernel
     strategy:
-      # If a failure occurs, run the other arches/distros to the end. It's useful to see if it
-      # occurs on other kernels as well
       fail-fast: false
       matrix:
-        kernel_flavor: [ amazonlinux2, debian, fedora, kali1, kali3, kali4, kali5-7, kali8-9, mainline ]
-        arch: [ x86_64, aarch64 ]
-        exclude:
-          - kernel_flavor: amazonlinux2
-            arch: aarch64
-    runs-on: ubuntu-latest
+        kernel_flavor: ${{ fromJSON(inputs.kernels) }}
+    runs-on: ${{ inputs.runner }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
@@ -34,7 +42,7 @@ jobs:
     - name: Download Build Artifacts
       uses: actions/download-artifact@v3
       with:
-        name: elastic-ebpf-${{ matrix.arch }}
+        name: elastic-ebpf-${{ inputs.architecture }}
         path: ${{ env.PWD }}/artifacts
     - name: Untar
       run: cd artifacts && tar -zxf elastic-ebpf-${ELASTIC_EBPF_VERSION}-SNAPSHOT.tar.gz
@@ -42,19 +50,17 @@ jobs:
       uses: actions/setup-go@v3
       with:
         go-version: '1.17'
-    - name: Get Kernel Images
-      run: make get-kernel-images IMG_FILTER=${{ matrix.kernel_flavor }}
     - name: Run tests
-      run: make run-multikernel-test IMG_FILTER=${{ matrix.kernel_flavor }} ARCH=${{ matrix.arch }} EVENTSTRACE_PATH=${PWD}/artifacts/bin/EventsTrace
+      run: make run-multikernel-test IMG_FILTER=${{ matrix.kernel_flavor }} ARCH=${{ inputs.architecture }} EVENTSTRACE_PATH=${PWD}/artifacts/bin/EventsTrace
     - name: Archive test summary
       if: always()
       uses: actions/upload-artifact@v3
       with:
-        name: run-summary-${{ matrix.kernel_flavor }}-${{ matrix.arch }}.txt
+        name: run-summary-${{ matrix.kernel_flavor }}-${{ inputs.architecture }}.txt
         path: testing/bpf-check-summary.txt
     - name: Archive individual test results
       if: always()
       uses: actions/upload-artifact@v3
       with:
-        name: results-${{ matrix.kernel_flavor }}-${{ matrix.arch }}
+        name: results-${{ matrix.kernel_flavor }}-${{ inputs.architecture }}
         path: testing/results

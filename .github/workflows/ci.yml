@@ -15,26 +15,63 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  local-build:
-    name: Container Image Build
-    uses: ./.github/workflows/local-build.yml
-    secrets: inherit
-  build:
-    name: Platform Build
+  build-x86_64:
+    name: Platform (x86_64)
     uses: ./.github/workflows/build.yml
+    with:
+      architecture: x86_64
+      runner: ubuntu-latest
     secrets: inherit
-  multikernel-tester:
-    name: Kernel Tests
+  build-aarch64:
+    name: Platform (aarch64)
+    uses: ./.github/workflows/build.yml
+    with:
+      architecture: aarch64
+      runner: ubuntu-latest
+    secrets: inherit
+  multikernel-tester-x86_64:
+    name: Platform (x86_64)
     needs:
-      - build
+      - build-x86_64
     uses: ./.github/workflows/multikernel-tester.yml
+    with:
+      architecture: x86_64
+      runner: ubuntu-latest
+      kernels: '[ "amazonlinux2", "debian", "fedora", "kali1", "kali3", "kali4", "kali5-7", "kali8-9", "mainline",  "ubuntu-aws", "ubuntu-azure", "ubuntu-gcp", "ubuntu-gke", "ubuntu-oem", "ubuntu-oracle" ]'
+    secrets: inherit
+  multikernel-tester-aarch64:
+    name: Platform (aarch64)
+    needs:
+      - build-aarch64
+    uses: ./.github/workflows/multikernel-tester.yml
+    with:
+      architecture: aarch64
+      runner: ubuntu-latest
+      kernels: '[ "debian", "fedora", "kali1", "kali3", "kali4", "kali5-7", "kali8-9", "mainline" ]'
+    secrets: inherit
+  local-build-x86_64:
+    name: Platform (x86_64)
+    uses: ./.github/workflows/local-build.yml
+    with:
+      architecture: x86_64
+      runner: ubuntu-latest
+    secrets: inherit
+  local-build-aarch64:
+    name: Platform (aarch64)
+    uses: ./.github/workflows/local-build.yml
+    with:
+      architecture: aarch64
+      runner: ubuntu-latest
     secrets: inherit
   merge-auditor:
     name: CI Merge Auditor
     needs:
-      - build
-      - local-build
-      - multikernel-tester
+      - build-x86_64
+      - build-aarch64
+      - local-build-x86_64
+      - local-build-aarch64
+      - multikernel-tester-x86_64
+      - multikernel-tester-aarch64
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate results
