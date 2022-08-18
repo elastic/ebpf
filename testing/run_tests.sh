@@ -42,7 +42,7 @@ run_tests() {
     echo "BPF-check run for $# $arch kernel(s) at $(date)" > $SUMMARY_FILE
     for f in $RESULTS_DIR/*; do
         local kern=$(basename $f .txt)
-        grep "$SUMMARY_STRING" $f \
+        grep "$SUCCESS_STRING" $f \
             && echo "[PASS] $kern" >> $SUMMARY_FILE \
             || echo "[FAIL] $kern" >> $SUMMARY_FILE
     done
