@@ -388,7 +388,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         struct ebpf_event_ctx_opts opts)
 {
     struct EventProbe_bpf *probe = NULL;
-    struct btf *btf = NULL;
+    struct btf *btf              = NULL;
 
     // ideally we'd be calling
     //
