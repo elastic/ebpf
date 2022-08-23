@@ -650,15 +650,6 @@ int main(int argc, char **argv)
     if (err)
         goto out;
 
-    struct rlimit lim;
-    lim.rlim_cur = RLIM_INFINITY;
-    lim.rlim_max = RLIM_INFINITY;
-    err          = setrlimit(RLIMIT_MEMLOCK, &lim);
-    if (err < 0) {
-        fprintf(stderr, "Could not set RLIMIT_MEMLOCK: %d %s\n", err, strerror(-err));
-        goto out;
-    }
-
     if (g_unbuffer_stdout) {
         err = setvbuf(stdout, NULL, _IONBF, 0);
         if (err < 0) {

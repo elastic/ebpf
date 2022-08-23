@@ -111,12 +111,6 @@ class BPFTcFilterTests : public ::testing::Test
 
     static void SetUpTestSuite()
     {
-        struct rlimit rinf;
-        rinf = {RLIM_INFINITY, RLIM_INFINITY};
-        if (setrlimit(RLIMIT_MEMLOCK, &rinf) == -EPERM) {
-            FAIL()
-                << "setrlimit failed, running the BPFTcFilterTests suite requires root permissions";
-        }
     }
 };
 
