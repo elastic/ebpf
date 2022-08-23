@@ -438,6 +438,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
     btf = btf__load_vmlinux_btf();
     if (libbpf_get_error(btf)) {
         ebpf_log("could not load system BTF (does the kernel have BTF?)");
+        err = -ENOENT;
         goto out_destroy_probe;
     }
 
