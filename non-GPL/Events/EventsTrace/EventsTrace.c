@@ -444,9 +444,9 @@ static void out_process_tty_write(struct ebpf_process_tty_write_event *evt)
 
     out_pid_info("pids", &evt->pids);
     out_comma();
-    out_int("tty_out_len", evt->tty_out_len);
+    out_uint("tty_out_len", evt->tty_out_len);
     out_comma();
-    out_int("tty_out_truncated", evt->tty_out_truncated);
+    out_uint("tty_out_truncated", evt->tty_out_truncated);
     out_comma();
     out_string("tty_out", evt->tty_out);
 

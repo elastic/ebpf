@@ -194,15 +194,21 @@ static int probe_fill_relos(struct btf *btf, struct EventProbe_bpf *obj)
     }
     err = err ?: FILL_FUNC_RET_IDX(obj, btf, vfs_rename);
 
-    // TODO: Re-enable tty_write probe when BTF issues are fixed
-#if 0
-    if (FILL_FUNC_ARG_EXISTS(obj, btf, tty_write, from)) {
-        err = err ?: FILL_FUNC_ARG_IDX(obj, btf, tty_write, buf);
-        err = err ?: FILL_FUNC_ARG_IDX(obj, btf, tty_write, count);
+    /* From https://github.com/elastic/ebpf/pull/116#issue-1327583872
+     *
+     * tty_write BTF info is not available on ARM systems with default
+     * config.
+     * Use redirected_tty_write BTF info as function signature check
+     * since it changes in the exact same version as tty_write (5.10.10-5.10.11)
+     * and has the same parameters/indexes we need.
+     * This could break in the future if any of the signature changes.
+     */
+    if (FILL_FUNC_ARG_EXISTS(obj, btf, redirected_tty_write, iter)) {
+        err = err ?: FILL_FUNC_ARG_IDX(obj, btf, redirected_tty_write, buf);
+        err = err ?: FILL_FUNC_ARG_IDX(obj, btf, redirected_tty_write, count);
     } else {
-        err = err ?: FILL_FUNC_ARG_IDX(obj, btf, tty_write, from);
+        err = err ?: FILL_FUNC_ARG_IDX(obj, btf, redirected_tty_write, iter);
     }
-#endif
 
     return err;
 }
@@ -250,10 +256,7 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tcp_v4_connect, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__tcp_v4_connect, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tcp_close, false);
-        // TODO: Re-enable tty_write probe when BTF issues are fixed
-#if 0
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tty_write, false);
-#endif
     } else {
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_unlinkat, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__mnt_want_write, false);
@@ -267,10 +270,7 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__inet_csk_accept, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__tcp_v4_connect, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__tcp_close, false);
-        // TODO: Re-enable tty_write probe when BTF issues are fixed
-#if 0
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__tty_write, false);
-#endif
     }
 
     return err;
