@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <sys/resource.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 
@@ -386,10 +387,35 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         ebpf_event_handler_fn cb,
                         struct ebpf_event_ctx_opts opts)
 {
-    int err                      = 0;
     struct EventProbe_bpf *probe = NULL;
+    struct btf *btf              = NULL;
 
-    struct btf *btf = btf__load_vmlinux_btf();
+    // ideally we'd be calling
+    //
+    // ```c
+    // libbpf_set_strict_mode(LIBBPF_STRICT_AUTO_RLIMIT_MEMLOCK);
+    // ```
+    //
+    // to automatically detect if `RLIMIT_MEMLOCK` needs increasing, however
+    // with kernel 5.10.109+ on GKE, it incorrectly detects that bpf uses memcg
+    // instead of memlock rlimit, so it does nothing.
+    //
+    // The check for memcg loads a program with the `bpf_ktime_get_coarse_ns`
+    // helper in order to check for memcg memory accounting, which was added
+    // around the same time the memory account change took place (5.11). This
+    // helper is backported in 5.10.109+ making the detection mechanism faulty,
+    // so instead we just blindy set `RLIMIT_MEMLOCK` to infinity for now.
+
+    struct rlimit rlim = {
+        .rlim_cur = RLIM_INFINITY,
+        .rlim_max = RLIM_INFINITY,
+    };
+
+    int err = setrlimit(RLIMIT_MEMLOCK, &rlim);
+    if (err != 0)
+        goto out_destroy_probe;
+
+    btf = btf__load_vmlinux_btf();
     if (libbpf_get_error(btf))
         goto out_destroy_probe;
 
