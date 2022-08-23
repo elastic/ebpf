@@ -21,8 +21,8 @@
 
 #include "EventProbe.skel.h"
 
-bool verbose_log = false;
-static int ebpf_log(const char *fmt, ...);
+bool log_verbose = false;
+static int verbose(const char *fmt, ...);
 
 struct ring_buf_cb_ctx {
     ebpf_event_handler_fn cb;
@@ -310,7 +310,7 @@ static bool system_has_bpf_tramp()
     bool ret        = true;
     struct btf *btf = btf__load_vmlinux_btf();
     if (libbpf_get_error(btf)) {
-        ebpf_log("could not load system BTF (does the kernel have BTF?)");
+        verbose("could not load system BTF (does the kernel have BTF?)");
         ret = false;
         goto out;
     }
@@ -385,12 +385,12 @@ static int libbpf_verbose_print(enum libbpf_print_level lvl, const char *fmt, va
     return vfprintf(stderr, fmt, args);
 }
 
-static int ebpf_log(const char *fmt, ...)
+static int verbose(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
 
-    if (!verbose_log)
+    if (!log_verbose)
         return 0;
 
     return vfprintf(stderr, fmt, args);
@@ -399,7 +399,7 @@ static int ebpf_log(const char *fmt, ...)
 int ebpf_set_verbose_logging()
 {
     libbpf_set_print(libbpf_verbose_print);
-    verbose_log = true;
+    log_verbose = true;
     return 0;
 }
 
@@ -437,7 +437,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
 
     btf = btf__load_vmlinux_btf();
     if (libbpf_get_error(btf)) {
-        ebpf_log("could not load system BTF (does the kernel have BTF?)");
+        verbose("could not load system BTF (does the kernel have BTF?)");
         err = -ENOENT;
         goto out_destroy_probe;
     }
