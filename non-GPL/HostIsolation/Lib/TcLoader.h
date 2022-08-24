@@ -77,7 +77,7 @@ int netlink_filter_add_begin(struct netlink_ctx *ctx, const char *ifname);
  * @param[in] fd eBPF program file descriptor
  * @param[in] ctx Context containing netlink state (from previous add_begin()
  * call) - passed by caller
- * @param[in] ebpf_obj_filename eBPF object filename
+ * @param[in] ebpf_obj_filename eBPF object filename (NULL if using skeleton header)
  * @return Error value (0 for success)
  */
 int netlink_filter_add_end(int fd, struct netlink_ctx *ctx, const char *ebpf_obj_filename);
