@@ -666,7 +666,7 @@ int main(int argc, char **argv)
     if (g_features_autodetect)
         ebpf_detect_system_features(&opts.features);
 
-    err = ebpf_event_ctx__new(&ctx, event_ctx_callback, opts);
+    err = ebpf_event_ctx__new(&ctx, event_ctx_callback, opts, 0);
 
     if (err < 0) {
         fprintf(stderr, "Could not create event context: %d %s\n", err, strerror(-err));
