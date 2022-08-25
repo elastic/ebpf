@@ -42,7 +42,7 @@ EVENTSTRACE_PATH ?= ${PWD}/artifacts-${ARCH}/package/bin/EventsTrace
 
 # Debug settings
 ifdef DEBUG
-	CMAKE_FLAGS = ${CMAKE_FLAGS} -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-g -O0"
+	CMAKE_FLAGS += -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-g -O0"
 endif
 
 # Directories to search recursively for c/cpp source files to clang-format

@@ -154,7 +154,7 @@ int tracepoint_syscalls_sys_exit_setsid(struct trace_event_raw_sys_exit *args)
     if (is_kernel_thread(task))
         goto out;
 
-    if (args->ret < 0)
+    if (BPF_CORE_READ(args, ret) < 0)
         goto out;
 
     struct ebpf_process_setsid_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
