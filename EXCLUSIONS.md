@@ -1,7 +1,10 @@
-elastic/ebpf is tested against a matrix of kernels. The code contained in this repository is intended for use with linux kernel version 5.10.10 or higher, with BTF (and other requisite configs) enabled.
+elastic/ebpf is tested against a matrix of kernels. The code contained in this
+repository is intended for use with linux kernel version 5.10.10 or higher,
+with BTF (and other requisite configs) enabled.
 
-Following is a list of kernels where the ebpf programs fail to load. This list has been created through empirical testing, and is not exhaustive.
-
+The following is a list of kernels where the ebpf programs fail to load or
+cannot be tested with our test infrastructure. This list has been created
+through empirical testing, and is not exhaustive.
 
 ## Excluded Kernels
 
@@ -74,3 +77,15 @@ Following is a list of kernels where the ebpf programs fail to load. This list h
     linux-image-x86_64-5.11.0-1020-azure
     linux-image-x86_64-5.11.0-1022-azure
     linux-image-x86_64-5.11.0-1025-azure
+
+### Serial Port Unavailable
+
+The following kernels compile the serial driver as a module, which does not
+work with our test setup (it must be builtin)
+
+```
+linux-image-aarch64-5.13.0-1011-oracle
+linux-image-aarch64-5.13.0-1015-oracle
+linux-image-aarch64-5.13.0-1016-oracle
+linux-image-aarch64-5.13.0-1018-oracle
+```
