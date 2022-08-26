@@ -73,4 +73,4 @@ jobs:
       if: always()
       run: |
         echo "Summary results for ${{ matrix.kernel_flavor }}-${{ inputs.architecture }}" >> $GITHUB_STEP_SUMMARY
-        cat results-${{ matrix.kernel_flavor }}-${{ inputs.architecture }}.txt | sed s/FAIL:/:x:/g | sed s/PASS:/:white_check_mark:/g >> $GITHUB_STEP_SUMMARY
+        cat results-${{ matrix.kernel_flavor }}-${{ inputs.architecture }}.txt | grep "FAIL\|PASS" | sed s/FAIL:/:x:/g | sed s/PASS:/:white_check_mark:/g >> $GITHUB_STEP_SUMMARY
