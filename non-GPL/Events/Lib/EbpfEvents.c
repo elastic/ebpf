@@ -196,8 +196,8 @@ static int probe_fill_relos(struct btf *btf, struct EventProbe_bpf *obj)
 
     /* From https://github.com/elastic/ebpf/pull/116#issue-1327583872
      *
-     * tty_write BTF info is not available on ARM systems with default
-     * config.
+     * tty_write BTF info is not available on ARM64 kernels built
+     * with pahole < 1.22 due to a bug in pahole.
      * Use redirected_tty_write BTF info as function signature check
      * since it changes in the exact same version as tty_write (5.10.10-5.10.11)
      * and has the same parameters/indexes we need.
@@ -239,7 +239,9 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__tcp_v6_connect, false);
     }
 
-    // tty_write is not present in all supported kernels' BTF info (eg. amazonlinux2 x86_64)
+    // tty_write BTF information is not available on all supported kernels
+    // due to a pahole bug.
+    // If it is not present we can't attach a fentry/ program to it, so fallback to a kprobe.
     if (has_bpf_tramp && BTF_FUNC_EXISTS(btf, tty_write)) {
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tty_write, false);
     } else {
