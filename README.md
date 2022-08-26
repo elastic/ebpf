@@ -88,7 +88,7 @@ container with all required dependencies bundled inside.
 
 This repository contains infrastructure to test our eBPF code against a wide
 array of kernels. See [testing/README.md](testing/README.md) for more
-information.
+information. For more details on kernels that are excluded from testing, see [EXCLUSIONS.md](EXCLUSIONS.md)
 
 ## Licensing
 

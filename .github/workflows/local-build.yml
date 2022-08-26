@@ -16,15 +16,27 @@ jobs:
     runs-on: ${{ inputs.runner }}
     steps:
       - uses: actions/checkout@v2
+      - name: Get Dockerfile Hash
+        run: echo "DOCKERFILE_HASH=$(md5sum docker/Dockerfile.builder | awk '{print $1}')" >> $GITHUB_ENV
+      - name: Check if rebuild is required
+        id: cachedockerfile
+        uses: actions/cache@v3
+        with:
+          key: dockerfile-${{ inputs.architecture }}-${{ env.DOCKERFILE_HASH }}
+          path: docker/Dockerfile.builder
       - name: Configure System
+        if: ${{ steps.cachedockerfile.outputs.cache-hit != 'true' || github.event_name != 'pull_request' }}
         run: |
           sudo apt-get update -y
           sudo apt-get install -y qemu-user-static
         env:
           DEBIAN_FRONTEND: noninteractive
       - name: Test Container Image Formatting
+        if: ${{ steps.cachedockerfile.outputs.cache-hit != 'true' || github.event_name != 'pull_request' }}
         run: make test-format BUILD_CONTAINER_IMAGE=True ARCH=${{ inputs.architecture }}
       - name: Test Container Image Build
+        if: ${{ steps.cachedockerfile.outputs.cache-hit != 'true' || github.event_name != 'pull_request' }}
         run: make build BUILD_CONTAINER_IMAGE=True ARCH=${{ inputs.architecture }}
       - name: Test Packaging
+        if: ${{ steps.cachedockerfile.outputs.cache-hit != 'true' || github.event_name != 'pull_request' }}
         run: make package BUILD_CONTAINER_IMAGE=True ARCH=${{ inputs.architecture }}

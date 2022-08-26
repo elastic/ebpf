@@ -37,7 +37,7 @@ jobs:
     with:
       architecture: x86_64
       runner: ubuntu-latest
-      kernels: '[ "amazonlinux2", "debian", "fedora", "kali1", "kali3", "kali4", "kali5-7", "kali8-9", "mainline",  "ubuntu-aws", "ubuntu-azure", "ubuntu-gcp", "ubuntu-gke", "ubuntu-oem", "ubuntu-oracle" ]'
+      kernels: '[ "amazonlinux2", "debian", "fedora", "kali1", "kali3", "kali4", "kali5-7", "kali8-9", "mainline", "rocky", "ubuntu-aws", "ubuntu-azure", "ubuntu-gcp", "ubuntu-gke", "ubuntu-oem", "ubuntu-oracle" ]'
     secrets: inherit
   multikernel-tester-aarch64:
     name: Test (aarch64)
@@ -47,7 +47,7 @@ jobs:
     with:
       architecture: aarch64
       runner: ubuntu-latest
-      kernels: '[ "debian", "fedora", "kali1", "kali3", "kali4", "kali5-7", "kali8-9", "mainline" ]'
+      kernels: '[ "amazonlinux2", "debian", "fedora", "kali1", "kali3", "kali4", "kali5-7", "kali8-9", "mainline", "rocky", "ubuntu-aws", "ubuntu-azure", "ubuntu-gcp", "ubuntu-gke", "ubuntu-oracle" ]'
     secrets: inherit
   local-build-x86_64:
     name: Platform (x86_64)

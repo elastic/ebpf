@@ -43,8 +43,8 @@ run_tests() {
     for f in $RESULTS_DIR/*; do
         local kern=$(basename $f .txt)
         grep "$SUCCESS_STRING" $f \
-            && echo "[PASS] $kern" >> $SUMMARY_FILE \
-            || echo "[FAIL] $kern" >> $SUMMARY_FILE
+            && echo "PASS: $kern" >> $SUMMARY_FILE \
+            || echo "FAIL: $kern" >> $SUMMARY_FILE
     done
 }
 
@@ -102,7 +102,7 @@ main() {
 
     run_tests $arch $initramfs $jobs $@
 
-    grep "FAIL" $SUMMARY_FILE > /dev/null \
+    grep "FAIL:" $SUMMARY_FILE > /dev/null \
         && exit_error "Some tests failed, see results files"
 
     exit 0
