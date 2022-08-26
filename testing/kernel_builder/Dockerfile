@@ -1,0 +1,11 @@
+from debian:bullseye
+
+RUN dpkg --add-architecture arm64
+RUN echo "deb http://deb.debian.org/debian bullseye-backports main" >> /etc/apt/sources.list
+RUN apt-get -y update
+RUN apt-get -y install \
+        git gcc make libssl-dev bison flex bc libelf-dev python3 \
+        gcc-aarch64-linux-gnu curl xz-utils dwarves
+
+WORKDIR /work
+CMD ./build.sh
