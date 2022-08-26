@@ -13,10 +13,13 @@
 // linux/socket.h
 #define AF_INET 2
 #define AF_INET6 10
+// uapi/asm-generic/socket.h
+#define SO_ATTACH_FILTER 26
 
 static int ebpf_sock_info__fill(struct ebpf_net_info *net, struct sock *sk)
 {
-    int err = 0;
+    int err     = 0;
+    int is_inet = 1;
 
     u16 family = BPF_CORE_READ(sk, __sk_common.skc_family);
     switch (family) {
@@ -51,21 +54,32 @@ static int ebpf_sock_info__fill(struct ebpf_net_info *net, struct sock *sk)
         net->family = EBPF_NETWORK_EVENT_AF_INET6;
         break;
     default:
-        err = -1;
-        goto out;
+        net->family = EBPF_NETWORK_EVENT_AF_UNSPEC;
+        is_inet     = 0;
     }
 
-    struct inet_sock *inet = (struct inet_sock *)sk;
-    u16 sport              = BPF_CORE_READ(inet, inet_sport);
-    net->sport             = bpf_ntohs(sport);
-    u16 dport              = BPF_CORE_READ(sk, __sk_common.skc_dport);
-    net->dport             = bpf_ntohs(dport);
-    net->netns             = BPF_CORE_READ(sk, __sk_common.skc_net.net, ns.inum);
+    if (is_inet) {
+        struct inet_sock *inet = (struct inet_sock *)sk;
+        u16 sport              = BPF_CORE_READ(inet, inet_sport);
+        net->sport             = bpf_ntohs(sport);
+        u16 dport              = BPF_CORE_READ(sk, __sk_common.skc_dport);
+        net->dport             = bpf_ntohs(dport);
+        net->netns             = BPF_CORE_READ(sk, __sk_common.skc_net.net, ns.inum);
+    }
 
     u16 proto = BPF_CORE_READ(sk, sk_protocol);
     switch (proto) {
+    case IPPROTO_IP:
+        net->transport = EBPF_NETWORK_EVENT_TRANSPORT_IP;
+        break;
     case IPPROTO_TCP:
         net->transport = EBPF_NETWORK_EVENT_TRANSPORT_TCP;
+        break;
+    case IPPROTO_UDP:
+        net->transport = EBPF_NETWORK_EVENT_TRANSPORT_UDP;
+        break;
+    case IPPROTO_RAW:
+        net->transport = EBPF_NETWORK_EVENT_TRANSPORT_RAW;
         break;
     default:
         err = -1;

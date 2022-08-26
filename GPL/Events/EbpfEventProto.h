@@ -42,6 +42,7 @@ enum ebpf_event_type {
     EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED  = (1 << 11),
     EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED = (1 << 12),
     EBPF_EVENT_NETWORK_CONNECTION_CLOSED    = (1 << 13),
+    EBPF_EVENT_NETWORK_SOCK_SETSOCKOPT      = (1 << 14),
 };
 
 struct ebpf_event_header {
@@ -155,12 +156,16 @@ struct ebpf_process_setgid_event {
 } __attribute__((packed));
 
 enum ebpf_net_info_transport {
+    EBPF_NETWORK_EVENT_TRANSPORT_IP  = 0,
     EBPF_NETWORK_EVENT_TRANSPORT_TCP = 1,
+    EBPF_NETWORK_EVENT_TRANSPORT_UDP = 2,
+    EBPF_NETWORK_EVENT_TRANSPORT_RAW = 3,
 };
 
 enum ebpf_net_info_af {
-    EBPF_NETWORK_EVENT_AF_INET  = 1,
-    EBPF_NETWORK_EVENT_AF_INET6 = 2,
+    EBPF_NETWORK_EVENT_AF_UNSPEC = 0,
+    EBPF_NETWORK_EVENT_AF_INET   = 1,
+    EBPF_NETWORK_EVENT_AF_INET6  = 2,
 };
 
 struct ebpf_net_info_tcp_close {

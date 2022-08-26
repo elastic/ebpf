@@ -67,6 +67,8 @@ static const struct argp_option opts[] = {
      "Whether or not to consider network connection attempted events", 1},
     {"net-conn-closed", EBPF_EVENT_NETWORK_CONNECTION_CLOSED, NULL, false,
      "Whether or not to consider network connection closed events", 1},
+    {"net-setsockopt", EBPF_EVENT_NETWORK_SOCK_SETSOCKOPT, NULL, false,
+     "Whether or not to consider setsockopt events", 1},
     {"features-autodetect", 'd', NULL, false, "Autodetect features based on running kernel", 2},
     {"set-bpf-tramp", EBPF_FEATURE_BPF_TRAMP, NULL, false, "Set feature supported: bpf trampoline",
      2},
@@ -112,6 +114,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED:
     case EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED:
     case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
+    case EBPF_EVENT_NETWORK_SOCK_SETSOCKOPT:
         g_events_env |= key;
         break;
     case EBPF_FEATURE_BPF_TRAMP:
@@ -494,13 +497,28 @@ static void out_net_info(const char *name, struct ebpf_net_event *evt)
     out_object_start();
 
     switch (net->transport) {
+    case EBPF_NETWORK_EVENT_TRANSPORT_IP:
+        out_string("transport", "IP");
+        out_comma();
+        break;
     case EBPF_NETWORK_EVENT_TRANSPORT_TCP:
         out_string("transport", "TCP");
+        out_comma();
+        break;
+    case EBPF_NETWORK_EVENT_TRANSPORT_UDP:
+        out_string("transport", "UDP");
+        out_comma();
+        break;
+    case EBPF_NETWORK_EVENT_TRANSPORT_RAW:
+        out_string("transport", "RAW");
         out_comma();
         break;
     }
 
     switch (net->family) {
+    case EBPF_NETWORK_EVENT_AF_UNSPEC:
+        out_string("family", "UNSPEC");
+        break;
     case EBPF_NETWORK_EVENT_AF_INET:
         out_string("family", "AF_INET");
         out_comma();
@@ -582,6 +600,11 @@ static void out_network_connection_closed_event(struct ebpf_net_event *evt)
     out_network_event("NETWORK_CONNECTION_CLOSED", evt);
 }
 
+static void out_network_sock_setsockopt_event(struct ebpf_net_event *evt)
+{
+    out_network_event("NETWORK_SOCK_SETSOCKOPT", evt);
+}
+
 static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
 {
     switch (evt_hdr->type) {
@@ -623,6 +646,9 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         break;
     case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
         out_network_connection_closed_event((struct ebpf_net_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_NETWORK_SOCK_SETSOCKOPT:
+        out_network_sock_setsockopt_event((struct ebpf_net_event *)evt_hdr);
         break;
     }
 

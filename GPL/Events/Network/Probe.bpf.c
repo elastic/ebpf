@@ -169,3 +169,47 @@ int BPF_KPROBE(kprobe__tcp_close, struct sock *sk, long timeout)
 {
     return tcp_close__enter(sk);
 }
+
+SEC("kprobe/sock_setsockopt")
+int BPF_KPROBE(kprobe__sock_setsockopt, struct socket *sock, int level, int optname)
+{
+    struct ebpf_events_state state = {};
+    state.sock_setsockopt.sk       = BPF_CORE_READ(sock, sk);
+    state.sock_setsockopt.optname  = optname;
+    ebpf_events_state__set(EBPF_EVENTS_STATE_SOCK_SETSOCKOPT, &state);
+    return 0;
+}
+
+SEC("kretprobe/sock_setsockopt")
+int BPF_KRETPROBE(kretprobe__sock_setsockopt, int ret)
+{
+    struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_SOCK_SETSOCKOPT);
+    if (!state)
+        return 0;
+
+    if (ret)
+        goto out;
+
+    switch (state->sock_setsockopt.optname) {
+    // case SO_ATTACH_BPF/SO_ATTACH_REUSEPORT_CBPF/SO_ATTACH_REUSEPORT_EBPF ?
+    case SO_ATTACH_FILTER:
+        break;
+    default:
+        goto out;
+    }
+
+    struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    if (!event)
+        goto out;
+
+    if (ebpf_network_event__fill(event, state->sock_setsockopt.sk)) {
+        bpf_ringbuf_discard(event, 0);
+        goto out;
+    }
+
+    event->hdr.type = EBPF_EVENT_NETWORK_SOCK_SETSOCKOPT;
+    bpf_ringbuf_submit(event, 0);
+
+out:
+    return 0;
+}
