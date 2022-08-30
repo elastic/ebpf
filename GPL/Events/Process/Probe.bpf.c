@@ -262,6 +262,7 @@ static int tty_write__enter(const char *buf, ssize_t count)
 
     const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     ebpf_pid_info__fill(&event->pids, task);
+    ebpf_ctty__fill(&event->ctty, task);
 
     if (bpf_probe_read_user(event->tty_out, len, (void *)buf)) {
         bpf_printk("tty_write__enter: error reading buf\n");
