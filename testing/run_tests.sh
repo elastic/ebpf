@@ -5,7 +5,6 @@
 # one or more contributor license agreements. Licensed under the Elastic
 # License 2.0; you may not use this file except in compliance with the Elastic
 # License 2.0.
-set -x
 readonly PROGNAME=$(basename $0)
 readonly ARGS="$@"
 
@@ -42,9 +41,13 @@ run_tests() {
     echo "BPF-check run for $# $arch kernel(s) at $(date)" > $SUMMARY_FILE
     for f in $RESULTS_DIR/*; do
         local kern=$(basename $f .txt)
-        grep "$SUCCESS_STRING" $f \
-            && echo "PASS: $kern" >> $SUMMARY_FILE \
-            || echo "FAIL: $kern" >> $SUMMARY_FILE
+        if grep -q "$SUCCESS_STRING" $f; then
+            echo "PASS: $kern" >> $SUMMARY_FILE
+        else
+            echo "FAIL: $kern" >> $SUMMARY_FILE
+            echo "TEST OUTPUT"
+            cat $f
+        fi
     done
 }
 

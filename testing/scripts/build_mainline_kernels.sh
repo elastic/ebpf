@@ -15,7 +15,6 @@
 
 readonly PROGNAME=$(basename $0)
 readonly ARGS="$@"
-set -x
 
 output_kernel_builder() {
     cat <<"EOF" >$1
