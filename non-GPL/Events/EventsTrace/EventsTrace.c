@@ -448,6 +448,8 @@ static void out_process_tty_write(struct ebpf_process_tty_write_event *evt)
     out_comma();
     out_uint("tty_out_truncated", evt->tty_out_truncated);
     out_comma();
+    out_tty_dev("ctty", &evt->ctty);
+    out_comma();
     out_string("tty_out", evt->tty_out);
 
     out_object_end();

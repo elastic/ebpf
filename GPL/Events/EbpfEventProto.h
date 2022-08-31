@@ -143,6 +143,7 @@ struct ebpf_process_tty_write_event {
     char tty_out[TTY_OUT_MAX];
     uint64_t tty_out_len;
     uint64_t tty_out_truncated;
+    struct ebpf_tty_dev ctty;
 } __attribute__((packed));
 
 struct ebpf_process_setgid_event {
