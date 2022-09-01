@@ -53,17 +53,17 @@ run_tests() {
 
 exit_usage() {
     cat <<- EOF
-Usage: $PROGNAME [-j jobs] <arch> <EventsTrace> <kernel images>
+Usage: $PROGNAME [-j jobs] <arch> <artifacts package directory> <kernel images>
 
-Perform a run of the BPF multi-kernel tester with the given kernel images
-on the given arch, with the given EventsTrace binary and with the given
-kernel images.
+Perform a run of the BPF multi-kernel tester with the given kernel images on
+the given arch, with the given artifacts directory and with the given kernel
+images.
 
 OPTIONS:
     -j <jobs>       Spin up <jobs> VMs in parallel (defaults to nproc)
 
 EXAMPLE:
-    $PROGNAME -j3 x86_64 EventsTrace linux-v5.12 linux-v5.13 linux-v5.14
+    $PROGNAME -j3 x86_64 ../artifacts-x86_64/package linux-v5.12 linux-v5.13 linux-v5.14
 EOF
 
     exit 1
@@ -71,7 +71,7 @@ EOF
 
 main() {
     local arch=$1
-    local eventstrace=$2
+    local artifacts=$2
     local jobs=$(nproc)
 
     while getopts "j:" opt; do
@@ -90,7 +90,7 @@ main() {
     is_empty $arch \
         && exit_usage
 
-    is_empty $eventstrace \
+    is_empty $artifacts \
         && exit_usage
 
     echo "Images are:"
@@ -100,7 +100,7 @@ main() {
         && exit_usage
 
     local initramfs="initramfs-${arch}.cpio"
-    ./scripts/gen_initramfs.sh $arch $eventstrace $initramfs \
+    ./scripts/gen_initramfs.sh $arch $artifacts $initramfs \
         || exit_error "Could not build initramfs (see above)"
 
     run_tests $arch $initramfs $jobs $@

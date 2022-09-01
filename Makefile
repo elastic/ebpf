@@ -38,7 +38,7 @@ BUILD_DIR ?= ${PWD}/artifacts-${ARCH}
 PKG_DIR ?= ${BUILD_DIR}/package
 MDATA_DIR ?= ${BUILD_DIR}/package/share/elastic/ebpf
 CMAKE_FLAGS = -DARCH=${ARCH}
-EVENTSTRACE_PATH ?= ${PWD}/artifacts-${ARCH}/package/bin/EventsTrace
+ARTIFACTS_PATH ?= ${PWD}/artifacts-${ARCH}
 
 # Debug settings
 ifdef DEBUG
@@ -165,7 +165,7 @@ ifndef IMG_FILTER
 	exit 1
 endif
 	go install github.com/florianl/bluebox@b8590fb1850f56df6e6d7786931fcabdc1e9173d
-	cd testing && ./run_tests.sh ${ARCH} ${EVENTSTRACE_PATH} ${PWD}/kernel-images/${IMG_FILTER}/${ARCH}/*
+	cd testing && ./run_tests.sh ${ARCH} ${ARTIFACTS_PATH} ${PWD}/kernel-images/${IMG_FILTER}/${ARCH}/*
 
 fix-permissions:
 	${SUDO} chown -fR ${USER}:${USER} .

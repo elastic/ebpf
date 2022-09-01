@@ -12,6 +12,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
 	"syscall"
 )
 
@@ -375,4 +377,16 @@ func TestTtyWrite(et *EventsTraceInstance) {
 	AssertInt64Equal(ev.Len, 7)
 	AssertInt64Equal(ev.Truncated, 0)
 	AssertStringsEqual(ev.Out, "--- OK\n")
+}
+
+func TestTcFilter() {
+	cmd := exec.Command("/BPFTcFilterTests")
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "ELASTIC_EBPF_TC_FILTER_OBJ_PATH=/TcFilter.bpf.o")
+	output, err := cmd.Output()
+
+	if err != nil {
+		fmt.Println(string(output))
+		TestFail(fmt.Sprintf("BPFTcFilterTests failed: %s", err))
+	}
 }

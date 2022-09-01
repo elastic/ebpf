@@ -22,19 +22,19 @@ process is repeated on several different kernels run in QEMU.
 
 ## Running Tests
 
-Before running tests, you will need to have built a statically-linked
-`EventsTrace` binary. The `build` make target will do this by default for you
-and output a statically-linked `EventsTrace` at
-`artifacts-$(arch)/non-GPL/EventsTrace/EventsTrace`.
+Before running tests, you will need to have built all artifacts in the repo
+with `make build ARCH=<arch>`, then package them with `make package`.
 
 To run tests, you will need to have a directory containing all the kernel
 images you want to test. Then invoke:
 
 ```
-./run_tests.sh -a <architecture> -e <path to EventsTrace binary> <kernel images>
+./run_tests.sh -a <architecture> <packaged artifacts directory> <kernel images>
 ```
 
-`architecture` can be one of `aarch64` or `x86_64`.
+`architecture` can be one of `aarch64` or `x86_64`. The default directory for
+packaged artifacts is `artifacts-<arch>/package`, e.g.
+`artifacts-x86_64/package`.
 
 A summary of the test run will be output to `bpf-check-summary.txt`. Results
 for individual kernels will be output to `results/<kernel_name>.txt`. This is a

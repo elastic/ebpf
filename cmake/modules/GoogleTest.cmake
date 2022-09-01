@@ -22,7 +22,9 @@ function(ebpf_gtest_binary target)
     )
 
     set_target_properties(${target} PROPERTIES UNITY_BUILD false)
-    target_link_libraries(${target} ${GTEST_BIN_LINK})
+
+    # Statically link gtest binaries as some need to run in the multikernel tester
+    target_link_libraries(${target} ${GTEST_BIN_LINK} -static)
     target_compile_options(${target} PRIVATE -g -Wall -Wextra -fno-rtti)
     target_link_options(${target} PRIVATE -pthread)
     target_include_directories(${target} PRIVATE ${GTEST_SRC}/include ${GTEST_SRC})
