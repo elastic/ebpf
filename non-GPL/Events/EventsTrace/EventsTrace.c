@@ -22,12 +22,11 @@
 
 #include <EbpfEvents.h>
 
-const char *argp_program_version     = "EventsTrace 0.0.0";
 const char *argp_program_bug_address = "https://github.com/elastic/ebpf/issues";
 const char argp_program_doc[] =
-    "Command line to trace Process, Network and File Events\n"
+    "CLI frontend for the Elastic ebpf events library\n"
     "\n"
-    "This program traces Process, Network and File Events\ncoming from the LibEbpfEvents library\n"
+    "Prints process, network and file events sourced from the Elastic ebpf events library\n"
     "\n"
     "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename]\n"
     "[--process-fork] [--process-exec] [--process-exit] [--process-setsid] [--process-setuid] "
@@ -35,41 +34,81 @@ const char argp_program_doc[] =
     "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n"
     "[--print-features-on-init] [--unbuffer-stdout] [--libbpf-verbose]\n";
 
+// Somewhat kludgy way of ensuring argp doesn't print the EBPF_* constants that
+// happen to be valid ASCII values as short options. We pass these enum values
+// to argp and start them at 0x80, so argp doesn't recognize them as valid
+// ASCII and print them as short options.
+enum cmdline_opts {
+    // Events
+    FILE_DELETE = 0x80,
+    FILE_CREATE,
+    FILE_RENAME,
+    PROCESS_FORK,
+    PROCESS_EXEC,
+    PROCESS_EXIT,
+    PROCESS_SETSID,
+    PROCESS_SETUID,
+    PROCESS_SETGID,
+    PROCESS_TTY_WRITE,
+    NETWORK_CONNECTION_ATTEMPTED,
+    NETWORK_CONNECTION_ACCEPTED,
+    NETWORK_CONNECTION_CLOSED,
+
+    // Features
+    BPF_TRAMP,
+
+    CMDLINE_MAX
+};
+
+static uint64_t cmdline_to_lib[CMDLINE_MAX] = {
+// clang-format off
+#define x(name) [name] = EBPF_EVENT_##name,
+    x(FILE_DELETE)
+    x(FILE_CREATE)
+    x(FILE_RENAME)
+    x(PROCESS_FORK)
+    x(PROCESS_EXEC)
+    x(PROCESS_EXIT)
+    x(PROCESS_SETSID)
+    x(PROCESS_SETUID)
+    x(PROCESS_SETGID)
+    x(PROCESS_TTY_WRITE)
+    x(NETWORK_CONNECTION_ATTEMPTED)
+    x(NETWORK_CONNECTION_ACCEPTED)
+    x(NETWORK_CONNECTION_CLOSED)
+#undef x
+
+#define x(name) [name] = EBPF_FEATURE_##name,
+   x(BPF_TRAMP)
+#undef x
+    // clang-format on
+};
+
 static const struct argp_option opts[] = {
+    {"all", 'a', NULL, false, "Print all events", 0},
+    {"file-delete", FILE_DELETE, NULL, false, "Print file delete events", 0},
+    {"file-create", FILE_CREATE, NULL, false, "Print file create events", 0},
+    {"file-rename", FILE_RENAME, NULL, false, "Print file rename events", 0},
+    {"process-fork", PROCESS_FORK, NULL, false, "Print process fork events", 0},
+    {"process-exec", PROCESS_EXEC, NULL, false, "Print process exec events", 0},
+    {"process-exit", PROCESS_EXIT, NULL, false, "Print process exit events", 0},
+    {"process-setsid", PROCESS_SETSID, NULL, false, "Print process setsid events", 0},
+    {"process-setuid", PROCESS_SETUID, NULL, false, "Print process setuid events", 0},
+    {"process-setgid", PROCESS_SETGID, NULL, false, "Print process setgid events", 0},
+    {"process-tty-write", PROCESS_TTY_WRITE, NULL, false, "Print process tty-write events", 0},
+    {"net-conn-accept", NETWORK_CONNECTION_ACCEPTED, NULL, false,
+     "Print network connection accepted events", 0},
+    {"net-conn-attempt", NETWORK_CONNECTION_ATTEMPTED, NULL, false,
+     "Print network connection attempted events", 0},
+    {"net-conn-closed", NETWORK_CONNECTION_CLOSED, NULL, false,
+     "Print network connection closed events", 0},
     {"print-features-on-init", 'i', NULL, false,
-     "Whether or not to print a message when probes have been successfully loaded", 1},
-    {"unbuffer-stdout", 'u', NULL, false, "Don't buffer stdout in userspace at all", 1},
-    {"libbpf-verbose", 'v', NULL, false, "Log verbose libbpf logs to stderr", 1},
-    {"all", 'a', NULL, false, "Whether or not to consider all the events", 0},
-    {"file-delete", EBPF_EVENT_FILE_DELETE, NULL, false,
-     "Whether or not to consider file delete events", 1},
-    {"file-create", EBPF_EVENT_FILE_CREATE, NULL, false,
-     "Whether or not to consider file create events", 1},
-    {"file-rename", EBPF_EVENT_FILE_RENAME, NULL, false,
-     "Whether or not to consider file rename events", 1},
-    {"process-fork", EBPF_EVENT_PROCESS_FORK, NULL, false,
-     "Whether or not to consider process fork events", 1},
-    {"process-exec", EBPF_EVENT_PROCESS_EXEC, NULL, false,
-     "Whether or not to consider process exec events", 1},
-    {"process-exit", EBPF_EVENT_PROCESS_EXIT, NULL, false,
-     "Whether or not to consider process exit events", 1},
-    {"process-setsid", EBPF_EVENT_PROCESS_SETSID, NULL, false,
-     "Whether or not to consider process setsid events", 1},
-    {"process-setuid", EBPF_EVENT_PROCESS_SETUID, NULL, false,
-     "Whether or not to consider process setuid events", 1},
-    {"process-setgid", EBPF_EVENT_PROCESS_SETGID, NULL, false,
-     "Whether or not to consider process setgid events", 1},
-    {"process-tty-write", EBPF_EVENT_PROCESS_TTY_WRITE, NULL, false,
-     "Whether or not to consider process tty-write events", 1},
-    {"net-conn-accept", EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED, NULL, false,
-     "Whether or not to consider network connection accepted events", 1},
-    {"net-conn-attempt", EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED, NULL, false,
-     "Whether or not to consider network connection attempted events", 1},
-    {"net-conn-closed", EBPF_EVENT_NETWORK_CONNECTION_CLOSED, NULL, false,
-     "Whether or not to consider network connection closed events", 1},
-    {"features-autodetect", 'd', NULL, false, "Autodetect features based on running kernel", 2},
+     "Print a message with feature information when probes have been successfully loaded", 1},
+    {"features-autodetect", 'd', NULL, false, "Autodetect features based on running kernel", 1},
     {"set-bpf-tramp", EBPF_FEATURE_BPF_TRAMP, NULL, false, "Set feature supported: bpf trampoline",
-     2},
+     1},
+    {"unbuffer-stdout", 'u', NULL, false, "Disable userspace stdout buffering", 2},
+    {"libbpf-verbose", 'v', NULL, false, "Log verbose libbpf logs to stderr", 2},
     {},
 };
 
@@ -99,23 +138,23 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case 'd':
         g_features_autodetect = 1;
         break;
-    case EBPF_EVENT_FILE_DELETE:
-    case EBPF_EVENT_FILE_CREATE:
-    case EBPF_EVENT_FILE_RENAME:
-    case EBPF_EVENT_PROCESS_FORK:
-    case EBPF_EVENT_PROCESS_EXEC:
-    case EBPF_EVENT_PROCESS_EXIT:
-    case EBPF_EVENT_PROCESS_SETSID:
-    case EBPF_EVENT_PROCESS_SETUID:
-    case EBPF_EVENT_PROCESS_SETGID:
-    case EBPF_EVENT_PROCESS_TTY_WRITE:
-    case EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED:
-    case EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED:
-    case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
-        g_events_env |= key;
+    case FILE_DELETE:
+    case FILE_CREATE:
+    case FILE_RENAME:
+    case PROCESS_FORK:
+    case PROCESS_EXEC:
+    case PROCESS_EXIT:
+    case PROCESS_SETSID:
+    case PROCESS_SETUID:
+    case PROCESS_SETGID:
+    case PROCESS_TTY_WRITE:
+    case NETWORK_CONNECTION_ACCEPTED:
+    case NETWORK_CONNECTION_ATTEMPTED:
+    case NETWORK_CONNECTION_CLOSED:
+        g_events_env |= cmdline_to_lib[key];
         break;
-    case EBPF_FEATURE_BPF_TRAMP:
-        g_features_env |= key;
+    case BPF_TRAMP:
+        g_features_env |= cmdline_to_lib[key];
         break;
     case ARGP_KEY_ARG:
         argp_usage(state);
