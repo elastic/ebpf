@@ -136,8 +136,11 @@ static volatile sig_atomic_t exiting = 0;
 
 static void sig_int(int signo)
 {
+    if (exiting)
+        return;
+
     exiting = 1;
-    fprintf(stdout, "Received SIGINT, Exiting...\n");
+    fprintf(stdout, "Received SIGINT, exiting...\n");
 }
 
 static void out_comma()
@@ -680,8 +683,8 @@ int main(int argc, char **argv)
 
     while (!exiting) {
         err = ebpf_event_ctx__next(ctx, 10);
-        if (err < 0) {
-            fprintf(stderr, "Failed to poll event context\n");
+        if (err < 0 && err != -EINTR) {
+            fprintf(stderr, "Failed to poll event context %d: %s\n", err, strerror(-err));
             break;
         }
     }
