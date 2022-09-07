@@ -47,7 +47,7 @@ CONFIG_FTRACE=y
 CONFIG_FUNCTION_TRACER=y
 CONFIG_KPROBES=y
 
-# Enable IPv6 (not on byt default in aarch64 defconfig)
+# Enable IPv6 (not on by default in aarch64 defconfig)
 CONFIG_IPV6=y
 
 # Enable taskstats (not on by default in aarch64 pre-5.18). This
