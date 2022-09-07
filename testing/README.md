@@ -57,23 +57,8 @@ many jobs as there are CPU cores). You can change this by passing
 
 ## Building Kernels
 
-A script is provided at `scripts/build_mainline_kernels.sh` to build mainline kernel images
-for the tester. To use it, you first need a clone of Linux:
-
-```
-git clone git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
-```
-
-Then, invoke the script with:
-
-```
-sudo ./build_mainline_kernels.sh linux/
-```
-
-What architectures and kernels to build for can be controlled by way of
-variables in the script. Note that building a bunch of kernels will take a long
-time on anything that doesn't have a large number of cores. Spinning up a
-powerful VM in your favorite cloud provider a quick way to do things.
+A dockerized setup is provided at `kernel_builder/` to build mainline kernel
+images for the tester. See `kernel_builder/README.md` for usage instructions.
 
 ## Getting a Shell in a Test Kernel Image
 
@@ -109,19 +94,16 @@ CONFIG_VIRTIO_CONSOLE
 CONFIG_SCSI_VIRTIO
 ```
 
-The `build_mainline_kernels.sh` script enables all of these, so any mainline
-kernels built with it should work fine in virtme. Distro kernels won't
-necessarily. Check the `.config` for the kernel you're trying to debug if it
-isn't working in virtme.
+The setup at `kernel_builder/` enables all of these, so any mainline kernels
+built with it should work fine in virtme. Distro kernels won't necessarily.
+Check the `.config` for the kernel you're trying to debug if it isn't working
+in virtme.
 
 ## Debugging a Test Kernel Image With GDB
 
 Occasionally it's useful to attach a debugger to the kernel itself, to
 determine the exact cause of a particular BPF failure. To do this, you'll need
-a kernel _ELF binary_ (not a compressed image), _with_ debugging symbols. The
-`build_mainline_kernels.sh` script will do this for you, putting the ELF
-binaries with debug info at `mainline-kernels/binaries/` and the compressed
-images at `mainline-kernels/images/`.
+a kernel _ELF binary_ (not a compressed image), _with_ debugging symbols.
 
 To debug a kernel in this way, you'll first need to generate the test initramfs
 for the architecture you're interested in. A wrapper around Bluebox is provided
