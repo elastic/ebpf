@@ -24,6 +24,10 @@ func main() {
 	RunEventsTest(TestFileRename, "--file-rename")
 	RunEventsTest(TestTtyWrite, "--process-tty-write")
 
+	RunEventsTest(TestTcpv4ConnectionAttempt, "--net-conn-attempt")
+	RunEventsTest(TestTcpv4ConnectionAccept, "--net-conn-accept")
+	RunEventsTest(TestTcpv4ConnectionClose, "--net-conn-close")
+
 	RunTest(TestTcFilter)
 
 	// These tests rely on overlayfs support. Distro kernels commonly compile
