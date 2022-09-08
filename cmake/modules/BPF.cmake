@@ -78,12 +78,14 @@ function (ebpf_probe_target target)
 
     set(EBPF_PROBE_DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/${target}.bpf.d)
 
-    add_custom_target(${target}_Probe
+    add_custom_command(
+        OUTPUT ${OUT_FILE} ${SKEL_FILE}
         COMMAND ${EBPF_EXTERNAL_ENV_FLAGS} ${BPF_COMPILER} ${BPF_COMPILER_FLAGS} -MD -MF ${EBPF_PROBE_DEPFILE} ${EBPF_PROBE_FLAGS} -c ${EBPF_PROBE_SOURCES} -o ${OUT_FILE}
         COMMAND ${STRIP_CMD}
         COMMAND ${SKELETON_CMD}
-        BYPRODUCTS ${OUT_FILE} ${SKEL_FILE}
     )
+
+    add_custom_target(${target}_Probe DEPENDS ${OUT_FILE} ${SKEL_FILE})
 
     add_dependencies(${target}_Probe ${EBPF_PROBE_DEPENDENCIES} libbpf vmlinux)
 
