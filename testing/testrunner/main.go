@@ -14,15 +14,17 @@ import (
 )
 
 func main() {
-	RunTest(TestFeaturesCorrect)
-	RunTest(TestForkExit, "--process-fork")
-	RunTest(TestForkExec, "--process-fork", "--process-exec")
-	RunTest(TestSetuid, "--process-setuid")
-	RunTest(TestSetgid, "--process-setgid")
-	RunTest(TestFileCreate, "--file-create")
-	RunTest(TestFileDelete, "--file-delete")
-	RunTest(TestFileRename, "--file-rename")
-	RunTest(TestTtyWrite, "--process-tty-write")
+	RunEventsTest(TestFeaturesCorrect)
+	RunEventsTest(TestForkExit, "--process-fork")
+	RunEventsTest(TestForkExec, "--process-fork", "--process-exec")
+	RunEventsTest(TestSetuid, "--process-setuid")
+	RunEventsTest(TestSetgid, "--process-setgid")
+	RunEventsTest(TestFileCreate, "--file-create")
+	RunEventsTest(TestFileDelete, "--file-delete")
+	RunEventsTest(TestFileRename, "--file-rename")
+	RunEventsTest(TestTtyWrite, "--process-tty-write")
+
+	RunTest(TestTcFilter)
 
 	// These tests rely on overlayfs support. Distro kernels commonly compile
 	// overlayfs as a module, thus it's not available to us in our
@@ -31,9 +33,9 @@ func main() {
 	// script ensures overlayfs is compiled into the kernel, so just skip these
 	// tests if we're on a distro kernel that we can't use overlayfs on.
 	if IsOverlayFsSupported() {
-		RunTest(TestFileCreateContainer, "--file-create")
-		RunTest(TestFileRenameContainer, "--file-rename")
-		RunTest(TestFileDeleteContainer, "--file-delete")
+		RunEventsTest(TestFileCreateContainer, "--file-create")
+		RunEventsTest(TestFileRenameContainer, "--file-rename")
+		RunEventsTest(TestFileDeleteContainer, "--file-delete")
 	} else {
 		fmt.Println("Overlayfs kernel module not loaded, not running ovl tests")
 	}

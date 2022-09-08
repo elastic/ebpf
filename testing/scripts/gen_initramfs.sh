@@ -20,12 +20,12 @@ exit_error() {
 
 exit_usage() {
     cat <<- EOF
-Usage: $PROGNAME <arch> <EventsTrace> <output file>
+Usage: $PROGNAME <arch> <artifacts> <output file>
 
 Generate an initramfs for use in a test run.
 
 EXAMPLE:
-    $PROGNAME x86_64 ../artifacts-x86_64/non-GPL/EventsTrace/EventsTrace initramfs-x86_64.cpio
+    $PROGNAME x86_64 ../artifacts-x86_64 initramfs-x86_64.cpio
 EOF
 
     exit 1
@@ -65,8 +65,12 @@ build_testbins() {
 
 invoke_bluebox() {
     local goarch=$1
-    local eventstrace=$2
+    local artifacts=$2
     local output_file=$3
+
+    local eventstrace="$artifacts/bin/EventsTrace"
+    local tcfiltertests="$artifacts/bin/BPFTcFilterTests"
+    local tcfilterbpf="$artifacts/probes/TcFilter.bpf.o"
 
     # Attempt to use common Go bin path of ~/go/bin if bluebox is not in $PATH
     which bluebox \
@@ -76,6 +80,8 @@ invoke_bluebox() {
     cmd+=" -a $goarch"
     cmd+=" -e testrunner/testrunner"
     cmd+=" -r $eventstrace"
+    cmd+=" -r $tcfiltertests"
+    cmd+=" -r $tcfilterbpf"
     cmd+=" -o $output_file"
     for bin in test_bins/bin/$arch/*; do
         cmd+=" -r $bin"
@@ -87,13 +93,13 @@ invoke_bluebox() {
 
 main() {
     local arch=$1
-    local eventstrace=$2
+    local artifacts=$2
     local output_file=$3
 
     is_empty $arch \
         && exit_usage
 
-    is_empty $eventstrace \
+    is_empty $artifacts \
         && exit_usage
 
     is_empty $output_file \
@@ -112,7 +118,7 @@ main() {
 
     build_testrunner $goarch
     build_testbins $arch
-    invoke_bluebox $goarch $eventstrace $output_file
+    invoke_bluebox $goarch $artifacts $output_file
 
     return 0
 }

@@ -51,7 +51,7 @@ jobs:
       with:
         go-version: '1.17'
     - name: Run tests
-      run: make run-multikernel-test IMG_FILTER=${{ matrix.kernel_flavor }} ARCH=${{ inputs.architecture }} EVENTSTRACE_PATH=${PWD}/artifacts/bin/EventsTrace
+      run: make run-multikernel-test IMG_FILTER=${{ matrix.kernel_flavor }} ARCH=${{ inputs.architecture }} ARTIFACTS_PATH=${PWD}/artifacts
     - name: Prepare for archival
       if: always()
       run: |

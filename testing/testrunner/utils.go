@@ -131,9 +131,15 @@ func runTestBin(binName string) []byte {
 
 	output, err := cmd.Output()
 	if err != nil {
-		fmt.Println(string(err.(*exec.ExitError).Stderr))
+		fmt.Printf("===== stderr of %s =====\n", binName)
+		fmt.Println(err)
+		fmt.Printf("===== end stderr of %s =====\n", binName)
+
+		fmt.Printf("===== stdout of %s =====\n", binName)
 		fmt.Println(string(output))
-		TestFail(fmt.Sprintf("Could not run test binary: %s", err))
+		fmt.Printf("===== end stdout of %s =====\n", binName)
+
+		TestFail(fmt.Sprintf("Could not run test binary %s (see output above)", binName))
 	}
 
 	return output
@@ -251,7 +257,13 @@ func IsOverlayFsSupported() bool {
 	return false
 }
 
-func RunTest(f func(*EventsTraceInstance), args ...string) {
+func RunTest(f func()) {
+	testFuncName := runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
+	f() // Will dump info and shutdown if test fails
+	fmt.Println("test passed: ", testFuncName)
+}
+
+func RunEventsTest(f func(*EventsTraceInstance), args ...string) {
 	testFuncName := runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
 	ctx, cancel := context.WithTimeout(context.TODO(), 30*time.Second)
 
