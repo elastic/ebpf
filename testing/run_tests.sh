@@ -71,7 +71,7 @@ EOF
 
 main() {
     local arch=$1
-    local artifacts=$2
+    local artifacts="$2"
     local jobs=$(nproc)
 
     while getopts "j:" opt; do
@@ -90,7 +90,7 @@ main() {
     is_empty $arch \
         && exit_usage
 
-    is_empty $artifacts \
+    is_empty "$artifacts" \
         && exit_usage
 
     echo "Images are:"
@@ -100,10 +100,10 @@ main() {
         && exit_usage
 
     local initramfs="initramfs-${arch}.cpio"
-    ./scripts/gen_initramfs.sh $arch $artifacts $initramfs \
+    ./scripts/gen_initramfs.sh $arch "$artifacts" "$initramfs" \
         || exit_error "Could not build initramfs (see above)"
 
-    run_tests $arch $initramfs $jobs $@
+    run_tests "$arch" "$initramfs" $jobs $@
 
     grep "FAIL:" $SUMMARY_FILE > /dev/null \
         && exit_error "Some tests failed, see results files"
