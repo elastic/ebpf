@@ -10,12 +10,14 @@ option(USE_BUILTIN_VMLINUX "If true, use the builtin vmlinux.h for building eBPF
 option(USE_ZIG_BPF_COMPILER "If true, use zig's drop in replacement to clang/llvm compiler" True)
 
 if (USE_ZIG_BPF_COMPILER)
+    set(BPF_COMPILER_ENV "ZIG_GLOBAL_CACHE_DIR=${PROJECT_BINARY_DIR}/zigcache")
     set(BPF_COMPILER zig)
     set(BPF_COMPILER_FLAGS
         cc
         --target=bpfel-freestanding-none
     )
 else()
+    set(BPF_COMPILER_ENV "")
     set(BPF_COMPILER clang)
     set(BPF_COMPILER_FLAGS
         -target=bpf
@@ -80,7 +82,7 @@ function (ebpf_probe_target target)
 
     add_custom_command(
         OUTPUT ${OUT_FILE} ${SKEL_FILE}
-        COMMAND ${EBPF_EXTERNAL_ENV_FLAGS} ${BPF_COMPILER} ${BPF_COMPILER_FLAGS} -MD -MF ${EBPF_PROBE_DEPFILE} ${EBPF_PROBE_FLAGS} -c ${EBPF_PROBE_SOURCES} -o ${OUT_FILE}
+        COMMAND ${EBPF_EXTERNAL_ENV_FLAGS} ${BPF_COMPILER_ENV} ${BPF_COMPILER} ${BPF_COMPILER_FLAGS} -MD -MF ${EBPF_PROBE_DEPFILE} ${EBPF_PROBE_FLAGS} -c ${EBPF_PROBE_SOURCES} -o ${OUT_FILE}
         COMMAND ${STRIP_CMD}
         COMMAND ${SKELETON_CMD}
     )
