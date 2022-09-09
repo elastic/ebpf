@@ -30,7 +30,12 @@ endif
 ifdef NOCONTAINER
 	CONTAINER_RUN_CMD =
 else
-	CONTAINER_RUN_CMD = ${CONTAINER_ENGINE} run --platform linux/${ARCH} --rm -v${PWD}:${PWD} -w${PWD} -u$(id -u):$(id -g) -e NOCONTAINER=TRUE ${CONTAINER_IMAGE}
+ifeq ($(CONTAINER_ENGINE),podman)
+	EXTRA_FLAGS = --userns=keep-id
+else
+	EXTRA_FLAGS =
+endif
+	CONTAINER_RUN_CMD = ${CONTAINER_ENGINE} run --platform linux/${ARCH} --rm -v${PWD}:${PWD} -w${PWD} -u$(shell id -u):$(shell id -g) ${EXTRA_FLAGS} -e NOCONTAINER=TRUE ${CONTAINER_IMAGE}
 endif
 
 PWD = $(shell pwd)
