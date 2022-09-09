@@ -28,9 +28,14 @@ else
 endif
 
 ifdef NOCONTAINER
-	CONTAINER_RUN_CMD = 
+	CONTAINER_RUN_CMD =
 else
-	CONTAINER_RUN_CMD = ${CONTAINER_ENGINE} run --platform linux/${ARCH} --rm -v${PWD}:${PWD} -w${PWD} -e NOCONTAINER=TRUE ${CONTAINER_IMAGE}
+ifeq ($(CONTAINER_ENGINE),podman)
+	EXTRA_FLAGS = --userns=keep-id
+else
+	EXTRA_FLAGS =
+endif
+	CONTAINER_RUN_CMD = ${CONTAINER_ENGINE} run --platform linux/${ARCH} --rm -v${PWD}:${PWD} -w${PWD} -u$(shell id -u):$(shell id -g) ${EXTRA_FLAGS} -e NOCONTAINER=TRUE ${CONTAINER_IMAGE}
 endif
 
 PWD = $(shell pwd)
@@ -48,7 +53,7 @@ endif
 # Directories to search recursively for c/cpp source files to clang-format
 FORMAT_DIRS = GPL/ non-GPL/ testing/test_bins
 
-.PHONY = build package clean container format test-format release-container fix-permissions update-kims kip
+.PHONY = build package clean container format test-format release-container update-kims kip
 
 build:
 ifdef NOCONTAINER
@@ -62,7 +67,6 @@ ifdef BUILD_CONTAINER_IMAGE
 endif
 	${CONTAINER_RUN_CMD} \
 	${MAKE} build DEBUG=${DEBUG} ARCH=${ARCH} EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS}
-	${MAKE} fix-permissions
 endif
 
 package:
@@ -81,7 +85,6 @@ ifdef BUILD_CONTAINER_IMAGE
 endif
 	${CONTAINER_RUN_CMD} \
 	${MAKE} package DEBUG=${DEBUG} ARCH=${ARCH} EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS}
-	${MAKE} fix-permissions
 endif
 
 container:
@@ -94,7 +97,7 @@ tag-container:
 release-container:
 	${CONTAINER_ENGINE} buildx build --progress plain --platform linux/amd64 \
 	-t ${CONTAINER_RELEASE_IMAGE}-amd64 -f docker/Dockerfile.builder .
-	
+
 	${CONTAINER_ENGINE} buildx build --progress plain --platform linux/arm64 \
 	-t ${CONTAINER_RELEASE_IMAGE}-arm64 -f docker/Dockerfile.builder .
 
@@ -104,7 +107,7 @@ release-container:
 	${CONTAINER_ENGINE} manifest create ${CONTAINER_RELEASE_IMAGE} \
 	--amend ${CONTAINER_RELEASE_IMAGE}-arm64 \
 	--amend ${CONTAINER_RELEASE_IMAGE}-amd64
-	
+
 	${CONTAINER_ENGINE} manifest annotate ${CONTAINER_RELEASE_IMAGE} ${CONTAINER_RELEASE_IMAGE}-arm64 --arch arm64
 	${CONTAINER_ENGINE} manifest annotate ${CONTAINER_RELEASE_IMAGE} ${CONTAINER_RELEASE_IMAGE}-amd64 --arch amd64
 	${CONTAINER_ENGINE} manifest push ${CONTAINER_RELEASE_IMAGE}
@@ -120,7 +123,6 @@ ifdef BUILD_CONTAINER_IMAGE
 	${MAKE} container
 endif
 	${CONTAINER_RUN_CMD} ${MAKE} format
-	${MAKE} fix-permissions
 endif
 
 test-format:
@@ -166,9 +168,6 @@ ifndef IMG_FILTER
 endif
 	go install github.com/florianl/bluebox@b8590fb1850f56df6e6d7786931fcabdc1e9173d
 	cd testing && ./run_tests.sh ${ARCH} ${ARTIFACTS_PATH} ${PWD}/kernel-images/${IMG_FILTER}/${ARCH}/*
-
-fix-permissions:
-	${SUDO} chown -fR ${USER}:${USER} .
 
 clean:
 	${SUDO} rm -rf artifacts-*
