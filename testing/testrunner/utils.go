@@ -64,6 +64,16 @@ type TtyInfo struct {
 	Minor int64 `json:"minor"`
 }
 
+type NetInfo struct {
+	Transport  string `json:"transport"`
+	Family     string `json:"family"`
+	SourceAddr string `json:"source_address"`
+	SourcePort int64  `json:"source_port"`
+	DestAddr   string `json:"destination_address"`
+	DestPort   int64  `json:"destination_port"`
+	NetNs      int64  `json:"network_namespace"`
+}
+
 type ProcessForkEvent struct {
 	ParentPids PidInfo `json:"parent_pids"`
 	ChildPids  PidInfo `json:"child_pids"`
@@ -111,6 +121,24 @@ type TtyWriteEvent struct {
 	Len       int64   `json:"tty_out_len"`
 	Truncated int64   `json:"tty_out_truncated"`
 	Out       string  `json:"tty_out"`
+}
+
+type NetConnAttemptEvent struct {
+	Pids PidInfo `json:"pids"`
+	Net  NetInfo `json:"net"`
+	Comm string  `json:"comm"`
+}
+
+type NetConnAcceptEvent struct {
+	Pids PidInfo `json:"pids"`
+	Net  NetInfo `json:"net"`
+	Comm string  `json:"comm"`
+}
+
+type NetConnCloseEvent struct {
+	Pids PidInfo `json:"pids"`
+	Net  NetInfo `json:"net"`
+	Comm string  `json:"comm"`
 }
 
 func getJsonEventType(jsonLine string) (string, error) {

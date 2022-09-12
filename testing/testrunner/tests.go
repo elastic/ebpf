@@ -379,6 +379,134 @@ func TestTtyWrite(et *EventsTraceInstance) {
 	AssertStringsEqual(ev.Out, "--- OK\n")
 }
 
+func TestTcpv4ConnectionAttempt(et *EventsTraceInstance) {
+	outputStr := runTestBin("tcpv4_connect")
+	var binOutput struct {
+		PidInfo    TestPidInfo `json:"pid_info"`
+		ClientPort int64       `json:"client_port"`
+		ServerPort int64       `json:"server_port"`
+		NetNs      int64       `json:"netns"`
+	}
+
+	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
+		TestFail("failed to unmarshal json", err)
+	}
+
+	var ev NetConnCloseEvent
+	for {
+		line := et.GetNextEventJson("NETWORK_CONNECTION_ATTEMPTED")
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			TestFail("failed to unmarshal JSON: ", err)
+		}
+
+		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
+			break
+		}
+	}
+
+	AssertPidInfoEqual(binOutput.PidInfo, ev.Pids)
+	AssertStringsEqual(ev.Net.Transport, "TCP")
+	AssertStringsEqual(ev.Net.Family, "AF_INET")
+	AssertStringsEqual(ev.Net.SourceAddr, "127.0.0.1")
+	AssertInt64Equal(ev.Net.SourcePort, binOutput.ClientPort)
+	AssertStringsEqual(ev.Net.DestAddr, "127.0.0.1")
+	AssertInt64Equal(ev.Net.DestPort, binOutput.ServerPort)
+	AssertInt64Equal(ev.Net.NetNs, binOutput.NetNs)
+	AssertStringsEqual(ev.Comm, "tcpv4_connect")
+}
+
+func TestTcpv4ConnectionAccept(et *EventsTraceInstance) {
+	outputStr := runTestBin("tcpv4_connect")
+	var binOutput struct {
+		PidInfo    TestPidInfo `json:"pid_info"`
+		ClientPort int64       `json:"client_port"`
+		ServerPort int64       `json:"server_port"`
+		NetNs      int64       `json:"netns"`
+	}
+
+	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
+		TestFail("failed to unmarshal json", err)
+	}
+
+	var ev NetConnCloseEvent
+	for {
+		line := et.GetNextEventJson("NETWORK_CONNECTION_ACCEPTED")
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			TestFail("failed to unmarshal JSON: ", err)
+		}
+
+		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
+			break
+		}
+	}
+
+	AssertPidInfoEqual(binOutput.PidInfo, ev.Pids)
+	AssertStringsEqual(ev.Net.Transport, "TCP")
+	AssertStringsEqual(ev.Net.Family, "AF_INET")
+	AssertStringsEqual(ev.Net.SourceAddr, "127.0.0.1")
+	AssertInt64Equal(ev.Net.SourcePort, binOutput.ServerPort)
+	AssertStringsEqual(ev.Net.DestAddr, "127.0.0.1")
+	AssertInt64Equal(ev.Net.DestPort, binOutput.ClientPort)
+	AssertInt64Equal(ev.Net.NetNs, binOutput.NetNs)
+	AssertStringsEqual(ev.Comm, "tcpv4_connect")
+}
+
+func TestTcpv4ConnectionClose(et *EventsTraceInstance) {
+	outputStr := runTestBin("tcpv4_connect")
+	var binOutput struct {
+		PidInfo    TestPidInfo `json:"pid_info"`
+		ClientPort int64       `json:"client_port"`
+		ServerPort int64       `json:"server_port"`
+		NetNs      int64       `json:"netns"`
+	}
+
+	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
+		TestFail("failed to unmarshal json", err)
+	}
+
+	var ev NetConnCloseEvent
+	for {
+		line := et.GetNextEventJson("NETWORK_CONNECTION_CLOSED")
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			TestFail("failed to unmarshal JSON: ", err)
+		}
+
+		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
+			break
+		}
+	}
+
+	// NETWORK_CONNECTION_CLOSED is an interesting case.
+	//
+	// While NETWORK_CONNECTION_ATTEMPTED is generated exclusively on the
+	// client-side via a connect(...) and NETWORK_CONNECTION_ACCEPTED is
+	// generated exclusively on the server side via an accept(...)
+	// NETWORK_CONNECTION_CLOSED may be generated on either side upon a
+	// close(...) of a socket fd. This means that the source and desination
+	// ports might be "flipped" depending on what side the connection is on
+	// (server/client) for a close event.
+	//
+	// Our tcpv4_connect binary creates a server and client socket on the same
+	// machine, so what port is reported as the source and destination port
+	// will vary depending on which socket is closed first (client / server).
+	//
+	// The test binary closes the server socket first, which counterintuitively
+	// results in the _client_ socket being torn down first in the kernel.
+	// Thus, our BPF probes report the source/dest ports from the client
+	// socket's point of view for the close event. The SourcePort and DestPort
+	// assertions below verify this is correct.
+
+	AssertPidInfoEqual(binOutput.PidInfo, ev.Pids)
+	AssertStringsEqual(ev.Net.Transport, "TCP")
+	AssertStringsEqual(ev.Net.Family, "AF_INET")
+	AssertStringsEqual(ev.Net.SourceAddr, "127.0.0.1")
+	AssertInt64Equal(ev.Net.SourcePort, binOutput.ClientPort)
+	AssertStringsEqual(ev.Net.DestAddr, "127.0.0.1")
+	AssertInt64Equal(ev.Net.DestPort, binOutput.ServerPort)
+	AssertInt64Equal(ev.Net.NetNs, binOutput.NetNs)
+	AssertStringsEqual(ev.Comm, "tcpv4_connect")
+}
+
 func TestTcFilter() {
 	cmd := exec.Command("/BPFTcFilterTests")
 	cmd.Env = os.Environ()
