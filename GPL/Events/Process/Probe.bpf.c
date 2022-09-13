@@ -241,13 +241,16 @@ int BPF_KPROBE(kprobe__commit_creds, struct cred *new)
     return commit_creds__enter(new);
 }
 
-static int tty_write__enter(const char *buf, ssize_t count)
+static int tty_write__enter(const char *buf, ssize_t count, struct file *f)
 {
     if (is_consumer())
         goto out;
 
     if (count <= 0)
         goto out;
+
+    struct tty_file_private *tfp = (struct tty_file_private *)BPF_CORE_READ(f, private_data);
+    struct winsize winsize       = BPF_CORE_READ(tfp, tty, winsize);
 
     struct ebpf_process_tty_write_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
@@ -259,10 +262,17 @@ static int tty_write__enter(const char *buf, ssize_t count)
     u64 len                  = count > TTY_OUT_MAX ? TTY_OUT_MAX : count;
     event->tty_out_len       = len;
     event->tty_out_truncated = count > TTY_OUT_MAX ? count - TTY_OUT_MAX : 0;
+    event->tty_winsize_row   = winsize.ws_row;
+    event->tty_winsize_col   = winsize.ws_col;
 
     const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_ctty__fill(&event->ctty, task);
+
+    if (event->ctty.major == 0 && event->ctty.minor == 0) {
+        bpf_ringbuf_discard(event, 0);
+        goto out;
+    }
 
     if (bpf_probe_read_user(event->tty_out, len, (void *)buf)) {
         bpf_printk("tty_write__enter: error reading buf\n");
@@ -281,17 +291,23 @@ int BPF_PROG(fentry__tty_write)
 {
     const char *buf;
     ssize_t count;
+    struct file *f;
 
     if (FUNC_ARG_EXISTS(redirected_tty_write, iter)) {
         struct iov_iter *ii = FUNC_ARG_READ(___type(ii), redirected_tty_write, iter);
         buf                 = BPF_CORE_READ(ii, iov, iov_base);
         count               = BPF_CORE_READ(ii, iov, iov_len);
+
+        struct kiocb *iocb = (struct kiocb *)ctx[0];
+        f                  = BPF_CORE_READ(iocb, ki_filp);
     } else {
         buf   = FUNC_ARG_READ(___type(buf), redirected_tty_write, buf);
         count = FUNC_ARG_READ(___type(count), redirected_tty_write, count);
+
+        f = (struct file *)ctx[0];
     }
 
-    return tty_write__enter(buf, count);
+    return tty_write__enter(buf, count, f);
 }
 
 SEC("kprobe/tty_write")
@@ -299,6 +315,7 @@ int BPF_KPROBE(kprobe__tty_write)
 {
     const char *buf;
     ssize_t count;
+    struct file *f;
 
     if (FUNC_ARG_EXISTS(redirected_tty_write, iter)) {
         struct iov_iter ii;
@@ -308,6 +325,9 @@ int BPF_KPROBE(kprobe__tty_write)
         }
         buf   = BPF_CORE_READ(ii.iov, iov_base);
         count = BPF_CORE_READ(ii.iov, iov_len);
+
+        struct kiocb *iocb = (struct kiocb *)PT_REGS_PARM1(ctx);
+        f                  = BPF_CORE_READ(iocb, ki_filp);
     } else {
         if (FUNC_ARG_READ_PTREGS(buf, redirected_tty_write, buf)) {
             bpf_printk("kprobe__tty_write: error reading buf\n");
@@ -317,9 +337,11 @@ int BPF_KPROBE(kprobe__tty_write)
             bpf_printk("kprobe__tty_write: error reading count\n");
             goto out;
         }
+
+        f = (struct file *)PT_REGS_PARM1(ctx);
     }
 
-    return tty_write__enter(buf, count);
+    return tty_write__enter(buf, count, f);
 
 out:
     return 0;

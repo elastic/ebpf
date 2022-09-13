@@ -144,6 +144,8 @@ struct ebpf_process_tty_write_event {
     uint64_t tty_out_len;
     uint64_t tty_out_truncated;
     struct ebpf_tty_dev ctty;
+    uint16_t tty_winsize_row;
+    uint16_t tty_winsize_col;
 } __attribute__((packed));
 
 struct ebpf_process_setgid_event {

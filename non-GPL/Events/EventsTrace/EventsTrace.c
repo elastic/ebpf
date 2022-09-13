@@ -233,7 +233,7 @@ static void out_string(const char *name, const char *value)
             printf("\\\\");
             break;
         case '"':
-            printf("\"");
+            printf("\\\"");
             break;
         case '\t':
             printf("\\t");
@@ -493,6 +493,10 @@ static void out_process_tty_write(struct ebpf_process_tty_write_event *evt)
     out_tty_dev("ctty", &evt->ctty);
     out_comma();
     out_string("tty_out", evt->tty_out);
+    out_comma();
+    out_int("tty_winsize_row", evt->tty_winsize_row);
+    out_comma();
+    out_int("tty_winsize_col", evt->tty_winsize_col);
 
     out_object_end();
     out_newline();

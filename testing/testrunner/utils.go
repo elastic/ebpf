@@ -117,10 +117,12 @@ type SetGidEvent struct {
 }
 
 type TtyWriteEvent struct {
-	Pids      PidInfo `json:"pids"`
-	Len       int64   `json:"tty_out_len"`
-	Truncated int64   `json:"tty_out_truncated"`
-	Out       string  `json:"tty_out"`
+	Pids         PidInfo `json:"pids"`
+	Len          int64   `json:"tty_out_len"`
+	Truncated    int64   `json:"tty_out_truncated"`
+	Out          string  `json:"tty_out"`
+	TerminalRows int64   `json:"tty_winsize_row"`
+	TerminalCols int64   `json:"tty_winsize_col"`
 }
 
 type NetConnAttemptEvent struct {
@@ -182,13 +184,13 @@ func AssertPidInfoEqual(tpi TestPidInfo, pi PidInfo) {
 }
 
 func AssertTrue(val bool) {
-	if val != true {
+	if !val {
 		TestFail(fmt.Sprintf("Expected %t to be true", val))
 	}
 }
 
 func AssertFalse(val bool) {
-	if val != false {
+	if val {
 		TestFail(fmt.Sprintf("Expected %t to be false", val))
 	}
 }
@@ -214,14 +216,14 @@ func AssertInt64NotEqual(a, b int64) {
 func PrintBPFDebugOutput() {
 	file, err := os.Open("/sys/kernel/debug/tracing/trace")
 	if err != nil {
-		fmt.Println("Could not open /sys/kernel/debug/tracing/trace: %s", err)
+		fmt.Printf("Could not open /sys/kernel/debug/tracing/trace: %s", err)
 		return
 	}
 	defer file.Close()
 
 	b, err := io.ReadAll(file)
 	if err != nil {
-		fmt.Println("Could not read /sys/kernel/debug/tracing/trace: %s", err)
+		fmt.Printf("Could not read /sys/kernel/debug/tracing/trace: %s", err)
 		return
 	}
 
