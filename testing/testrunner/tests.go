@@ -377,6 +377,8 @@ func TestTtyWrite(et *EventsTraceInstance) {
 	AssertInt64Equal(ev.Len, 7)
 	AssertInt64Equal(ev.Truncated, 0)
 	AssertStringsEqual(ev.Out, "--- OK\n")
+	AssertTrue(ev.TerminalRows > 0)
+	AssertTrue(ev.TerminalCols > 0)
 }
 
 func TestTcpv4ConnectionAttempt(et *EventsTraceInstance) {

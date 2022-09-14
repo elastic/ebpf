@@ -90,14 +90,8 @@ func (et *EventsTraceInstance) Start(ctx context.Context) {
 
 func (et *EventsTraceInstance) DumpStderr() {
 	fmt.Println("===== EventsTrace Stderr =====")
-	for {
-		select {
-		case line, ok := <-et.StderrChan:
-			if !ok {
-				return
-			}
-			fmt.Println(line)
-		}
+	for line := range et.StderrChan {
+		fmt.Println(line)
 	}
 }
 
