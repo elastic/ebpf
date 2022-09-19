@@ -250,7 +250,17 @@ static int tty_write__enter(const char *buf, ssize_t count, struct file *f)
         goto out;
 
     struct tty_file_private *tfp = (struct tty_file_private *)BPF_CORE_READ(f, private_data);
-    struct winsize winsize       = BPF_CORE_READ(tfp, tty, winsize);
+    struct tty_struct *tty       = BPF_CORE_READ(tfp, tty);
+
+    // Obtain the real TTY
+    //
+    // @link: link to another pty (master -> slave and vice versa)
+    //
+    // https://elixir.bootlin.com/linux/v5.19.9/source/drivers/tty/tty_io.c#L2643
+    if (BPF_CORE_READ(tty, driver, type) == TTY_DRIVER_TYPE_PTY &&
+        BPF_CORE_READ(tty, driver, subtype) == PTY_TYPE_MASTER) {
+        tty = BPF_CORE_READ(tty, link);
+    }
 
     struct ebpf_process_tty_write_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
@@ -262,14 +272,13 @@ static int tty_write__enter(const char *buf, ssize_t count, struct file *f)
     u64 len                  = count > TTY_OUT_MAX ? TTY_OUT_MAX : count;
     event->tty_out_len       = len;
     event->tty_out_truncated = count > TTY_OUT_MAX ? count - TTY_OUT_MAX : 0;
-    event->tty_winsize_row   = winsize.ws_row;
-    event->tty_winsize_col   = winsize.ws_col;
 
     const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_ctty__fill(&event->ctty, task);
+    ebpf_tty_dev__fill(&event->tty, tty);
 
-    if (event->ctty.major == 0 && event->ctty.minor == 0) {
+    if (event->tty.major == 0 && event->tty.minor == 0) {
         bpf_ringbuf_discard(event, 0);
         goto out;
     }

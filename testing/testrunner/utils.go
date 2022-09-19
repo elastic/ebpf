@@ -116,13 +116,23 @@ type SetGidEvent struct {
 	NewEgid int64   `json:"new_egid"`
 }
 
+type ttyDevInfo struct {
+	Major           int64  `json:"major"`
+	Minor           int64  `json:"minor"`
+	WinsizeRows     int64  `json:"winsize_rows"`
+	WinsizeCols     int64  `json:"winsize_cols"`
+	Termios_C_Iflag string `json:"termios_c_iflag"`
+	Termios_C_Oflag string `json:"termios_c_oflag"`
+	Termios_C_Lflag string `json:"termios_c_lflag"`
+	Termios_C_Cflag string `json:"termios_c_cflag"`
+}
+
 type TtyWriteEvent struct {
-	Pids         PidInfo `json:"pids"`
-	Len          int64   `json:"tty_out_len"`
-	Truncated    int64   `json:"tty_out_truncated"`
-	Out          string  `json:"tty_out"`
-	TerminalRows int64   `json:"tty_winsize_row"`
-	TerminalCols int64   `json:"tty_winsize_col"`
+	Pids      PidInfo    `json:"pids"`
+	Len       int64      `json:"tty_out_len"`
+	Truncated int64      `json:"tty_out_truncated"`
+	Out       string     `json:"tty_out"`
+	TtyDev    ttyDevInfo `json:"tty"`
 }
 
 type NetConnAttemptEvent struct {

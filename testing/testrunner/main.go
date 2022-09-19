@@ -19,13 +19,11 @@ func main() {
 	RunEventsTest(TestForkExec, "--process-fork", "--process-exec")
 	RunEventsTest(TestSetuid, "--process-setuid")
 	RunEventsTest(TestSetgid, "--process-setgid")
+	RunEventsTest(TestTtyWrite, "--process-tty-write")
+
 	RunEventsTest(TestFileCreate, "--file-create")
 	RunEventsTest(TestFileDelete, "--file-delete")
 	RunEventsTest(TestFileRename, "--file-rename")
-	// Currently we are filtering devices with 0-0 as
-	// major-minor tuple.
-	// TODO: write to a device with a major number != 0.
-	// RunEventsTest(TestTtyWrite, "--process-tty-write")
 
 	RunEventsTest(TestTcpv4ConnectionAttempt, "--net-conn-attempt")
 	RunEventsTest(TestTcpv4ConnectionAccept, "--net-conn-accept")

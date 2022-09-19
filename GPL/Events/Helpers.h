@@ -120,6 +120,10 @@ const volatile int consumer_pid = 0;
 // From linux/err.h
 #define MAX_ERRNO 4095
 
+// From include/linux/tty_driver.h
+#define TTY_DRIVER_TYPE_PTY 0x0004
+#define PTY_TYPE_MASTER 0x0001
+
 static bool IS_ERR_OR_NULL(const void *ptr)
 {
     return (!ptr) || (unsigned long)ptr >= (unsigned long)-MAX_ERRNO;
@@ -162,11 +166,31 @@ static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct
     buf[buf_size - 1] = '\0';
 }
 
+static void ebpf_tty_dev__fill(struct ebpf_tty_dev *tty_dev, const struct tty_struct *tty)
+{
+    tty_dev->major = BPF_CORE_READ(tty, driver, major);
+    tty_dev->minor = BPF_CORE_READ(tty, driver, minor_start);
+    tty_dev->minor += BPF_CORE_READ(tty, index);
+
+    struct winsize winsize     = BPF_CORE_READ(tty, winsize);
+    struct ebpf_tty_winsize ws = {};
+    ws.rows                    = winsize.ws_row;
+    ws.cols                    = winsize.ws_col;
+    tty_dev->winsize           = ws;
+
+    struct ktermios termios   = BPF_CORE_READ(tty, termios);
+    struct ebpf_tty_termios t = {};
+    t.c_iflag                 = termios.c_iflag;
+    t.c_oflag                 = termios.c_oflag;
+    t.c_lflag                 = termios.c_lflag;
+    t.c_cflag                 = termios.c_cflag;
+    tty_dev->termios          = t;
+}
+
 static void ebpf_ctty__fill(struct ebpf_tty_dev *ctty, const struct task_struct *task)
 {
-    ctty->major = BPF_CORE_READ(task, signal, tty, driver, major);
-    ctty->minor = BPF_CORE_READ(task, signal, tty, driver, minor_start);
-    ctty->minor += BPF_CORE_READ(task, signal, tty, index);
+    struct tty_struct *tty = BPF_CORE_READ(task, signal, tty);
+    ebpf_tty_dev__fill(ctty, tty);
 }
 
 static void ebpf_pid_info__fill(struct ebpf_pid_info *pi, const struct task_struct *task)
