@@ -67,9 +67,23 @@ struct ebpf_cred_info {
     uint32_t sgid; // Saved group ID
 } __attribute__((packed));
 
+struct ebpf_tty_winsize {
+    uint16_t rows;
+    uint16_t cols;
+} __attribute__((packed));
+
+struct ebpf_tty_termios {
+    uint32_t c_iflag;
+    uint32_t c_oflag;
+    uint32_t c_lflag;
+    uint32_t c_cflag;
+} __attribute__((packed));
+
 struct ebpf_tty_dev {
     uint16_t minor;
     uint16_t major;
+    struct ebpf_tty_winsize winsize;
+    struct ebpf_tty_termios termios;
 } __attribute__((packed));
 
 // Full events follow
@@ -143,9 +157,10 @@ struct ebpf_process_tty_write_event {
     char tty_out[TTY_OUT_MAX];
     uint64_t tty_out_len;
     uint64_t tty_out_truncated;
+    // Controlling TTY.
     struct ebpf_tty_dev ctty;
-    uint16_t tty_winsize_row;
-    uint16_t tty_winsize_col;
+    // Destination TTY.
+    struct ebpf_tty_dev tty;
 } __attribute__((packed));
 
 struct ebpf_process_setgid_event {

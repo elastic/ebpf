@@ -217,6 +217,11 @@ static void out_int(const char *name, const long value)
     printf("\"%s\":%ld", name, value);
 }
 
+static void out_hex(const char *name, const unsigned int value)
+{
+    printf("\"%s\":\"0x%x\"", name, value);
+}
+
 static void out_string(const char *name, const char *value)
 {
     printf("\"%s\":\"", name);
@@ -259,6 +264,19 @@ static void out_tty_dev(const char *name, struct ebpf_tty_dev *tty_dev)
     out_int("major", tty_dev->major);
     out_comma();
     out_int("minor", tty_dev->minor);
+    out_comma();
+    out_int("winsize_rows", tty_dev->winsize.rows);
+    out_comma();
+    out_int("winsize_cols", tty_dev->winsize.cols);
+    out_comma();
+    out_hex("termios_c_iflag", tty_dev->termios.c_iflag);
+    out_comma();
+    out_hex("termios_c_oflag", tty_dev->termios.c_oflag);
+    out_comma();
+    out_hex("termios_c_lflag", tty_dev->termios.c_lflag);
+    out_comma();
+    out_hex("termios_c_cflag", tty_dev->termios.c_cflag);
+
     out_object_end();
 }
 
@@ -492,11 +510,9 @@ static void out_process_tty_write(struct ebpf_process_tty_write_event *evt)
     out_comma();
     out_tty_dev("ctty", &evt->ctty);
     out_comma();
+    out_tty_dev("tty", &evt->tty);
+    out_comma();
     out_string("tty_out", evt->tty_out);
-    out_comma();
-    out_int("tty_winsize_row", evt->tty_winsize_row);
-    out_comma();
-    out_int("tty_winsize_col", evt->tty_winsize_col);
 
     out_object_end();
     out_newline();
