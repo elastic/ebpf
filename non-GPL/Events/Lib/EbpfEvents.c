@@ -248,6 +248,12 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__tty_write, false);
     }
 
+    if (has_bpf_tramp && BTF_FUNC_EXISTS(btf, n_tty_write)) {
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__n_tty_write, false);
+    } else {
+        err = err ?: bpf_program__set_autoload(obj->progs.fentry__n_tty_write, false);
+    }
+
     // bpf trampolines are only implemented for x86. disable auto-loading of all
     // fentry/fexit progs if EBPF_FEATURE_BPF_TRAMP is not in `features` and
     // enable the k[ret]probe counterpart.
