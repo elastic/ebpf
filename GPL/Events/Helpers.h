@@ -125,7 +125,6 @@ const volatile int consumer_pid = 0;
 #define PTY_TYPE_MASTER 0x0001
 
 // From include/uapi/asm-generic/termbits.h
-#define ICANON 0x00002
 #define ECHO 0x00008
 
 static bool IS_ERR_OR_NULL(const void *ptr)
