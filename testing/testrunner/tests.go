@@ -400,7 +400,7 @@ func TestTcpv4ConnectionAttempt(et *EventsTraceInstance) {
 		TestFail("failed to unmarshal json", err)
 	}
 
-	var ev NetConnCloseEvent
+	var ev NetConnAttemptEvent
 	for {
 		line := et.GetNextEventJson("NETWORK_CONNECTION_ATTEMPTED")
 		if err := json.Unmarshal([]byte(line), &ev); err != nil {
@@ -436,7 +436,7 @@ func TestTcpv4ConnectionAccept(et *EventsTraceInstance) {
 		TestFail("failed to unmarshal json", err)
 	}
 
-	var ev NetConnCloseEvent
+	var ev NetConnAcceptEvent
 	for {
 		line := et.GetNextEventJson("NETWORK_CONNECTION_ACCEPTED")
 		if err := json.Unmarshal([]byte(line), &ev); err != nil {
