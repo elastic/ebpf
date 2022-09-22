@@ -317,7 +317,7 @@ static bool system_has_bpf_tramp()
     bool ret        = true;
     struct btf *btf = btf__load_vmlinux_btf();
     if (libbpf_get_error(btf)) {
-        verbose("could not load system BTF (does the kernel have BTF?)");
+        verbose("could not load system BTF (does the kernel have BTF?)\n");
         ret = false;
         goto out;
     }
@@ -444,7 +444,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
 
     btf = btf__load_vmlinux_btf();
     if (libbpf_get_error(btf)) {
-        verbose("could not load system BTF (does the kernel have BTF?)");
+        verbose("could not load system BTF (does the kernel have BTF?)\n");
         err = -ENOENT;
         goto out_destroy_probe;
     }
