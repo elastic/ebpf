@@ -515,6 +515,114 @@ func TestTcpv4ConnectionClose(et *EventsTraceInstance) {
 	AssertStringsEqual(ev.Comm, "tcpv4_connect")
 }
 
+func TestTcpv6ConnectionAttempt(et *EventsTraceInstance) {
+	outputStr := runTestBin("tcpv6_connect")
+	var binOutput struct {
+		PidInfo    TestPidInfo `json:"pid_info"`
+		ClientPort int64       `json:"client_port"`
+		ServerPort int64       `json:"server_port"`
+		NetNs      int64       `json:"netns"`
+	}
+
+	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
+		TestFail("failed to unmarshal json", err)
+	}
+
+	var ev NetConnAttemptEvent
+	for {
+		line := et.GetNextEventJson("NETWORK_CONNECTION_ATTEMPTED")
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			TestFail("failed to unmarshal JSON: ", err)
+		}
+
+		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
+			break
+		}
+	}
+
+	AssertPidInfoEqual(binOutput.PidInfo, ev.Pids)
+	AssertStringsEqual(ev.Net.Transport, "TCP")
+	AssertStringsEqual(ev.Net.Family, "AF_INET6")
+	AssertStringsEqual(ev.Net.SourceAddr, "::1")
+	AssertInt64Equal(ev.Net.SourcePort, binOutput.ClientPort)
+	AssertStringsEqual(ev.Net.DestAddr, "::1")
+	AssertInt64Equal(ev.Net.DestPort, binOutput.ServerPort)
+	AssertInt64Equal(ev.Net.NetNs, binOutput.NetNs)
+	AssertStringsEqual(ev.Comm, "tcpv6_connect")
+}
+
+func TestTcpv6ConnectionAccept(et *EventsTraceInstance) {
+	outputStr := runTestBin("tcpv6_connect")
+	var binOutput struct {
+		PidInfo    TestPidInfo `json:"pid_info"`
+		ClientPort int64       `json:"client_port"`
+		ServerPort int64       `json:"server_port"`
+		NetNs      int64       `json:"netns"`
+	}
+
+	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
+		TestFail("failed to unmarshal json", err)
+	}
+
+	var ev NetConnAttemptEvent
+	for {
+		line := et.GetNextEventJson("NETWORK_CONNECTION_ACCEPTED")
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			TestFail("failed to unmarshal JSON: ", err)
+		}
+
+		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
+			break
+		}
+	}
+
+	AssertPidInfoEqual(binOutput.PidInfo, ev.Pids)
+	AssertStringsEqual(ev.Net.Transport, "TCP")
+	AssertStringsEqual(ev.Net.Family, "AF_INET6")
+	AssertStringsEqual(ev.Net.SourceAddr, "::1")
+	AssertInt64Equal(ev.Net.SourcePort, binOutput.ServerPort)
+	AssertStringsEqual(ev.Net.DestAddr, "::1")
+	AssertInt64Equal(ev.Net.DestPort, binOutput.ClientPort)
+	AssertInt64Equal(ev.Net.NetNs, binOutput.NetNs)
+	AssertStringsEqual(ev.Comm, "tcpv6_connect")
+}
+
+func TestTcpv6ConnectionClose(et *EventsTraceInstance) {
+	outputStr := runTestBin("tcpv6_connect")
+	var binOutput struct {
+		PidInfo    TestPidInfo `json:"pid_info"`
+		ClientPort int64       `json:"client_port"`
+		ServerPort int64       `json:"server_port"`
+		NetNs      int64       `json:"netns"`
+	}
+
+	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
+		TestFail("failed to unmarshal json", err)
+	}
+
+	var ev NetConnCloseEvent
+	for {
+		line := et.GetNextEventJson("NETWORK_CONNECTION_CLOSED")
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			TestFail("failed to unmarshal JSON: ", err)
+		}
+
+		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
+			break
+		}
+	}
+
+	AssertPidInfoEqual(binOutput.PidInfo, ev.Pids)
+	AssertStringsEqual(ev.Net.Transport, "TCP")
+	AssertStringsEqual(ev.Net.Family, "AF_INET6")
+	AssertStringsEqual(ev.Net.SourceAddr, "::1")
+	AssertInt64Equal(ev.Net.SourcePort, binOutput.ClientPort)
+	AssertStringsEqual(ev.Net.DestAddr, "::1")
+	AssertInt64Equal(ev.Net.DestPort, binOutput.ServerPort)
+	AssertInt64Equal(ev.Net.NetNs, binOutput.NetNs)
+	AssertStringsEqual(ev.Comm, "tcpv6_connect")
+}
+
 func TestTcFilter() {
 	cmd := exec.Command("/BPFTcFilterTests")
 	cmd.Env = os.Environ()
