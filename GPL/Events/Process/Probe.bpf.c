@@ -15,6 +15,7 @@
 
 #include "Helpers.h"
 #include "PathResolver.h"
+#include "State.h"
 
 /* tty_write */
 DECL_FUNC_ARG(redirected_tty_write, iter);
@@ -243,6 +244,13 @@ int BPF_KPROBE(kprobe__commit_creds, struct cred *new)
 
 static int tty_write__enter(const char *buf, ssize_t count, struct file *f)
 {
+    bool driver                     = false;
+    struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_TTY_WRITE);
+    if (state) {
+        ebpf_events_state__del(EBPF_EVENTS_STATE_TTY_WRITE);
+        driver = true;
+    }
+
     if (is_consumer())
         goto out;
 
@@ -272,11 +280,18 @@ static int tty_write__enter(const char *buf, ssize_t count, struct file *f)
     u64 len                  = count > TTY_OUT_MAX ? TTY_OUT_MAX : count;
     event->tty_out_len       = len;
     event->tty_out_truncated = count > TTY_OUT_MAX ? count - TTY_OUT_MAX : 0;
+    event->driver            = driver;
 
     const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_ctty__fill(&event->ctty, task);
     ebpf_tty_dev__fill(&event->tty, tty);
+
+    if (event->driver && (event->tty.termios.c_lflag & ICANON) &&
+        !(event->tty.termios.c_lflag & ECHO)) {
+        bpf_ringbuf_discard(event, 0);
+        goto out;
+    }
 
     if (event->tty.major == 0 && event->tty.minor == 0) {
         bpf_ringbuf_discard(event, 0);
@@ -354,4 +369,23 @@ int BPF_KPROBE(kprobe__tty_write)
 
 out:
     return 0;
+}
+
+static int n_tty_write__enter()
+{
+    struct ebpf_events_state state = {.tty_write = {}};
+    ebpf_events_state__set(EBPF_EVENTS_STATE_TTY_WRITE, &state);
+    return 0;
+}
+
+SEC("fentry/n_tty_write")
+int BPF_PROG(fentry__n_tty_write)
+{
+    return n_tty_write__enter();
+}
+
+SEC("kprobe/n_tty_write")
+int BPF_KPROBE(kprobe__n_tty_write)
+{
+    return n_tty_write__enter();
 }

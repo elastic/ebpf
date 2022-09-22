@@ -16,6 +16,7 @@ enum ebpf_events_state_op {
     EBPF_EVENTS_STATE_RENAME         = 2,
     EBPF_EVENTS_STATE_TCP_V4_CONNECT = 3,
     EBPF_EVENTS_STATE_TCP_V6_CONNECT = 4,
+    EBPF_EVENTS_STATE_TTY_WRITE      = 5,
 };
 
 struct ebpf_events_key {
@@ -50,12 +51,18 @@ struct ebpf_events_tcp_connect_state {
     struct sock *sk;
 };
 
+// Store nothing, this state will be used to filter by
+// execution context.
+struct ebpf_events_tty_write_state {
+};
+
 struct ebpf_events_state {
     union {
         struct ebpf_events_unlink_state unlink;
         struct ebpf_events_rename_state rename;
         struct ebpf_events_tcp_connect_state tcp_v4_connect;
         struct ebpf_events_tcp_connect_state tcp_v6_connect;
+        struct ebpf_events_tty_write_state tty_write;
     };
 };
 

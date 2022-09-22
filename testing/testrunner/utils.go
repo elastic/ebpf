@@ -133,6 +133,7 @@ type TtyWriteEvent struct {
 	Truncated int64      `json:"tty_out_truncated"`
 	Out       string     `json:"tty_out"`
 	TtyDev    ttyDevInfo `json:"tty"`
+	Driver    string     `json:"driver"`
 }
 
 type NetConnAttemptEvent struct {

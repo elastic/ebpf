@@ -222,6 +222,11 @@ static void out_hex(const char *name, const unsigned int value)
     printf("\"%s\":\"0x%x\"", name, value);
 }
 
+static void out_bool(const char *name, const bool value)
+{
+    printf("\"%s\":\"%s\"", name, value ? "TRUE" : "FALSE");
+}
+
 static void out_string(const char *name, const char *value)
 {
     printf("\"%s\":\"", name);
@@ -513,6 +518,8 @@ static void out_process_tty_write(struct ebpf_process_tty_write_event *evt)
     out_tty_dev("tty", &evt->tty);
     out_comma();
     out_string("tty_out", evt->tty_out);
+    out_comma();
+    out_bool("driver", evt->driver);
 
     out_object_end();
     out_newline();
