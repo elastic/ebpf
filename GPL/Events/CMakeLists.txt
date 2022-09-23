@@ -35,6 +35,11 @@ ebpf_probe_target(EventProbe
     ${CMAKE_CURRENT_SOURCE_DIR}/Network/Probe.bpf.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Network/Network.h
     ${CMAKE_CURRENT_SOURCE_DIR}/Process/Probe.bpf.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/EbpfEventProto.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/EventProbe.bpf.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Helpers.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/PathResolver.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/State.h
     GENSKELETON INSTALL
 
 )
