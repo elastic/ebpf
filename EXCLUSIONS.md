@@ -1,5 +1,5 @@
 elastic/ebpf is tested against a matrix of kernels. The code contained in this
-repository is intended for use with linux kernel version 5.10.10 or higher,
+repository is intended for use with linux kernel version 5.10.16 or higher,
 with BTF (and other requisite configs) enabled.
 
 The following is a list of kernels where the ebpf programs fail to load or
