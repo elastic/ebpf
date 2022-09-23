@@ -24,15 +24,8 @@ struct ebpf_event_ctx;
 
 typedef int (*ebpf_event_handler_fn)(struct ebpf_event_header *);
 
-struct ebpf_event_ctx_opts {
-    uint64_t events;
-    uint64_t features;
-};
-
 /* Turn on logging of all libbpf debug logs to stderr */
 int ebpf_set_verbose_logging();
-
-int ebpf_detect_system_features(uint64_t *features);
 
 /* Allocates a new context based on requested events and capabilities.
  *
@@ -43,9 +36,9 @@ int ebpf_detect_system_features(uint64_t *features);
  * on success. Returns an error on failure. If ctx is NULL,
  * returns 0 on success or less than 0 on failure.
  */
-int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
-                        ebpf_event_handler_fn cb,
-                        struct ebpf_event_ctx_opts opts);
+int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx, ebpf_event_handler_fn cb, uint64_t events);
+
+uint64_t ebpf_event_ctx__get_features(struct ebpf_event_ctx *ctx);
 
 /* Consumes as many events as possible from the event context and returns the
  * number consumed.

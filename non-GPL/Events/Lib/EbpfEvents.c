@@ -30,6 +30,7 @@ struct ring_buf_cb_ctx {
 };
 
 struct ebpf_event_ctx {
+    uint64_t features;
     struct ring_buffer *ringbuf;
     struct EventProbe_bpf *probe;
     struct ring_buf_cb_ctx *cb_ctx;
@@ -375,16 +376,14 @@ out:
     return ret;
 }
 
-int ebpf_detect_system_features(uint64_t *features)
+static uint64_t detect_system_features()
 {
-    if (!features)
-        return -EINVAL;
+    uint64_t features = 0;
 
-    *features = 0;
     if (system_has_bpf_tramp())
-        *features |= EBPF_FEATURE_BPF_TRAMP;
+        features |= EBPF_FEATURE_BPF_TRAMP;
 
-    return 0;
+    return features;
 }
 
 static int libbpf_verbose_print(enum libbpf_print_level lvl, const char *fmt, va_list args)
@@ -410,9 +409,12 @@ int ebpf_set_verbose_logging()
     return 0;
 }
 
-int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
-                        ebpf_event_handler_fn cb,
-                        struct ebpf_event_ctx_opts opts)
+uint64_t ebpf_event_ctx__get_features(struct ebpf_event_ctx *ctx)
+{
+    return ctx->features;
+}
+
+int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx, ebpf_event_handler_fn cb, uint64_t events)
 {
     struct EventProbe_bpf *probe = NULL;
     struct btf *btf              = NULL;
@@ -442,6 +444,8 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
     if (err != 0)
         goto out_destroy_probe;
 
+    uint64_t features = detect_system_features();
+
     btf = btf__load_vmlinux_btf();
     if (libbpf_get_error(btf)) {
         verbose("could not load system BTF (does the kernel have BTF?)\n");
@@ -464,7 +468,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
     if (err != 0)
         goto out_destroy_probe;
 
-    err = probe_set_autoload(btf, probe, opts.features);
+    err = probe_set_autoload(btf, probe, features);
     if (err != 0)
         goto out_destroy_probe;
 
@@ -484,8 +488,9 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
         err = -ENOMEM;
         goto out_destroy_probe;
     }
-    (*ctx)->probe = probe;
-    probe         = NULL;
+    (*ctx)->probe    = probe;
+    (*ctx)->features = features;
+    probe            = NULL;
 
     struct ring_buffer_opts rb_opts;
     rb_opts.sz = sizeof(rb_opts);
@@ -497,7 +502,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
     }
 
     (*ctx)->cb_ctx->cb          = cb;
-    (*ctx)->cb_ctx->events_mask = opts.events;
+    (*ctx)->cb_ctx->events_mask = events;
 
     (*ctx)->ringbuf = ring_buffer__new(bpf_map__fd((*ctx)->probe->maps.ringbuf), ring_buf_cb,
                                        (*ctx)->cb_ctx, &rb_opts);
