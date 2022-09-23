@@ -57,7 +57,7 @@ add_dependencies(vmlinux vmlinux-external)
 
 function (ebpf_probe_target target)
     set(options OPTIONAL GENSKELETON INSTALL)
-    set(multiValueArgs FLAGS SOURCES DEPENDENCIES PUBLIC_HEADERS)
+    set(multiValueArgs FLAGS SOURCES DEPENDENCIES PUBLIC_HEADERS DEPENDS)
 
     cmake_parse_arguments(EBPF_PROBE "${options}" ""
         "${multiValueArgs}" ${ARGN})
@@ -85,6 +85,7 @@ function (ebpf_probe_target target)
         COMMAND ${EBPF_EXTERNAL_ENV_FLAGS} ${BPF_COMPILER_ENV} ${BPF_COMPILER} ${BPF_COMPILER_FLAGS} -MD -MF ${EBPF_PROBE_DEPFILE} ${EBPF_PROBE_FLAGS} -c ${EBPF_PROBE_SOURCES} -o ${OUT_FILE}
         COMMAND ${STRIP_CMD}
         COMMAND ${SKELETON_CMD}
+        DEPENDS ${EBPF_PROBE_DEPENDS}
     )
 
     add_custom_target(${target}_Probe DEPENDS ${OUT_FILE} ${SKEL_FILE})
