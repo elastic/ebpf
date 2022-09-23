@@ -30,5 +30,11 @@ ebpf_probe_target(EventProbe
     DEPENDENCIES libbpf vmlinux
     FLAGS ${EVENTS_PROBE_CFLAGS}
     PUBLIC_HEADERS EbpfEventProto.h
+    FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/File/Probe.bpf.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Network/Probe.bpf.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Network/Network.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/Process/Probe.bpf.c
     GENSKELETON INSTALL
+
 )
