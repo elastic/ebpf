@@ -41,5 +41,4 @@ ebpf_probe_target(EventProbe
     ${CMAKE_CURRENT_SOURCE_DIR}/PathResolver.h
     ${CMAKE_CURRENT_SOURCE_DIR}/State.h
     GENSKELETON INSTALL
-
 )
