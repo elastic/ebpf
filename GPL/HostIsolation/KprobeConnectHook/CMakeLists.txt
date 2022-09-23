@@ -19,7 +19,7 @@ ebpf_probe_target(KprobeConnectHook
     SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/KprobeConnectHook.bpf.c
     DEPENDENCIES libbpf vmlinux
     FLAGS ${KPROBECONNECTHOOK_CFLAGS}
-    FILES
+    DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/KprobeConnectHook.bpf.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Kerneldefs.h
     GENSKELETON INSTALL

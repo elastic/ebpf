@@ -29,7 +29,7 @@ ebpf_probe_target(TcFilter
     DEPENDENCIES libbpf vmlinux
     FLAGS ${TCFILTER_CFLAGS}
     PUBLIC_HEADERS TcFilterdefs.h
-    FILES
+    DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/TcFilter.bpf.c
     ${CMAKE_CURRENT_SOURCE_DIR}/TcFilterdefs.h
     ${CMAKE_CURRENT_SOURCE_DIR}/Kerneldefs.h
