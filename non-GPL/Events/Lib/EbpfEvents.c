@@ -386,6 +386,71 @@ static uint64_t detect_system_features()
     return features;
 }
 
+static bool system_supports_bpf_events(void)
+{
+    bool supported    = false;
+    uint64_t features = detect_system_features();
+
+    // We only support Linux 5.10.16+
+    //
+    // Linux commit e114dd64c0071500345439fc79dd5e0f9d106ed (went in in
+    // 5.11/5.10.16) fixed a verifier buf that (as of 9/28/2022) causes our
+    // probes to fail to load.
+    //
+    // Theoretically, we could push support back to 5.8 without any
+    // foundational changes (the BPF ringbuffer was added in 5.8, we'd need to
+    // use per-cpu perfbuffers prior to that), but, for the time being, it's
+    // been decided that this is more hassle than it's worth.
+
+#define VERSION(maj, min, patch) (((maj) << 16) | ((min) << 8) | (patch))
+    struct utsname un;
+    if (uname(&un) == -1) {
+        verbose("uname failed: %d: %s\n", errno, strerror(errno));
+        goto out;
+    }
+
+    int maj, min, patch;
+    if (sscanf(un.release, "%d.%d.%d", &maj, &min, &patch) != 3) {
+        verbose("could not parse uname release string: %d: %s\n", errno, strerror(errno));
+        goto out;
+    }
+
+    if (VERSION(maj, min, patch) < VERSION(5, 10, 16)) {
+        verbose("kernel version is < 5.10.16 (%d.%d.%d), bpf events are not supported\n", maj, min,
+                patch);
+        goto out;
+    }
+#undef VERSION
+
+    if (!libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_TRACING, NULL)) {
+        verbose("Kernel does not support BPF_PROG_TYPE_TRACING, bpf events are not supported\n");
+        goto out;
+    }
+
+    if (!features & EBPF_FEATURE_BPF_TRAMP) {
+        // BPF trampolines are not supported, can we fallback to kprobes?
+        verbose("kernel does not support BPF trampolines, detecting kprobe support");
+
+        if (!libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_KPROBE, NULL)) {
+            verbose("Kernel does not support BPF_PROG_TYPE_KPROBE, bpf events are not supported\n");
+            goto out;
+        }
+    }
+
+    struct btf *btf = btf__load_vmlinux_btf();
+    if (libbpf_get_error(btf)) {
+        verbose("Kernel does not support BTF, bpf events are not supported\n");
+        goto out;
+    } else {
+        btf__free(btf);
+    }
+
+    supported = true;
+
+out:
+    return supported;
+}
+
 static int libbpf_verbose_print(enum libbpf_print_level lvl, const char *fmt, va_list args)
 {
     return vfprintf(stderr, fmt, args);
@@ -418,6 +483,11 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx, ebpf_event_handler_fn cb, u
 {
     struct EventProbe_bpf *probe = NULL;
     struct btf *btf              = NULL;
+
+    if (!system_supports_bpf_events()) {
+        verbose("this system does not support BPF (see logs)\n");
+        return -ENOTSUP;
+    }
 
     // ideally we'd be calling
     //
