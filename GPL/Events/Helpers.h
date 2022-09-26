@@ -124,6 +124,9 @@ const volatile int consumer_pid = 0;
 #define TTY_DRIVER_TYPE_PTY 0x0004
 #define PTY_TYPE_MASTER 0x0001
 
+// From include/uapi/asm-generic/termbits.h
+#define ECHO 0x00008
+
 static bool IS_ERR_OR_NULL(const void *ptr)
 {
     return (!ptr) || (unsigned long)ptr >= (unsigned long)-MAX_ERRNO;

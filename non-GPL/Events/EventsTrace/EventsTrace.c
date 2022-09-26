@@ -18,6 +18,7 @@
 #include <sys/time.h>
 
 #include <arpa/inet.h>
+#include <linux/termios.h>
 #include <netinet/in.h>
 
 #include <EbpfEvents.h>
@@ -217,9 +218,9 @@ static void out_int(const char *name, const long value)
     printf("\"%s\":%ld", name, value);
 }
 
-static void out_hex(const char *name, const unsigned int value)
+static void out_bool(const char *name, const bool value)
 {
-    printf("\"%s\":\"0x%x\"", name, value);
+    printf("\"%s\":\"%s\"", name, value ? "TRUE" : "FALSE");
 }
 
 static void out_string(const char *name, const char *value)
@@ -269,13 +270,7 @@ static void out_tty_dev(const char *name, struct ebpf_tty_dev *tty_dev)
     out_comma();
     out_int("winsize_cols", tty_dev->winsize.cols);
     out_comma();
-    out_hex("termios_c_iflag", tty_dev->termios.c_iflag);
-    out_comma();
-    out_hex("termios_c_oflag", tty_dev->termios.c_oflag);
-    out_comma();
-    out_hex("termios_c_lflag", tty_dev->termios.c_lflag);
-    out_comma();
-    out_hex("termios_c_cflag", tty_dev->termios.c_cflag);
+    out_bool("ECHO", tty_dev->termios.c_lflag & ECHO);
 
     out_object_end();
 }
@@ -508,11 +503,11 @@ static void out_process_tty_write(struct ebpf_process_tty_write_event *evt)
     out_comma();
     out_uint("tty_out_truncated", evt->tty_out_truncated);
     out_comma();
-    out_tty_dev("ctty", &evt->ctty);
-    out_comma();
     out_tty_dev("tty", &evt->tty);
     out_comma();
     out_string("tty_out", evt->tty_out);
+    out_comma();
+    out_string("comm", (const char *)&evt->comm);
 
     out_object_end();
     out_newline();
