@@ -363,10 +363,21 @@ static uint64_t detect_system_features()
     return features;
 }
 
-static bool system_supports_bpf_events(void)
+static bool system_has_btf(void)
 {
-    bool supported    = false;
-    uint64_t features = detect_system_features();
+    struct btf *btf = btf__load_vmlinux_btf();
+    if (libbpf_get_error(btf)) {
+        verbose("Kernel does not support BTF, bpf events are not supported\n");
+        return true;
+    } else {
+        btf__free(btf);
+        return false;
+    }
+}
+
+static bool kernel_version_is_supported(void)
+{
+    bool supported = false;
 
     // We only support Linux 5.10.16+
     //
@@ -399,31 +410,7 @@ static bool system_supports_bpf_events(void)
     }
 #undef VERSION
 
-    if (!libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_TRACING, NULL)) {
-        verbose("Kernel does not support BPF_PROG_TYPE_TRACING, bpf events are not supported\n");
-        goto out;
-    }
-
-    if (!features & EBPF_FEATURE_BPF_TRAMP) {
-        // BPF trampolines are not supported, can we fallback to kprobes?
-        verbose("kernel does not support BPF trampolines, detecting kprobe support\n");
-
-        if (!libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_KPROBE, NULL)) {
-            verbose("Kernel does not support BPF_PROG_TYPE_KPROBE, bpf events are not supported\n");
-            goto out;
-        }
-    }
-
-    struct btf *btf = btf__load_vmlinux_btf();
-    if (libbpf_get_error(btf)) {
-        verbose("Kernel does not support BTF, bpf events are not supported\n");
-        goto out;
-    } else {
-        btf__free(btf);
-    }
-
     supported = true;
-
 out:
     return supported;
 }
@@ -461,7 +448,12 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx, ebpf_event_handler_fn cb, u
     struct EventProbe_bpf *probe = NULL;
     struct btf *btf              = NULL;
 
-    if (!system_supports_bpf_events()) {
+    // Our probes aren't 100% guaranteed to load if these two facts are true
+    // e.g. maybe someone compiled a kernel without kprobes or bpf trampolines.
+    // However, checking these two things should cover the vast majority of
+    // failure cases, allowing us to print a more understandable message than
+    // what you'd get if you just tried to load the probes.
+    if (!kernel_version_is_supported() || !system_has_btf()) {
         verbose("this system does not support BPF events (see logs)\n");
         return -ENOTSUP;
     }
