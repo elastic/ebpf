@@ -404,8 +404,7 @@ static bool kernel_version_is_supported(void)
     }
 
     if (VERSION(maj, min, patch) < VERSION(5, 10, 16)) {
-        verbose("kernel version is < 5.10.16 (%d.%d.%d), bpf events are not supported\n", maj, min,
-                patch);
+        verbose("kernel version is < 5.10.16 (%s), bpf events are not supported\n", un.release);
         goto out;
     }
 #undef VERSION
