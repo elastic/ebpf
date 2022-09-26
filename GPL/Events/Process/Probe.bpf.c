@@ -235,8 +235,12 @@ int BPF_KPROBE(kprobe__commit_creds, struct cred *new)
     return commit_creds__enter(new);
 }
 
-static int tty_write__enter(const char *buf, ssize_t count, struct file *f)
+static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
 {
+    const char *buf = BPF_CORE_READ(from, iov, iov_base);
+    ssize_t count   = BPF_CORE_READ(from, iov, iov_len);
+    struct file *f  = BPF_CORE_READ(iocb, ki_filp);
+
     if (is_consumer())
         goto out;
 
@@ -305,19 +309,11 @@ out:
 SEC("fentry/tty_write")
 int BPF_PROG(fentry__tty_write, struct kiocb *iocb, struct iov_iter *from)
 {
-    const char *buf = BPF_CORE_READ(from, iov, iov_base);
-    ssize_t count   = BPF_CORE_READ(from, iov, iov_len);
-    struct file *f  = BPF_CORE_READ(iocb, ki_filp);
-
-    return tty_write__enter(buf, count, f);
+    return tty_write__enter(iocb, from);
 }
 
 SEC("kprobe/tty_write")
 int BPF_KPROBE(kprobe__tty_write, struct kiocb *iocb, struct iov_iter *from)
 {
-    const char *buf = BPF_CORE_READ(from, iov, iov_base);
-    ssize_t count   = BPF_CORE_READ(from, iov, iov_len);
-    struct file *f  = BPF_CORE_READ(iocb, ki_filp);
-
-    return tty_write__enter(buf, count, f);
+    return tty_write__enter(iocb, from);
 }
