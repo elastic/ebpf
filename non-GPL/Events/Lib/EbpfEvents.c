@@ -368,10 +368,10 @@ static bool system_has_btf(void)
     struct btf *btf = btf__load_vmlinux_btf();
     if (libbpf_get_error(btf)) {
         verbose("Kernel does not support BTF, bpf events are not supported\n");
-        return true;
+        return false;
     } else {
         btf__free(btf);
-        return false;
+        return true;
     }
 }
 
