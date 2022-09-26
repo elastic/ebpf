@@ -371,7 +371,7 @@ static bool system_supports_bpf_events(void)
     // We only support Linux 5.10.16+
     //
     // Linux commit e114dd64c0071500345439fc79dd5e0f9d106ed (went in in
-    // 5.11/5.10.16) fixed a verifier buf that (as of 9/28/2022) causes our
+    // 5.11/5.10.16) fixed a verifier bug that (as of 9/28/2022) causes our
     // probes to fail to load.
     //
     // Theoretically, we could push support back to 5.8 without any
