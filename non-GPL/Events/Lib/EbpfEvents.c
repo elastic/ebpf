@@ -406,7 +406,7 @@ static bool system_supports_bpf_events(void)
 
     if (!features & EBPF_FEATURE_BPF_TRAMP) {
         // BPF trampolines are not supported, can we fallback to kprobes?
-        verbose("kernel does not support BPF trampolines, detecting kprobe support");
+        verbose("kernel does not support BPF trampolines, detecting kprobe support\n");
 
         if (!libbpf_probe_bpf_prog_type(BPF_PROG_TYPE_KPROBE, NULL)) {
             verbose("Kernel does not support BPF_PROG_TYPE_KPROBE, bpf events are not supported\n");
