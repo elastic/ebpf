@@ -161,11 +161,7 @@ struct ebpf_process_tty_write_event {
     struct ebpf_tty_dev ctty;
     // Destination TTY.
     struct ebpf_tty_dev tty;
-    // The function is not called from
-    // the syscall but from the driver.
-    // If driver is true, events can be dropped
-    // based on terminal flags.
-    bool driver;
+    char comm[TASK_COMM_LEN];
 } __attribute__((packed));
 
 struct ebpf_process_setgid_event {

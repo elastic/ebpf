@@ -381,11 +381,6 @@ func TestTtyWrite(et *EventsTraceInstance) {
 	AssertInt64Equal(ev.TtyDev.Major, 4)
 	AssertInt64Equal(ev.TtyDev.WinsizeRows, 0)
 	AssertInt64Equal(ev.TtyDev.WinsizeCols, 0)
-	AssertTrue(ev.TtyDev.Termios_C_Iflag != "")
-	AssertTrue(ev.TtyDev.Termios_C_Oflag != "")
-	AssertTrue(ev.TtyDev.Termios_C_Lflag != "")
-	AssertTrue(ev.TtyDev.Termios_C_Cflag != "")
-	AssertStringsEqual(ev.Driver, "FALSE")
 }
 
 func TestTcpv4ConnectionAttempt(et *EventsTraceInstance) {
