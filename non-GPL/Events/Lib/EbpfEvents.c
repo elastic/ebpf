@@ -462,7 +462,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx, ebpf_event_handler_fn cb, u
     struct btf *btf              = NULL;
 
     if (!system_supports_bpf_events()) {
-        verbose("this system does not support BPF (see logs)\n");
+        verbose("this system does not support BPF events (see logs)\n");
         return -ENOTSUP;
     }
 
