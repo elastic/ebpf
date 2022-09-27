@@ -21,6 +21,9 @@
 
 #include "EventProbe.skel.h"
 
+#define KERNEL_VERSION(maj, min, patch)                                                            \
+    (((maj) << 16) | ((min) << 8) | (patch > 255 ? 255 : (patch)))
+
 bool log_verbose = false;
 static int verbose(const char *fmt, ...);
 
@@ -385,10 +388,46 @@ static bool system_has_btf(void)
     }
 }
 
+static uint64_t get_kernel_version(void)
+{
+    int maj = 0, min = 0, patch = 0;
+
+    // Ubuntu kernels do not report the true upstream kernel source version in
+    // utsname.release. The major and minor numbers remain the same as the
+    // upstream source, but the patch version is always 0.
+    // e.g. 5.15.0-48-generic. Ubuntu provides a file under procfs that reports
+    // the actual upstream source version, so we use that instead if it exists.
+    if (access("/proc/version_signature", R_OK) == 0) {
+        FILE *f = fopen("/proc/version_signature", "r");
+        if (f) {
+            // Example: Ubuntu 5.15.0-48.54-generic 5.15.53
+            if (fscanf(f, "%*s %*s %d.%d.%d\n", &maj, &min, &patch) == 3) {
+                fclose(f);
+                return KERNEL_VERSION(maj, min, patch);
+            }
+
+            fclose(f);
+        }
+
+        verbose("Ubuntu version file exists but could not be parsed, using uname\n");
+    }
+
+    struct utsname un;
+    if (uname(&un) == -1) {
+        verbose("uname failed: %d: %s\n", errno, strerror(errno));
+        return 0;
+    }
+
+    if (sscanf(un.release, "%d.%d.%d", &maj, &min, &patch) != 3) {
+        verbose("could not parse uname release string: %d: %s\n", errno, strerror(errno));
+        return 0;
+    }
+
+    return KERNEL_VERSION(maj, min, patch);
+}
+
 static bool kernel_version_is_supported(void)
 {
-    bool supported = false;
-
     // We only support Linux 5.10.16+
     //
     // Linux commit e114dd64c0071500345439fc79dd5e0f9d106ed (went in in
@@ -399,29 +438,14 @@ static bool kernel_version_is_supported(void)
     // foundational changes (the BPF ringbuffer was added in 5.8, we'd need to
     // use per-cpu perfbuffers prior to that), but, for the time being, it's
     // been decided that this is more hassle than it's worth.
-
-#define VERSION(maj, min, patch) (((maj) << 16) | ((min) << 8) | (patch))
-    struct utsname un;
-    if (uname(&un) == -1) {
-        verbose("uname failed: %d: %s\n", errno, strerror(errno));
-        goto out;
+    uint64_t kernel_version = get_kernel_version();
+    if (kernel_version < KERNEL_VERSION(5, 10, 16)) {
+        verbose("kernel version is < 5.10.16 (version code: %x), bpf events are not supported\n",
+                kernel_version);
+        return false;
     }
 
-    int maj, min, patch;
-    if (sscanf(un.release, "%d.%d.%d", &maj, &min, &patch) != 3) {
-        verbose("could not parse uname release string: %d: %s\n", errno, strerror(errno));
-        goto out;
-    }
-
-    if (VERSION(maj, min, patch) < VERSION(5, 10, 16)) {
-        verbose("kernel version is < 5.10.16 (%s), bpf events are not supported\n", un.release);
-        goto out;
-    }
-#undef VERSION
-
-    supported = true;
-out:
-    return supported;
+    return true;
 }
 
 static int libbpf_verbose_print(enum libbpf_print_level lvl, const char *fmt, va_list args)
