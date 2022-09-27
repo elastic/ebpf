@@ -393,10 +393,12 @@ static uint64_t get_kernel_version(void)
     int maj = 0, min = 0, patch = 0;
 
     // Ubuntu kernels do not report the true upstream kernel source version in
-    // utsname.release. The major and minor numbers remain the same as the
-    // upstream source, but the patch version is always 0.
-    // e.g. 5.15.0-48-generic. Ubuntu provides a file under procfs that reports
-    // the actual upstream source version, so we use that instead if it exists.
+    // utsname.release, they report the "ABI version", which is the upstream
+    // kernel major.minor with some extra ABI information, e.g.:
+    // 5.15.0-48-generic. The upstream patch version is always set to 0.
+    //
+    // Ubuntu provides a file under procfs that reports the actual upstream
+    // source version, so we use that instead if it exists.
     if (access("/proc/version_signature", R_OK) == 0) {
         FILE *f = fopen("/proc/version_signature", "r");
         if (f) {
@@ -418,6 +420,40 @@ static uint64_t get_kernel_version(void)
         return 0;
     }
 
+    char *debian_start = strstr(un.version, "Debian");
+    if (debian_start != NULL) {
+        // We're running on Debian.
+        //
+        // Like Ubuntu, what Debian reports in the un.release buffer is the
+        // "ABI version", which is the major.minor of the upstream, with the
+        // patch always set to 0 (and some further ABI numbers). e.g.:
+        // 5.10.0-18-amd64
+        //
+        // See the following docs for more info:
+        // https://kernel-team.pages.debian.net/kernel-handbook/ch-versions.html
+        //
+        // Unlike Ubuntu, Debian does not provide a special procfs file
+        // indicating the actual upstream source. Instead, it puts the actual
+        // upstream source version into the un.version field, after the string
+        // "Debian":
+        //
+        // $ uname -a
+        // Linux bullseye 5.10.0-18-amd64 #1 SMP Debian 5.10.140-1 (2022-09-02) x86_64 GNU/Linux
+        //
+        // $ uname -v
+        // #1 SMP Debian 5.10.140-1 (2022-09-02)
+        //
+        // Due to this, we pull the upstream kernel source out of un.version here.
+        if (sscanf(debian_start, "Debian %d.%d.%d", &maj, &min, &patch) != 3) {
+            verbose("could not parse uname version string: %s\n", un.version);
+            return 0;
+        }
+
+        return KERNEL_VERSION(maj, min, patch);
+    }
+
+    // We're not on Ubuntu or Debian, un.release should tell us the actual
+    // upstream source
     if (sscanf(un.release, "%d.%d.%d", &maj, &min, &patch) != 3) {
         verbose("could not parse uname release string: %d: %s\n", errno, strerror(errno));
         return 0;
