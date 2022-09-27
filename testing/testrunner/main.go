@@ -28,6 +28,9 @@ func main() {
 	RunEventsTest(TestTcpv4ConnectionAttempt, "--net-conn-attempt")
 	RunEventsTest(TestTcpv4ConnectionAccept, "--net-conn-accept")
 	RunEventsTest(TestTcpv4ConnectionClose, "--net-conn-close")
+	RunEventsTest(TestTcpv6ConnectionAttempt, "--net-conn-attempt")
+	RunEventsTest(TestTcpv6ConnectionAccept, "--net-conn-accept")
+	RunEventsTest(TestTcpv6ConnectionClose, "--net-conn-close")
 
 	RunTest(TestTcFilter)
 
