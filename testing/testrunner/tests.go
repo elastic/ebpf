@@ -379,12 +379,8 @@ func TestTtyWrite(et *EventsTraceInstance) {
 	AssertStringsEqual(ev.Out, "--- OK\n")
 	// This is a virtual console, not a pseudo terminal.
 	AssertInt64Equal(ev.TtyDev.Major, 4)
-	AssertTrue(ev.TtyDev.WinsizeRows == 0)
-	AssertTrue(ev.TtyDev.WinsizeRows == 0)
-	AssertTrue(ev.TtyDev.Termios_C_Iflag != "")
-	AssertTrue(ev.TtyDev.Termios_C_Oflag != "")
-	AssertTrue(ev.TtyDev.Termios_C_Lflag != "")
-	AssertTrue(ev.TtyDev.Termios_C_Cflag != "")
+	AssertInt64Equal(ev.TtyDev.WinsizeRows, 0)
+	AssertInt64Equal(ev.TtyDev.WinsizeCols, 0)
 }
 
 func TestTcpv4ConnectionAttempt(et *EventsTraceInstance) {

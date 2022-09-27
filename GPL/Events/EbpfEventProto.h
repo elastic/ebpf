@@ -161,6 +161,7 @@ struct ebpf_process_tty_write_event {
     struct ebpf_tty_dev ctty;
     // Destination TTY.
     struct ebpf_tty_dev tty;
+    char comm[TASK_COMM_LEN];
 } __attribute__((packed));
 
 struct ebpf_process_setgid_event {
