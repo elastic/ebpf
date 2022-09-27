@@ -36,16 +36,17 @@ int ebpf_detect_system_features(uint64_t *features);
 
 /* Allocates a new context based on requested events and capabilities.
  *
- * If ctx is NULL, the function returns right after loading and attaching the
- * libbpf skeleton.
+ * If dry_run is true, the function only tests load and attach to
+ * verify host compatibility.
  *
  * Returns a positive int that represents an fd, which can be used with epoll
- * on success. Returns an error on failure. If ctx is NULL,
+ * on success. Returns an error on failure. If dry_run is true,
  * returns 0 on success or less than 0 on failure.
  */
 int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         ebpf_event_handler_fn cb,
-                        struct ebpf_event_ctx_opts opts);
+                        struct ebpf_event_ctx_opts opts,
+                        bool dry_run);
 
 /* Consumes as many events as possible from the event context and returns the
  * number consumed.

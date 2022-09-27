@@ -473,22 +473,35 @@ out:
 int netlink_filter_add_end(int fd, struct netlink_ctx *ctx, const char *ebpf_obj_filename)
 {
     struct nlmsghdr *nl = NULL;
+    struct bpf_prog_info info = {};
+    unsigned int info_len = sizeof(info);
     char buf[128];
     int rv  = -1;
     int len = 0;
 
-    if (!ctx || !ebpf_obj_filename) {
+    if (!ctx) {
         ebpf_log("netlink_filter_add_end error: NULL parameter\n");
         rv = -1;
+        goto out;
+    }
+
+    rv = bpf_obj_get_info_by_fd(fd, &info, &info_len);
+    if (rv < 0) {
+        ebpf_log("netlink_filter_add_end error: failed to get info by fd\n");
         goto out;
     }
 
     nl = &ctx->msg.n;
     memset(buf, 0, sizeof(buf));
 
-    len = snprintf(buf, sizeof(buf), "%s:[.text]", ebpf_obj_filename);
+    if (ebpf_obj_filename) {
+        len = snprintf(buf, sizeof(buf), "%s:[.text]", ebpf_obj_filename);
+    } else {
+        len = snprintf(buf, sizeof(buf), "%s:[%u]", info.name, info.id);
+    }
+
     if (len < 0 || len >= sizeof(buf)) {
-        ebpf_log("netlink_filter_add_end error: filename too long\n");
+        ebpf_log("netlink_filter_add_end error: name too long\n");
         rv = -1;
         goto out;
     }

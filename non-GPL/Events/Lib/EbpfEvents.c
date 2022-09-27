@@ -412,7 +412,8 @@ int ebpf_set_verbose_logging()
 
 int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
                         ebpf_event_handler_fn cb,
-                        struct ebpf_event_ctx_opts opts)
+                        struct ebpf_event_ctx_opts opts,
+                        bool dry_run)
 {
     struct EventProbe_bpf *probe = NULL;
     struct btf *btf              = NULL;
@@ -476,8 +477,15 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
     if (err != 0)
         goto out_destroy_probe;
 
-    if (!ctx)
+    if (dry_run) {
+        err = 0;
         goto out_destroy_probe;
+    }
+
+    if (!ctx) {
+        err = -ENOENT;
+        goto out_destroy_probe;
+    }
 
     *ctx = calloc(1, sizeof(struct ebpf_event_ctx));
     if (*ctx == NULL) {
