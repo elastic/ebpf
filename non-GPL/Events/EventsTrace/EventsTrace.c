@@ -54,10 +54,6 @@ enum cmdline_opts {
     NETWORK_CONNECTION_ATTEMPTED,
     NETWORK_CONNECTION_ACCEPTED,
     NETWORK_CONNECTION_CLOSED,
-
-    // Features
-    BPF_TRAMP,
-
     CMDLINE_MAX
 };
 
@@ -77,10 +73,6 @@ static uint64_t cmdline_to_lib[CMDLINE_MAX] = {
     x(NETWORK_CONNECTION_ATTEMPTED)
     x(NETWORK_CONNECTION_ACCEPTED)
     x(NETWORK_CONNECTION_CLOSED)
-#undef x
-
-#define x(name) [name] = EBPF_FEATURE_##name,
-   x(BPF_TRAMP)
 #undef x
     // clang-format on
 };
@@ -105,17 +97,13 @@ static const struct argp_option opts[] = {
      "Print network connection closed events", 0},
     {"print-features-on-init", 'i', NULL, false,
      "Print a message with feature information when probes have been successfully loaded", 1},
-    {"features-autodetect", 'd', NULL, false, "Autodetect features based on running kernel", 1},
-    {"set-bpf-tramp", EBPF_FEATURE_BPF_TRAMP, NULL, false, "Set feature supported: bpf trampoline",
-     1},
     {"unbuffer-stdout", 'u', NULL, false, "Disable userspace stdout buffering", 2},
     {"libbpf-verbose", 'v', NULL, false, "Log verbose libbpf logs to stderr", 2},
     {},
 };
 
-uint64_t g_events_env          = 0;
-uint64_t g_features_env        = 0;
-uint64_t g_features_autodetect = 0;
+uint64_t g_events_env   = 0;
+uint64_t g_features_env = 0;
 
 bool g_print_features_init = 0;
 bool g_unbuffer_stdout     = 0;
@@ -136,9 +124,6 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case 'a':
         g_events_env = UINT64_MAX;
         break;
-    case 'd':
-        g_features_autodetect = 1;
-        break;
     case FILE_DELETE:
     case FILE_CREATE:
     case FILE_RENAME:
@@ -153,9 +138,6 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case NETWORK_CONNECTION_ATTEMPTED:
     case NETWORK_CONNECTION_CLOSED:
         g_events_env |= cmdline_to_lib[key];
-        break;
-    case BPF_TRAMP:
-        g_features_env |= cmdline_to_lib[key];
         break;
     case ARGP_KEY_ARG:
         argp_usage(state);
@@ -720,12 +702,7 @@ int main(int argc, char **argv)
     if (g_libbpf_verbose)
         ebpf_set_verbose_logging();
 
-    struct ebpf_event_ctx_opts opts = {.events = g_events_env, .features = g_features_env};
-
-    if (g_features_autodetect)
-        ebpf_detect_system_features(&opts.features);
-
-    err = ebpf_event_ctx__new(&ctx, event_ctx_callback, opts);
+    err = ebpf_event_ctx__new(&ctx, event_ctx_callback, g_events_env);
 
     if (err < 0) {
         fprintf(stderr, "Could not create event context: %d %s\n", err, strerror(-err));
@@ -733,7 +710,7 @@ int main(int argc, char **argv)
     }
 
     if (g_print_features_init)
-        print_init_msg(opts.features);
+        print_init_msg(ebpf_event_ctx__get_features(ctx));
 
     while (!exiting) {
         err = ebpf_event_ctx__next(ctx, 10);

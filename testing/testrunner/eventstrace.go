@@ -132,7 +132,7 @@ func (et *EventsTraceInstance) Stop() error {
 
 func NewEventsTrace(ctx context.Context, args ...string) *EventsTraceInstance {
 	var et EventsTraceInstance
-	args = append(args, "--print-features-on-init", "--unbuffer-stdout", "--libbpf-verbose", "--features-autodetect")
+	args = append(args, "--print-features-on-init", "--unbuffer-stdout", "--libbpf-verbose")
 	et.Cmd = exec.CommandContext(ctx, eventsTraceBinPath, args...)
 
 	stdout, err := et.Cmd.StdoutPipe()
