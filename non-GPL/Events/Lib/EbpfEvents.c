@@ -21,6 +21,9 @@
 
 #include "EventProbe.skel.h"
 
+#define KERNEL_VERSION(maj, min, patch)                                                            \
+    (((maj) << 16) | ((min) << 8) | (patch > 255 ? 255 : (patch)))
+
 bool log_verbose = false;
 static int verbose(const char *fmt, ...);
 
@@ -30,6 +33,7 @@ struct ring_buf_cb_ctx {
 };
 
 struct ebpf_event_ctx {
+    uint64_t features;
     struct ring_buffer *ringbuf;
     struct EventProbe_bpf *probe;
     struct ring_buf_cb_ctx *cb_ctx;
@@ -194,22 +198,6 @@ static int probe_fill_relos(struct btf *btf, struct EventProbe_bpf *obj)
     }
     err = err ?: FILL_FUNC_RET_IDX(obj, btf, vfs_rename);
 
-    /* From https://github.com/elastic/ebpf/pull/116#issue-1327583872
-     *
-     * tty_write BTF info is not available on ARM64 kernels built
-     * with pahole < 1.22 due to a bug in pahole.
-     * Use redirected_tty_write BTF info as function signature check
-     * since it changes in the exact same version as tty_write (5.10.10-5.10.11)
-     * and has the same parameters/indexes we need.
-     * This could break in the future if any of the signature changes.
-     */
-    if (FILL_FUNC_ARG_EXISTS(obj, btf, redirected_tty_write, iter)) {
-        err = err ?: FILL_FUNC_ARG_IDX(obj, btf, redirected_tty_write, buf);
-        err = err ?: FILL_FUNC_ARG_IDX(obj, btf, redirected_tty_write, count);
-    } else {
-        err = err ?: FILL_FUNC_ARG_IDX(obj, btf, redirected_tty_write, iter);
-    }
-
     return err;
 }
 
@@ -239,9 +227,12 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__tcp_v6_connect, false);
     }
 
-    // tty_write BTF information is not available on all supported kernels
-    // due to a pahole bug.
-    // If it is not present we can't attach a fentry/ program to it, so fallback to a kprobe.
+    // tty_write BTF information is not available on all supported kernels due
+    // to a pahole bug, see:
+    // https://rhysre.net/how-an-obscure-arm64-link-option-broke-our-bpf-probe.html
+    //
+    // If BTF is not present we can't attach a fentry/ program to it, so
+    // fallback to a kprobe.
     if (has_bpf_tramp && BTF_FUNC_EXISTS(btf, tty_write)) {
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tty_write, false);
     } else {
@@ -375,16 +366,122 @@ out:
     return ret;
 }
 
-int ebpf_detect_system_features(uint64_t *features)
+static uint64_t detect_system_features()
 {
-    if (!features)
-        return -EINVAL;
+    uint64_t features = 0;
 
-    *features = 0;
     if (system_has_bpf_tramp())
-        *features |= EBPF_FEATURE_BPF_TRAMP;
+        features |= EBPF_FEATURE_BPF_TRAMP;
 
-    return 0;
+    return features;
+}
+
+static bool system_has_btf(void)
+{
+    struct btf *btf = btf__load_vmlinux_btf();
+    if (libbpf_get_error(btf)) {
+        verbose("Kernel does not support BTF, bpf events are not supported\n");
+        return false;
+    } else {
+        btf__free(btf);
+        return true;
+    }
+}
+
+static uint64_t get_kernel_version(void)
+{
+    int maj = 0, min = 0, patch = 0;
+
+    // Ubuntu kernels do not report the true upstream kernel source version in
+    // utsname.release, they report the "ABI version", which is the upstream
+    // kernel major.minor with some extra ABI information, e.g.:
+    // 5.15.0-48-generic. The upstream patch version is always set to 0.
+    //
+    // Ubuntu provides a file under procfs that reports the actual upstream
+    // source version, so we use that instead if it exists.
+    if (access("/proc/version_signature", R_OK) == 0) {
+        FILE *f = fopen("/proc/version_signature", "r");
+        if (f) {
+            // Example: Ubuntu 5.15.0-48.54-generic 5.15.53
+            if (fscanf(f, "%*s %*s %d.%d.%d\n", &maj, &min, &patch) == 3) {
+                fclose(f);
+                return KERNEL_VERSION(maj, min, patch);
+            }
+
+            fclose(f);
+        }
+
+        verbose("Ubuntu version file exists but could not be parsed, using uname\n");
+    }
+
+    struct utsname un;
+    if (uname(&un) == -1) {
+        verbose("uname failed: %d: %s\n", errno, strerror(errno));
+        return 0;
+    }
+
+    char *debian_start = strstr(un.version, "Debian");
+    if (debian_start != NULL) {
+        // We're running on Debian.
+        //
+        // Like Ubuntu, what Debian reports in the un.release buffer is the
+        // "ABI version", which is the major.minor of the upstream, with the
+        // patch always set to 0 (and some further ABI numbers). e.g.:
+        // 5.10.0-18-amd64
+        //
+        // See the following docs for more info:
+        // https://kernel-team.pages.debian.net/kernel-handbook/ch-versions.html
+        //
+        // Unlike Ubuntu, Debian does not provide a special procfs file
+        // indicating the actual upstream source. Instead, it puts the actual
+        // upstream source version into the un.version field, after the string
+        // "Debian":
+        //
+        // $ uname -a
+        // Linux bullseye 5.10.0-18-amd64 #1 SMP Debian 5.10.140-1 (2022-09-02) x86_64 GNU/Linux
+        //
+        // $ uname -v
+        // #1 SMP Debian 5.10.140-1 (2022-09-02)
+        //
+        // Due to this, we pull the upstream kernel source out of un.version here.
+        if (sscanf(debian_start, "Debian %d.%d.%d", &maj, &min, &patch) != 3) {
+            verbose("could not parse uname version string: %s\n", un.version);
+            return 0;
+        }
+
+        return KERNEL_VERSION(maj, min, patch);
+    }
+
+    // We're not on Ubuntu or Debian, un.release should tell us the actual
+    // upstream source
+    if (sscanf(un.release, "%d.%d.%d", &maj, &min, &patch) != 3) {
+        verbose("could not parse uname release string: %d: %s\n", errno, strerror(errno));
+        return 0;
+    }
+
+    return KERNEL_VERSION(maj, min, patch);
+}
+
+static bool kernel_version_is_supported(void)
+{
+    // We only support Linux 5.10.16+
+    //
+    // Linux commit e114dd64c0071500345439fc79dd5e0f9d106ed (went in in
+    // 5.11/5.10.16) fixed a verifier bug that (as of 9/28/2022) causes our
+    // probes to fail to load.
+    //
+    // Theoretically, we could push support back to 5.8 without any
+    // foundational changes (the BPF ringbuffer was added in 5.8, we'd need to
+    // use per-cpu perfbuffers prior to that), but, for the time being, it's
+    // been decided that this is more hassle than it's worth.
+    uint64_t kernel_version = get_kernel_version();
+    if (kernel_version < KERNEL_VERSION(5, 10, 16)) {
+        verbose("kernel version is < 5.10.16 (version code: %x), bpf events are not supported\n",
+                kernel_version);
+        return false;
+    }
+
+    return true;
 }
 
 static int libbpf_verbose_print(enum libbpf_print_level lvl, const char *fmt, va_list args)
@@ -410,12 +507,25 @@ int ebpf_set_verbose_logging()
     return 0;
 }
 
-int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
-                        ebpf_event_handler_fn cb,
-                        struct ebpf_event_ctx_opts opts)
+uint64_t ebpf_event_ctx__get_features(struct ebpf_event_ctx *ctx)
+{
+    return ctx->features;
+}
+
+int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx, ebpf_event_handler_fn cb, uint64_t events)
 {
     struct EventProbe_bpf *probe = NULL;
     struct btf *btf              = NULL;
+
+    // Our probes aren't 100% guaranteed to load if these two facts are true
+    // e.g. maybe someone compiled a kernel without kprobes or bpf trampolines.
+    // However, checking these two things should cover the vast majority of
+    // failure cases, allowing us to print a more understandable message than
+    // what you'd get if you just tried to load the probes.
+    if (!kernel_version_is_supported() || !system_has_btf()) {
+        verbose("this system does not support BPF events (see logs)\n");
+        return -ENOTSUP;
+    }
 
     // ideally we'd be calling
     //
@@ -442,6 +552,8 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
     if (err != 0)
         goto out_destroy_probe;
 
+    uint64_t features = detect_system_features();
+
     btf = btf__load_vmlinux_btf();
     if (libbpf_get_error(btf)) {
         verbose("could not load system BTF (does the kernel have BTF?)");
@@ -464,7 +576,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
     if (err != 0)
         goto out_destroy_probe;
 
-    err = probe_set_autoload(btf, probe, opts.features);
+    err = probe_set_autoload(btf, probe, features);
     if (err != 0)
         goto out_destroy_probe;
 
@@ -484,8 +596,9 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
         err = -ENOMEM;
         goto out_destroy_probe;
     }
-    (*ctx)->probe = probe;
-    probe         = NULL;
+    (*ctx)->probe    = probe;
+    (*ctx)->features = features;
+    probe            = NULL;
 
     struct ring_buffer_opts rb_opts;
     rb_opts.sz = sizeof(rb_opts);
@@ -497,7 +610,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx,
     }
 
     (*ctx)->cb_ctx->cb          = cb;
-    (*ctx)->cb_ctx->events_mask = opts.events;
+    (*ctx)->cb_ctx->events_mask = events;
 
     (*ctx)->ringbuf = ring_buffer__new(bpf_map__fd((*ctx)->probe->maps.ringbuf), ring_buf_cb,
                                        (*ctx)->cb_ctx, &rb_opts);

@@ -16,12 +16,6 @@
 #include "Helpers.h"
 #include "PathResolver.h"
 
-/* tty_write */
-DECL_FUNC_ARG(redirected_tty_write, iter);
-DECL_FUNC_ARG(redirected_tty_write, buf);
-DECL_FUNC_ARG(redirected_tty_write, count);
-DECL_FUNC_ARG_EXISTS(redirected_tty_write, iter);
-
 SEC("tp_btf/sched_process_fork")
 int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct task_struct *child)
 {
@@ -241,8 +235,12 @@ int BPF_KPROBE(kprobe__commit_creds, struct cred *new)
     return commit_creds__enter(new);
 }
 
-static int tty_write__enter(const char *buf, ssize_t count, struct file *f)
+static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
 {
+    const char *buf = BPF_CORE_READ(from, iov, iov_base);
+    ssize_t count   = BPF_CORE_READ(from, iov, iov_len);
+    struct file *f  = BPF_CORE_READ(iocb, ki_filp);
+
     if (is_consumer())
         goto out;
 
@@ -309,62 +307,13 @@ out:
 }
 
 SEC("fentry/tty_write")
-int BPF_PROG(fentry__tty_write)
+int BPF_PROG(fentry__tty_write, struct kiocb *iocb, struct iov_iter *from)
 {
-    const char *buf;
-    ssize_t count;
-    struct file *f;
-
-    if (FUNC_ARG_EXISTS(redirected_tty_write, iter)) {
-        struct iov_iter *ii = FUNC_ARG_READ(___type(ii), redirected_tty_write, iter);
-        buf                 = BPF_CORE_READ(ii, iov, iov_base);
-        count               = BPF_CORE_READ(ii, iov, iov_len);
-
-        struct kiocb *iocb = (struct kiocb *)ctx[0];
-        f                  = BPF_CORE_READ(iocb, ki_filp);
-    } else {
-        buf   = FUNC_ARG_READ(___type(buf), redirected_tty_write, buf);
-        count = FUNC_ARG_READ(___type(count), redirected_tty_write, count);
-
-        f = (struct file *)ctx[0];
-    }
-
-    return tty_write__enter(buf, count, f);
+    return tty_write__enter(iocb, from);
 }
 
 SEC("kprobe/tty_write")
-int BPF_KPROBE(kprobe__tty_write)
+int BPF_KPROBE(kprobe__tty_write, struct kiocb *iocb, struct iov_iter *from)
 {
-    const char *buf;
-    ssize_t count;
-    struct file *f;
-
-    if (FUNC_ARG_EXISTS(redirected_tty_write, iter)) {
-        struct iov_iter ii;
-        if (FUNC_ARG_READ_PTREGS(ii, redirected_tty_write, iter)) {
-            bpf_printk("kprobe__tty_write: error reading iov_iter\n");
-            goto out;
-        }
-        buf   = BPF_CORE_READ(ii.iov, iov_base);
-        count = BPF_CORE_READ(ii.iov, iov_len);
-
-        struct kiocb *iocb = (struct kiocb *)PT_REGS_PARM1(ctx);
-        f                  = BPF_CORE_READ(iocb, ki_filp);
-    } else {
-        if (FUNC_ARG_READ_PTREGS(buf, redirected_tty_write, buf)) {
-            bpf_printk("kprobe__tty_write: error reading buf\n");
-            goto out;
-        }
-        if (FUNC_ARG_READ_PTREGS(count, redirected_tty_write, count)) {
-            bpf_printk("kprobe__tty_write: error reading count\n");
-            goto out;
-        }
-
-        f = (struct file *)PT_REGS_PARM1(ctx);
-    }
-
-    return tty_write__enter(buf, count, f);
-
-out:
-    return 0;
+    return tty_write__enter(iocb, from);
 }
