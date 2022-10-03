@@ -296,6 +296,13 @@ static int tty_write__enter(const char *buf, ssize_t count, struct file *f)
         goto out;
     }
 
+#define ONLCR	0x00004
+    bpf_printk("is_master: %s, buf: %s", is_master ? "true" : "false", event->tty_out);
+    if (is_master) {
+        bpf_printk("master flags: %s", master.termios.c_oflag & ONLCR ? "onlcr" : "-onlcr");
+    }
+    bpf_printk("slave flags: %s", event->tty.termios.c_oflag & ONLCR ? "onlcr" : "-onlcr");
+
     if ((is_master && !(master.termios.c_lflag & ECHO)) && !(event->tty.termios.c_lflag & ECHO)) {
         bpf_printk("tty_write__enter: discarding %s\n", event->tty_out);
         bpf_ringbuf_discard(event, 0);
