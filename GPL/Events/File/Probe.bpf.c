@@ -108,7 +108,7 @@ static int vfs_unlink__exit(int ret)
 
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
-    struct ebpf_file_delete_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    struct ebpf_file_delete_event *event = get_event_buffer();
     if (!event) {
         bpf_printk("vfs_unlink__exit: failed to reserve event\n");
         goto out;
@@ -119,13 +119,23 @@ static int vfs_unlink__exit(int ret)
     ebpf_pid_info__fill(&event->pids, task);
 
     struct path p;
-    p.dentry = &state->unlink.de;
-    p.mnt    = state->unlink.mnt;
-    ebpf_resolve_path_to_string(event->path, &p, task);
+    p.dentry     = &state->unlink.de;
+    p.mnt        = state->unlink.mnt;
     event->mntns = mntns(task);
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
 
-    bpf_ringbuf_submit(event, 0);
+    // Variable length fields
+    ebpf_vl_fields__init(&event->vl_fields);
+    struct ebpf_varlen_field *field;
+    size_t size;
+
+    // path
+    ADD_VL_FIELD_OR_GOTO_EMIT(event, field, EBPF_VL_FIELD_PATH);
+    size = ebpf_resolve_path_to_string(field->data, &p, task);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+emit:
+    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 
     // Certain filesystems (eg. overlayfs) call vfs_unlink twice during the same
     // execution context.
@@ -198,9 +208,8 @@ static int do_filp_open__exit(struct file *f)
         goto out;
 
     fmode_t fmode = BPF_CORE_READ(f, f_mode);
-    if (fmode & (fmode_t)0x100000) // FMODE_CREATED
-    {
-        struct ebpf_file_create_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    if (fmode & (fmode_t)0x100000) { // FMODE_CREATED
+        struct ebpf_file_create_event *event = get_event_buffer();
         if (!event)
             goto out;
 
@@ -209,12 +218,22 @@ static int do_filp_open__exit(struct file *f)
 
         struct task_struct *task = (struct task_struct *)bpf_get_current_task();
         struct path p            = BPF_CORE_READ(f, f_path);
-        ebpf_resolve_path_to_string(event->path, &p, task);
         ebpf_pid_info__fill(&event->pids, task);
         event->mntns = mntns(task);
         bpf_get_current_comm(event->comm, TASK_COMM_LEN);
 
-        bpf_ringbuf_submit(event, 0);
+        // Variable length fields
+        ebpf_vl_fields__init(&event->vl_fields);
+        struct ebpf_varlen_field *field;
+        size_t size;
+
+        // path
+        ADD_VL_FIELD_OR_GOTO_EMIT(event, field, EBPF_VL_FIELD_PATH);
+        size = ebpf_resolve_path_to_string(field->data, &p, task);
+        ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    emit:
+        bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
     }
 
 out:
@@ -361,7 +380,7 @@ static int vfs_rename__exit(int ret)
         goto out;
     }
 
-    struct ebpf_file_rename_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    struct ebpf_file_rename_event *event = get_event_buffer();
     if (!event)
         goto out;
 
@@ -370,12 +389,26 @@ static int vfs_rename__exit(int ret)
     event->hdr.type = EBPF_EVENT_FILE_RENAME;
     event->hdr.ts   = bpf_ktime_get_ns();
     ebpf_pid_info__fill(&event->pids, task);
-    bpf_probe_read_kernel_str(event->old_path, PATH_MAX_BUF, ss->rename.old_path);
-    bpf_probe_read_kernel_str(event->new_path, PATH_MAX_BUF, ss->rename.new_path);
     event->mntns = mntns(task);
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
 
-    bpf_ringbuf_submit(event, 0);
+    // Variable length fields
+    ebpf_vl_fields__init(&event->vl_fields);
+    struct ebpf_varlen_field *field;
+    size_t size;
+
+    // old path
+    ADD_VL_FIELD_OR_GOTO_EMIT(event, field, EBPF_VL_FIELD_OLD_PATH);
+    size = bpf_probe_read_kernel_str(field->data, PATH_MAX, ss->rename.old_path);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    // new path
+    ADD_VL_FIELD_OR_GOTO_EMIT(event, field, EBPF_VL_FIELD_NEW_PATH);
+    size = bpf_probe_read_kernel_str(field->data, PATH_MAX, ss->rename.new_path);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+emit:
+    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 
     // Certain filesystems (eg. overlayfs) call vfs_rename twice during the same
     // execution context.

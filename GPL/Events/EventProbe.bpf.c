@@ -15,7 +15,7 @@ char LICENSE[] SEC("license") = "Dual BSD/GPL";
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 4096 * 64); // 256KB
+    __uint(max_entries, 1 << 26); // 4 MiB
 } ringbuf SEC(".maps");
 
 #include "File/Probe.bpf.c"

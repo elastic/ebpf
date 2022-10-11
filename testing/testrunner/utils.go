@@ -129,7 +129,6 @@ type ttyDevInfo struct {
 
 type TtyWriteEvent struct {
 	Pids      PidInfo    `json:"pids"`
-	Len       int64      `json:"tty_out_len"`
 	Truncated int64      `json:"tty_out_truncated"`
 	Out       string     `json:"tty_out"`
 	TtyDev    ttyDevInfo `json:"tty"`

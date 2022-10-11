@@ -315,13 +315,24 @@ static void out_file_delete(struct ebpf_file_delete_event *evt)
     out_pid_info("pids", &evt->pids);
     out_comma();
 
-    out_string("path", evt->path);
-    out_comma();
-
     out_int("mount_namespace", evt->mntns);
     out_comma();
 
     out_string("comm", (const char *)&evt->comm);
+
+    struct ebpf_varlen_field *field;
+    FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
+    {
+        out_comma();
+        switch (field->type) {
+        case EBPF_VL_FIELD_PATH:
+            out_string("path", field->data);
+            break;
+        default:
+            fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
+            break;
+        }
+    }
 
     out_object_end();
     out_newline();
@@ -336,13 +347,24 @@ static void out_file_create(struct ebpf_file_create_event *evt)
     out_pid_info("pids", &evt->pids);
     out_comma();
 
-    out_string("path", evt->path);
-    out_comma();
-
     out_int("mount_namespace", evt->mntns);
     out_comma();
 
     out_string("comm", (const char *)&evt->comm);
+
+    struct ebpf_varlen_field *field;
+    FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
+    {
+        out_comma();
+        switch (field->type) {
+        case EBPF_VL_FIELD_PATH:
+            out_string("path", field->data);
+            break;
+        default:
+            fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
+            break;
+        }
+    }
 
     out_object_end();
     out_newline();
@@ -357,16 +379,27 @@ static void out_file_rename(struct ebpf_file_rename_event *evt)
     out_pid_info("pids", &evt->pids);
     out_comma();
 
-    out_string("old_path", evt->old_path);
-    out_comma();
-
-    out_string("new_path", evt->new_path);
-    out_comma();
-
     out_int("mount_namespace", evt->mntns);
     out_comma();
 
     out_string("comm", (const char *)&evt->comm);
+
+    struct ebpf_varlen_field *field;
+    FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
+    {
+        out_comma();
+        switch (field->type) {
+        case EBPF_VL_FIELD_OLD_PATH:
+            out_string("old_path", field->data);
+            break;
+        case EBPF_VL_FIELD_NEW_PATH:
+            out_string("new_path", field->data);
+            break;
+        default:
+            fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
+            break;
+        }
+    }
 
     out_object_end();
     out_newline();
@@ -382,9 +415,20 @@ static void out_process_fork(struct ebpf_process_fork_event *evt)
     out_comma();
 
     out_pid_info("child_pids", &evt->child_pids);
-    out_comma();
 
-    out_string("pids_ss_cgroup_path", evt->pids_ss_cgroup_path);
+    struct ebpf_varlen_field *field;
+    FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
+    {
+        out_comma();
+        switch (field->type) {
+        case EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH:
+            out_string("pids_ss_cgroup_path", field->data);
+            break;
+        default:
+            fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
+            break;
+        }
+    }
 
     out_object_end();
     out_newline();
@@ -403,18 +447,29 @@ static void out_process_exec(struct ebpf_process_exec_event *evt)
     out_comma();
 
     out_tty_dev("ctty", &evt->ctty);
-    out_comma();
 
-    out_string("filename", evt->filename);
-    out_comma();
-
-    out_string("cwd", evt->cwd);
-    out_comma();
-
-    out_string("pids_ss_cgroup_path", evt->pids_ss_cgroup_path);
-    out_comma();
-
-    out_argv("argv", evt->argv, sizeof(evt->argv));
+    struct ebpf_varlen_field *field;
+    FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
+    {
+        out_comma();
+        switch (field->type) {
+        case EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH:
+            out_string("pids_ss_cgroup_path", field->data);
+            break;
+        case EBPF_VL_FIELD_FILENAME:
+            out_string("filename", field->data);
+            break;
+        case EBPF_VL_FIELD_CWD:
+            out_string("cwd", field->data);
+            break;
+        case EBPF_VL_FIELD_ARGV:
+            out_argv("argv", field->data, field->size);
+            break;
+        default:
+            fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
+            break;
+        }
+    }
 
     out_object_end();
     out_newline();
@@ -472,15 +527,25 @@ static void out_process_tty_write(struct ebpf_process_tty_write_event *evt)
 
     out_pid_info("pids", &evt->pids);
     out_comma();
-    out_uint("tty_out_len", evt->tty_out_len);
-    out_comma();
     out_uint("tty_out_truncated", evt->tty_out_truncated);
     out_comma();
     out_tty_dev("tty", &evt->tty);
     out_comma();
-    out_string("tty_out", evt->tty_out);
-    out_comma();
     out_string("comm", (const char *)&evt->comm);
+
+    struct ebpf_varlen_field *field;
+    FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
+    {
+        out_comma();
+        switch (field->type) {
+        case EBPF_VL_FIELD_TTY_OUT:
+            out_string("tty_out", field->data);
+            break;
+        default:
+            fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
+            break;
+        }
+    }
 
     out_object_end();
     out_newline();
@@ -495,10 +560,21 @@ static void out_process_exit(struct ebpf_process_exit_event *evt)
     out_pid_info("pids", &evt->pids);
     out_comma();
 
-    out_string("pids_ss_cgroup_path", evt->pids_ss_cgroup_path);
-    out_comma();
-
     out_int("exit_code", evt->exit_code);
+
+    struct ebpf_varlen_field *field;
+    FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
+    {
+        out_comma();
+        switch (field->type) {
+        case EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH:
+            out_string("pids_ss_cgroup_path", field->data);
+            break;
+        default:
+            fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
+            break;
+        }
+    }
 
     out_object_end();
     out_newline();
