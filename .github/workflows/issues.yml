@@ -1,0 +1,21 @@
+name: Add issues to AWP Sensor Project
+
+on:
+  issues:
+    types:
+      - opened
+      - transferred
+      - reopened
+      - edited
+      - synchronized
+
+jobs:
+  add-to-project:
+    name: Add issue to project
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/add-to-project@v0.3.0
+        with:
+          project-url: https://github.com/orgs/elastic/projects/765
+          github-token: ${{ secrets.ELASTIC_PAT }}

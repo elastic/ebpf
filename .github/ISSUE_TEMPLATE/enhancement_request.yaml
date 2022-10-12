@@ -1,0 +1,43 @@
+name: 💡 Enhancement Request
+description: Suggest a new feature, improvements to existing features.
+labels: [enhancement, untriaged]
+body:
+- type: dropdown
+  attributes:
+    label: Impact
+    description: Give us a best estimate of the new feature's Impact
+    multiple: false
+    options:
+      - High
+      - Low
+      - Unknown
+  validations:
+    required: true
+
+- type: input
+  attributes:
+    label: Epic/Meta Issue
+    description: Paste the url of an epic/meta issue to track this issue as a part of
+
+- type: dropdown
+  attributes:
+    label: Planned Version
+    description: Software version for which this feature is planned
+    multiple: false
+    options:
+      - 8.5.0
+      - 8.5.1
+      - 8.5.2
+      - 8.5.3
+      - 8.6.0
+      - 8.7.0
+      - 8.7.1
+      - 8.7.2
+      - 8.7.3
+
+- type: textarea
+  attributes:
+    label: Description
+    description: Description of the feature. Make sure to provide any available additional information like diagrams, designs, screenshots etc.
+  validations:
+    required: true
