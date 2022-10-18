@@ -1,0 +1,72 @@
+name: 🐞 Bug Report
+description: File a bug/issue
+labels: [bug, untriaged]
+body:
+- type: dropdown
+  attributes:
+    label: Severity
+    description: Give us a best estimate of the issue's severity
+    multiple: false
+    options:
+      - Critical
+      - Major
+      - Minor
+      - Cosmetic
+  validations:
+    required: true
+
+- type: dropdown
+  attributes:
+    label: Affects Version(s)
+    description: Software versions for which the bug is being reported
+    multiple: true
+    options:
+      - 8.5.0
+      - 8.5.1
+      - 8.6.0
+  validations:
+    required: true
+
+- type: input
+  attributes:
+    label: Epic/Meta Issue
+    description: Paste the url of an epic/meta issue to track this issue as a part of
+
+- type: input
+  attributes:
+    label: Kernel Version(s)
+    description: CSV of kernel version(s) where the problem is seen (Preferably the output of `uname -r`)
+    placeholder: "For example: 50.100.0-101-generic"
+  validations:
+    required: true
+
+- type: input
+  attributes:
+    label: Linux Distro
+    description: CSV of Linux Distributions the problem is seen
+    placeholder: "For example: Ubuntu 22.04"
+  validations:
+    required: true
+
+- type: dropdown
+  attributes:
+    label: Fix Versions
+    description: Software versions where a fix for this issue needs to be merged.
+    multiple: true
+    options:
+      - 8.5.0
+      - 8.5.1
+      - 8.5.2
+      - 8.5.3
+      - 8.6.0
+      - 8.7.0
+      - 8.7.1
+      - 8.7.2
+      - 8.7.3
+
+- type: textarea
+  attributes:
+    label: Description
+    description: A concise description of what you are experiencing. Make sure to provide additional debug information like log files, screenshots etc.
+  validations:
+    required: true
