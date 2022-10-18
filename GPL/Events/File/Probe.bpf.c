@@ -16,6 +16,7 @@
 #include "Helpers.h"
 #include "PathResolver.h"
 #include "State.h"
+#include "Varlen.h"
 
 /* vfs_unlink */
 DECL_FUNC_ARG(vfs_unlink, dentry);

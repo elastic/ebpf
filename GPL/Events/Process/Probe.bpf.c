@@ -15,6 +15,7 @@
 
 #include "Helpers.h"
 #include "PathResolver.h"
+#include "Varlen.h"
 
 // Limits on large things we send up as variable length parameters.
 //
