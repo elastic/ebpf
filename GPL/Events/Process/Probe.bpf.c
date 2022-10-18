@@ -302,7 +302,7 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
         bpf_get_current_comm(event->comm, TASK_COMM_LEN);
 
         if (bpf_probe_read_user(event->tty_out, len_cap, (void *)base)) {
-            bpf_printk("tty_write__enter: error reading buf\n");
+            bpf_printk("tty_write__enter: error reading base\n");
             bpf_ringbuf_discard(event, 0);
             goto out;
         }
