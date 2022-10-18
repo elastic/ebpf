@@ -164,7 +164,7 @@ struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __uint(key_size, sizeof(int));
     __uint(value_size, EVENT_BUFFER_SIZE);
-    __uint(max_entries, 0);
+    __uint(max_entries, 0); // Will be resized by userspace to $(nproc)
 } event_buffer_map SEC(".maps");
 
 static void *get_event_buffer()
