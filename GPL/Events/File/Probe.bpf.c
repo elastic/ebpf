@@ -131,11 +131,10 @@ static int vfs_unlink__exit(int ret)
     size_t size;
 
     // path
-    ADD_VL_FIELD_OR_GOTO_EMIT(event, field, EBPF_VL_FIELD_PATH);
-    size = ebpf_resolve_path_to_string(field->data, &p, task);
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PATH);
+    size  = ebpf_resolve_path_to_string(field->data, &p, task);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-emit:
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 
     // Certain filesystems (eg. overlayfs) call vfs_unlink twice during the same
@@ -229,11 +228,10 @@ static int do_filp_open__exit(struct file *f)
         size_t size;
 
         // path
-        ADD_VL_FIELD_OR_GOTO_EMIT(event, field, EBPF_VL_FIELD_PATH);
-        size = ebpf_resolve_path_to_string(field->data, &p, task);
+        field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PATH);
+        size  = ebpf_resolve_path_to_string(field->data, &p, task);
         ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-    emit:
         bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
     }
 
@@ -399,16 +397,15 @@ static int vfs_rename__exit(int ret)
     size_t size;
 
     // old path
-    ADD_VL_FIELD_OR_GOTO_EMIT(event, field, EBPF_VL_FIELD_OLD_PATH);
-    size = bpf_probe_read_kernel_str(field->data, PATH_MAX, ss->rename.old_path);
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_OLD_PATH);
+    size  = bpf_probe_read_kernel_str(field->data, PATH_MAX, ss->rename.old_path);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
     // new path
-    ADD_VL_FIELD_OR_GOTO_EMIT(event, field, EBPF_VL_FIELD_NEW_PATH);
-    size = bpf_probe_read_kernel_str(field->data, PATH_MAX, ss->rename.new_path);
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_NEW_PATH);
+    size  = bpf_probe_read_kernel_str(field->data, PATH_MAX, ss->rename.new_path);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-emit:
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 
     // Certain filesystems (eg. overlayfs) call vfs_rename twice during the same

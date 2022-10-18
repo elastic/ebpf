@@ -55,11 +55,10 @@ int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct 
     size_t size;
 
     // pids_ss_cgroup_path
-    ADD_VL_FIELD_OR_GOTO_EMIT(event, field, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
-    size = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, child);
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
+    size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, child);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-emit:
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 
 out:
@@ -97,26 +96,25 @@ int BPF_PROG(sched_process_exec,
     size_t size;
 
     // pids ss cgroup path
-    ADD_VL_FIELD_OR_GOTO_EMIT(event, field, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
-    size = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
+    size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
     // argv
-    ADD_VL_FIELD_OR_GOTO_EMIT(event, field, EBPF_VL_FIELD_ARGV);
-    size = ebpf_argv__fill(field->data, ARGV_MAX, task);
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_ARGV);
+    size  = ebpf_argv__fill(field->data, ARGV_MAX, task);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
     // cwd
-    ADD_VL_FIELD_OR_GOTO_EMIT(event, field, EBPF_VL_FIELD_CWD);
-    size = ebpf_resolve_path_to_string(field->data, &task->fs->pwd, task);
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_CWD);
+    size  = ebpf_resolve_path_to_string(field->data, &task->fs->pwd, task);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
     // filename
-    ADD_VL_FIELD_OR_GOTO_EMIT(event, field, EBPF_VL_FIELD_FILENAME);
-    size = bpf_probe_read_kernel_str(field->data, PATH_MAX, binprm->filename);
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_FILENAME);
+    size  = bpf_probe_read_kernel_str(field->data, PATH_MAX, binprm->filename);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-emit:
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 
 out:
@@ -164,11 +162,10 @@ static int taskstats_exit__enter(const struct task_struct *task, int group_dead)
     size_t size;
 
     // pids_ss_cgroup_path
-    ADD_VL_FIELD_OR_GOTO_EMIT(event, field, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
-    size = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
+    size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-emit:
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 
 out:
@@ -354,14 +351,13 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
         struct ebpf_varlen_field *field;
 
         // tty_out
-        ADD_VL_FIELD_OR_GOTO_EMIT(event, field, EBPF_VL_FIELD_TTY_OUT);
+        field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_TTY_OUT);
         if (bpf_probe_read_user(field->data, len_cap, (void *)base)) {
             bpf_printk("tty_write__enter: error reading base\n");
             goto out;
         }
         ebpf_vl_field__set_size(&event->vl_fields, field, len_cap);
 
-    emit:
         bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
     }
 

@@ -65,30 +65,15 @@ static void *get_event_buffer()
     return bpf_map_lookup_elem(&event_buffer_map, &key);
 }
 
-// Convenience macro to bail out and submit what we've got if we're out of
-// variable length field space
-//
-// If we're already over half the size of the percpu event buffer, this macro
-// ensures we never add any further fields. If we do, the &
-// EVENT_BUFFER_SIZE_HALF operation below (which is necessary to keep the
-// verifier happy) will cause us to overwrite preceeding variable length
-// fields, resulting in corrupt data
-#define ADD_VL_FIELD_OR_GOTO_EMIT(arg_event, arg_field, arg_type)                                  \
-    do {                                                                                           \
-        if (EVENT_SIZE(arg_event) >= EVENT_BUFFER_SIZE_HALF) {                                     \
-            bpf_printk("Bailing at variable-length field of type %d (event type %d), out of "      \
-                       "buffer space",                                                             \
-                       arg_type, arg_event->hdr.type);                                             \
-            goto emit;                                                                             \
-        }                                                                                          \
-                                                                                                   \
-        struct ebpf_varlen_fields_start *__vlf = &arg_event->vl_fields;                            \
-        struct ebpf_varlen_field *__field =                                                        \
-            (struct ebpf_varlen_field *)(&__vlf->data[__vlf->size & EVENT_BUFFER_SIZE_HALF_MASK]); \
-        __vlf->nfields++;                                                                          \
-        __field->type = arg_type;                                                                  \
-        arg_field     = __field;                                                                   \
-    } while (0)
+struct ebpf_varlen_field *ebpf_vl_field__add(struct ebpf_varlen_fields_start *fields,
+                                             enum ebpf_varlen_field_type type)
+{
+    struct ebpf_varlen_field *new_field =
+        (struct ebpf_varlen_field *)(&fields->data[fields->size & EVENT_BUFFER_SIZE_HALF_MASK]);
+    new_field->type = type;
+    fields->nfields++;
+    return new_field;
+}
 
 void ebpf_vl_fields__init(struct ebpf_varlen_fields_start *fields)
 {
