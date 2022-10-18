@@ -136,8 +136,13 @@ const volatile int consumer_pid = 0;
 // size). bpf_ringbuf_reserve/bpf_ringbuf_submit should be used instead to
 // avoid the extra memory copy for better performance.
 
-// 2 MiB per cpu core, ~1MiB is useable as we bail if we go over half
-#define EVENT_BUFFER_SIZE (1 << 21)
+// 256 KiB per cpu core, 128 KiB is useable as we bail if we go over half
+//
+// Currently, the largest possible event (with variable length parameters all
+// of their respective maximum lengths) is well under 128 KiB. This limit
+// should be bumped if this is no longer the case or else the verifier will
+// start to complain.
+#define EVENT_BUFFER_SIZE (1 << 18)
 #define EVENT_BUFFER_SIZE_HALF (EVENT_BUFFER_SIZE >> 1)
 #define EVENT_BUFFER_SIZE_HALF_MASK (EVENT_BUFFER_SIZE_HALF - 1)
 
