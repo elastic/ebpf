@@ -235,22 +235,14 @@ int BPF_KPROBE(kprobe__commit_creds, struct cred *new)
     return commit_creds__enter(new);
 }
 
+#define MAX_NR_SEGS 8
+
 static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
 {
-    const char *buf = BPF_CORE_READ(from, iov, iov_base);
-    ssize_t count   = BPF_CORE_READ(from, iov, iov_len);
-    struct file *f  = BPF_CORE_READ(iocb, ki_filp);
-
     if (is_consumer())
         goto out;
 
-    if (count <= 0)
-        goto out;
-
-    struct ebpf_process_tty_write_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
-    if (!event)
-        goto out;
-
+    struct file *f               = BPF_CORE_READ(iocb, ki_filp);
     struct tty_file_private *tfp = (struct tty_file_private *)BPF_CORE_READ(f, private_data);
     struct tty_struct *tty       = BPF_CORE_READ(tfp, tty);
 
@@ -261,46 +253,62 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
     // https://elixir.bootlin.com/linux/v5.19.9/source/drivers/tty/tty_io.c#L2643
     bool is_master             = false;
     struct ebpf_tty_dev master = {};
+    struct ebpf_tty_dev slave  = {};
     if (BPF_CORE_READ(tty, driver, type) == TTY_DRIVER_TYPE_PTY &&
         BPF_CORE_READ(tty, driver, subtype) == PTY_TYPE_MASTER) {
         struct tty_struct *tmp = BPF_CORE_READ(tty, link);
         ebpf_tty_dev__fill(&master, tty);
-        ebpf_tty_dev__fill(&event->tty, tmp);
+        ebpf_tty_dev__fill(&slave, tmp);
         is_master = true;
     } else {
-        ebpf_tty_dev__fill(&event->tty, tty);
+        ebpf_tty_dev__fill(&slave, tty);
     }
 
-    event->hdr.type = EBPF_EVENT_PROCESS_TTY_WRITE;
-    event->hdr.ts   = bpf_ktime_get_ns();
+    if (slave.major == 0 && slave.minor == 0) {
+        goto out;
+    }
 
-    u64 len                  = count > TTY_OUT_MAX ? TTY_OUT_MAX : count;
-    event->tty_out_len       = len;
-    event->tty_out_truncated = count > TTY_OUT_MAX ? count - TTY_OUT_MAX : 0;
+    if ((is_master && !(master.termios.c_lflag & ECHO)) && !(slave.termios.c_lflag & ECHO)) {
+        goto out;
+    }
 
     const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    ebpf_pid_info__fill(&event->pids, task);
-    ebpf_ctty__fill(&event->ctty, task);
-    bpf_get_current_comm(event->comm, TASK_COMM_LEN);
+    u64 nr_segs                    = BPF_CORE_READ(from, nr_segs);
+    nr_segs                        = nr_segs > MAX_NR_SEGS ? MAX_NR_SEGS : nr_segs;
+    const struct iovec *iov        = BPF_CORE_READ(from, iov);
 
-    if (event->tty.major == 0 && event->tty.minor == 0) {
-        bpf_ringbuf_discard(event, 0);
-        goto out;
+    for (u8 seg = 0; seg < nr_segs; seg++) {
+        struct ebpf_process_tty_write_event *event =
+            bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+        if (!event)
+            goto out;
+
+        struct iovec *cur_iov = (struct iovec *)&iov[seg];
+        const char *base      = BPF_CORE_READ(cur_iov, iov_base);
+        size_t len            = BPF_CORE_READ(cur_iov, iov_len);
+        if (len <= 0) {
+            bpf_ringbuf_discard(event, 0);
+            continue;
+        }
+
+        event->hdr.type          = EBPF_EVENT_PROCESS_TTY_WRITE;
+        event->hdr.ts            = bpf_ktime_get_ns();
+        u64 len_cap              = len > TTY_OUT_MAX ? TTY_OUT_MAX : len;
+        event->tty_out_len       = len_cap;
+        event->tty_out_truncated = len > TTY_OUT_MAX ? len - TTY_OUT_MAX : 0;
+        event->tty               = slave;
+        ebpf_pid_info__fill(&event->pids, task);
+        ebpf_ctty__fill(&event->ctty, task);
+        bpf_get_current_comm(event->comm, TASK_COMM_LEN);
+
+        if (bpf_probe_read_user(event->tty_out, len_cap, (void *)base)) {
+            bpf_printk("tty_write__enter: error reading base\n");
+            bpf_ringbuf_discard(event, 0);
+            goto out;
+        }
+
+        bpf_ringbuf_submit(event, 0);
     }
-
-    if (bpf_probe_read_user(event->tty_out, len, (void *)buf)) {
-        bpf_printk("tty_write__enter: error reading buf\n");
-        bpf_ringbuf_discard(event, 0);
-        goto out;
-    }
-
-    if ((is_master && !(master.termios.c_lflag & ECHO)) && !(event->tty.termios.c_lflag & ECHO)) {
-        bpf_printk("tty_write__enter: discarding %s\n", event->tty_out);
-        bpf_ringbuf_discard(event, 0);
-        goto out;
-    }
-
-    bpf_ringbuf_submit(event, 0);
 
 out:
     return 0;

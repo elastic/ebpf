@@ -18,7 +18,6 @@
 #include <sys/time.h>
 
 #include <arpa/inet.h>
-#include <linux/termios.h>
 #include <netinet/in.h>
 
 #include <EbpfEvents.h>
@@ -200,11 +199,6 @@ static void out_int(const char *name, const long value)
     printf("\"%s\":%ld", name, value);
 }
 
-static void out_bool(const char *name, const bool value)
-{
-    printf("\"%s\":\"%s\"", name, value ? "TRUE" : "FALSE");
-}
-
 static void out_string(const char *name, const char *value)
 {
     printf("\"%s\":\"", name);
@@ -251,9 +245,6 @@ static void out_tty_dev(const char *name, struct ebpf_tty_dev *tty_dev)
     out_int("winsize_rows", tty_dev->winsize.rows);
     out_comma();
     out_int("winsize_cols", tty_dev->winsize.cols);
-    out_comma();
-    out_bool("ECHO", tty_dev->termios.c_lflag & ECHO);
-
     out_object_end();
 }
 
