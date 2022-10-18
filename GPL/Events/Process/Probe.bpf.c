@@ -330,18 +330,15 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
     const struct iovec *iov        = BPF_CORE_READ(from, iov);
 
     for (u8 seg = 0; seg < nr_segs; seg++) {
-        struct ebpf_process_tty_write_event *event =
-            bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+        struct ebpf_process_tty_write_event *event = get_event_buffer();
         if (!event)
             goto out;
 
         struct iovec *cur_iov = (struct iovec *)&iov[seg];
         const char *base      = BPF_CORE_READ(cur_iov, iov_base);
         size_t len            = BPF_CORE_READ(cur_iov, iov_len);
-        if (len <= 0) {
-            bpf_ringbuf_discard(event, 0);
+        if (len <= 0)
             continue;
-        }
 
         event->hdr.type          = EBPF_EVENT_PROCESS_TTY_WRITE;
         event->hdr.ts            = bpf_ktime_get_ns();
@@ -360,7 +357,6 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
         ADD_VL_FIELD_OR_GOTO_EMIT(event, field, EBPF_VL_FIELD_TTY_OUT);
         if (bpf_probe_read_user(field->data, len_cap, (void *)base)) {
             bpf_printk("tty_write__enter: error reading base\n");
-            bpf_ringbuf_discard(event, 0);
             goto out;
         }
         ebpf_vl_field__set_size(&event->vl_fields, field, len_cap);
