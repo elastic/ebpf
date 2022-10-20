@@ -23,10 +23,16 @@
 // size). bpf_ringbuf_reserve/bpf_ringbuf_submit should be used instead to
 // avoid the extra memory copy for better performance.
 
-// 256 KiB per cpu core, this is currently more than large enough to handle the
-// largest theoretical event, but should be bumped in the future if that
-// changes or else the verifier will start to complain.
+// 256 KiB per cpu core, of which 128 KiB is useable as we have to bound each
+// new variable-length field to start at no more than half the size of the
+// buffer to make the verifier happy.
+//
+// 128 KiB is currently more than large enough to handle the largest
+// theoretical event, but should be bumped in the future if that changes or
+// else the verifier will start to complain.
 #define EVENT_BUFFER_SIZE (1 << 18)
+#define EVENT_BUFFER_SIZE_HALF (EVENT_BUFFER_SIZE >> 1)
+#define EVENT_BUFFER_SIZE_HALF_MASK (EVENT_BUFFER_SIZE_HALF - 1)
 
 // Convenience macro to determine the current size of an event with its
 // variable length fields
@@ -63,8 +69,9 @@ static void *get_event_buffer()
 struct ebpf_varlen_field *ebpf_vl_field__add(struct ebpf_varlen_fields_start *fields,
                                              enum ebpf_varlen_field_type type)
 {
-    struct ebpf_varlen_field *new_field = (struct ebpf_varlen_field *)(&fields->data[fields->size]);
-    new_field->type                     = type;
+    struct ebpf_varlen_field *new_field =
+        (struct ebpf_varlen_field *)(&fields->data[fields->size & EVENT_BUFFER_SIZE_HALF_MASK]);
+    new_field->type = type;
     fields->nfields++;
     return new_field;
 }
