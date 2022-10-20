@@ -128,7 +128,7 @@ static int vfs_unlink__exit(int ret)
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);
     struct ebpf_varlen_field *field;
-    size_t size;
+    long size;
 
     // path
     field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PATH);
@@ -225,7 +225,7 @@ static int do_filp_open__exit(struct file *f)
         // Variable length fields
         ebpf_vl_fields__init(&event->vl_fields);
         struct ebpf_varlen_field *field;
-        size_t size;
+        long size;
 
         // path
         field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PATH);
@@ -394,16 +394,16 @@ static int vfs_rename__exit(int ret)
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);
     struct ebpf_varlen_field *field;
-    size_t size;
+    long size;
 
     // old path
     field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_OLD_PATH);
-    size  = bpf_probe_read_kernel_str(field->data, PATH_MAX, ss->rename.old_path);
+    size  = read_kernel_str_or_empty_str(field->data, PATH_MAX, ss->rename.old_path);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
     // new path
     field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_NEW_PATH);
-    size  = bpf_probe_read_kernel_str(field->data, PATH_MAX, ss->rename.new_path);
+    size  = read_kernel_str_or_empty_str(field->data, PATH_MAX, ss->rename.new_path);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);

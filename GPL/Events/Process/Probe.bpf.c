@@ -52,7 +52,7 @@ int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct 
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);
     struct ebpf_varlen_field *field;
-    size_t size;
+    long size;
 
     // pids_ss_cgroup_path
     field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
@@ -93,7 +93,7 @@ int BPF_PROG(sched_process_exec,
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);
     struct ebpf_varlen_field *field;
-    size_t size;
+    long size;
 
     // pids ss cgroup path
     field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
@@ -112,7 +112,7 @@ int BPF_PROG(sched_process_exec,
 
     // filename
     field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_FILENAME);
-    size  = bpf_probe_read_kernel_str(field->data, PATH_MAX, binprm->filename);
+    size  = read_kernel_str_or_empty_str(field->data, PATH_MAX, binprm->filename);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
@@ -159,7 +159,7 @@ static int taskstats_exit__enter(const struct task_struct *task, int group_dead)
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);
     struct ebpf_varlen_field *field;
-    size_t size;
+    long size;
 
     // pids_ss_cgroup_path
     field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);

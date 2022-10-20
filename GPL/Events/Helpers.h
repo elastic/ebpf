@@ -132,6 +132,18 @@ static bool IS_ERR_OR_NULL(const void *ptr)
     return (!ptr) || (unsigned long)ptr >= (unsigned long)-MAX_ERRNO;
 }
 
+// Wrapper around bpf_probe_read_kernel_str that reads an empty string upon a read failure
+static long read_kernel_str_or_empty_str(void *dst, int size, const void *unsafe_ptr)
+{
+    long ret = bpf_probe_read_kernel_str(dst, size, unsafe_ptr);
+    if (ret < 0) {
+        ((char *)dst)[0] = '\0';
+        return 1;
+    }
+
+    return ret;
+}
+
 static long ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct *task)
 {
     unsigned long start, end, size;
