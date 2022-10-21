@@ -16,12 +16,6 @@
 #include "Helpers.h"
 #include "PathResolver.h"
 
-/* tty_write */
-DECL_FUNC_ARG(redirected_tty_write, iter);
-DECL_FUNC_ARG(redirected_tty_write, buf);
-DECL_FUNC_ARG(redirected_tty_write, count);
-DECL_FUNC_ARG_EXISTS(redirected_tty_write, iter);
-
 SEC("tp_btf/sched_process_fork")
 int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct task_struct *child)
 {
@@ -241,18 +235,14 @@ int BPF_KPROBE(kprobe__commit_creds, struct cred *new)
     return commit_creds__enter(new);
 }
 
-static int tty_write__enter(const char *buf, ssize_t count, struct file *f)
+#define MAX_NR_SEGS 8
+
+static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
 {
     if (is_consumer())
         goto out;
 
-    if (count <= 0)
-        goto out;
-
-    struct ebpf_process_tty_write_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
-    if (!event)
-        goto out;
-
+    struct file *f               = BPF_CORE_READ(iocb, ki_filp);
     struct tty_file_private *tfp = (struct tty_file_private *)BPF_CORE_READ(f, private_data);
     struct tty_struct *tty       = BPF_CORE_READ(tfp, tty);
 
@@ -263,108 +253,75 @@ static int tty_write__enter(const char *buf, ssize_t count, struct file *f)
     // https://elixir.bootlin.com/linux/v5.19.9/source/drivers/tty/tty_io.c#L2643
     bool is_master             = false;
     struct ebpf_tty_dev master = {};
+    struct ebpf_tty_dev slave  = {};
     if (BPF_CORE_READ(tty, driver, type) == TTY_DRIVER_TYPE_PTY &&
         BPF_CORE_READ(tty, driver, subtype) == PTY_TYPE_MASTER) {
         struct tty_struct *tmp = BPF_CORE_READ(tty, link);
         ebpf_tty_dev__fill(&master, tty);
-        ebpf_tty_dev__fill(&event->tty, tmp);
+        ebpf_tty_dev__fill(&slave, tmp);
         is_master = true;
     } else {
-        ebpf_tty_dev__fill(&event->tty, tty);
+        ebpf_tty_dev__fill(&slave, tty);
     }
 
-    event->hdr.type = EBPF_EVENT_PROCESS_TTY_WRITE;
-    event->hdr.ts   = bpf_ktime_get_ns();
+    if (slave.major == 0 && slave.minor == 0) {
+        goto out;
+    }
 
-    u64 len                  = count > TTY_OUT_MAX ? TTY_OUT_MAX : count;
-    event->tty_out_len       = len;
-    event->tty_out_truncated = count > TTY_OUT_MAX ? count - TTY_OUT_MAX : 0;
+    if ((is_master && !(master.termios.c_lflag & ECHO)) && !(slave.termios.c_lflag & ECHO)) {
+        goto out;
+    }
 
     const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    ebpf_pid_info__fill(&event->pids, task);
-    ebpf_ctty__fill(&event->ctty, task);
-    bpf_get_current_comm(event->comm, TASK_COMM_LEN);
+    u64 nr_segs                    = BPF_CORE_READ(from, nr_segs);
+    nr_segs                        = nr_segs > MAX_NR_SEGS ? MAX_NR_SEGS : nr_segs;
+    const struct iovec *iov        = BPF_CORE_READ(from, iov);
 
-    if (event->tty.major == 0 && event->tty.minor == 0) {
-        bpf_ringbuf_discard(event, 0);
-        goto out;
+    for (u8 seg = 0; seg < nr_segs; seg++) {
+        struct ebpf_process_tty_write_event *event =
+            bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+        if (!event)
+            goto out;
+
+        struct iovec *cur_iov = (struct iovec *)&iov[seg];
+        const char *base      = BPF_CORE_READ(cur_iov, iov_base);
+        size_t len            = BPF_CORE_READ(cur_iov, iov_len);
+        if (len <= 0) {
+            bpf_ringbuf_discard(event, 0);
+            continue;
+        }
+
+        event->hdr.type          = EBPF_EVENT_PROCESS_TTY_WRITE;
+        event->hdr.ts            = bpf_ktime_get_ns();
+        u64 len_cap              = len > TTY_OUT_MAX ? TTY_OUT_MAX : len;
+        event->tty_out_len       = len_cap;
+        event->tty_out_truncated = len > TTY_OUT_MAX ? len - TTY_OUT_MAX : 0;
+        event->tty               = slave;
+        ebpf_pid_info__fill(&event->pids, task);
+        ebpf_ctty__fill(&event->ctty, task);
+        bpf_get_current_comm(event->comm, TASK_COMM_LEN);
+
+        if (bpf_probe_read_user(event->tty_out, len_cap, (void *)base)) {
+            bpf_printk("tty_write__enter: error reading base\n");
+            bpf_ringbuf_discard(event, 0);
+            goto out;
+        }
+
+        bpf_ringbuf_submit(event, 0);
     }
-
-    if (bpf_probe_read_user(event->tty_out, len, (void *)buf)) {
-        bpf_printk("tty_write__enter: error reading buf\n");
-        bpf_ringbuf_discard(event, 0);
-        goto out;
-    }
-
-    if ((is_master && !(master.termios.c_lflag & ECHO)) && !(event->tty.termios.c_lflag & ECHO)) {
-        bpf_printk("tty_write__enter: discarding %s\n", event->tty_out);
-        bpf_ringbuf_discard(event, 0);
-        goto out;
-    }
-
-    bpf_ringbuf_submit(event, 0);
 
 out:
     return 0;
 }
 
 SEC("fentry/tty_write")
-int BPF_PROG(fentry__tty_write)
+int BPF_PROG(fentry__tty_write, struct kiocb *iocb, struct iov_iter *from)
 {
-    const char *buf;
-    ssize_t count;
-    struct file *f;
-
-    if (FUNC_ARG_EXISTS(redirected_tty_write, iter)) {
-        struct iov_iter *ii = FUNC_ARG_READ(___type(ii), redirected_tty_write, iter);
-        buf                 = BPF_CORE_READ(ii, iov, iov_base);
-        count               = BPF_CORE_READ(ii, iov, iov_len);
-
-        struct kiocb *iocb = (struct kiocb *)ctx[0];
-        f                  = BPF_CORE_READ(iocb, ki_filp);
-    } else {
-        buf   = FUNC_ARG_READ(___type(buf), redirected_tty_write, buf);
-        count = FUNC_ARG_READ(___type(count), redirected_tty_write, count);
-
-        f = (struct file *)ctx[0];
-    }
-
-    return tty_write__enter(buf, count, f);
+    return tty_write__enter(iocb, from);
 }
 
 SEC("kprobe/tty_write")
-int BPF_KPROBE(kprobe__tty_write)
+int BPF_KPROBE(kprobe__tty_write, struct kiocb *iocb, struct iov_iter *from)
 {
-    const char *buf;
-    ssize_t count;
-    struct file *f;
-
-    if (FUNC_ARG_EXISTS(redirected_tty_write, iter)) {
-        struct iov_iter ii;
-        if (FUNC_ARG_READ_PTREGS(ii, redirected_tty_write, iter)) {
-            bpf_printk("kprobe__tty_write: error reading iov_iter\n");
-            goto out;
-        }
-        buf   = BPF_CORE_READ(ii.iov, iov_base);
-        count = BPF_CORE_READ(ii.iov, iov_len);
-
-        struct kiocb *iocb = (struct kiocb *)PT_REGS_PARM1(ctx);
-        f                  = BPF_CORE_READ(iocb, ki_filp);
-    } else {
-        if (FUNC_ARG_READ_PTREGS(buf, redirected_tty_write, buf)) {
-            bpf_printk("kprobe__tty_write: error reading buf\n");
-            goto out;
-        }
-        if (FUNC_ARG_READ_PTREGS(count, redirected_tty_write, count)) {
-            bpf_printk("kprobe__tty_write: error reading count\n");
-            goto out;
-        }
-
-        f = (struct file *)PT_REGS_PARM1(ctx);
-    }
-
-    return tty_write__enter(buf, count, f);
-
-out:
-    return 0;
+    return tty_write__enter(iocb, from);
 }
