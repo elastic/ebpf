@@ -51,7 +51,9 @@ struct {
     __uint(max_entries, 1);
 } path_resolver_dentry_scratch_map SEC(".maps");
 
-static void
+// Resolve a struct path to a string. Returns the size of the constructed path
+// string, including the null terminator.
+static size_t
 ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_struct *task)
 {
     long size      = 0;
@@ -162,12 +164,14 @@ ebpf_resolve_path_to_string(char *buf, struct path *path, const struct task_stru
     if (buf[0] == '\0') {
         buf[0] = '/';
         buf[1] = '\0';
+        size   = 1;
     }
 
-    return;
+    return size + 1; // size does not include the \0
 
 out_err:
     buf[0] = '\0';
+    return 1;
 }
 
 struct {
@@ -177,9 +181,11 @@ struct {
     __uint(max_entries, 1);
 } path_resolver_kernfs_node_scratch_map SEC(".maps");
 
-static void ebpf_resolve_kernfs_node_to_string(char *buf, struct kernfs_node *kn)
+// Resolve a struct kernfs_node to a string. Returns the size of the
+// constructed path string, including the null terminator.
+static size_t ebpf_resolve_kernfs_node_to_string(char *buf, struct kernfs_node *kn)
 {
-    long cur  = 0;
+    size_t cur = 0;
     int depth = 0, zero = 0, read_len, name_len;
     char name[KERNFS_NODE_COMPONENT_MAX_LEN];
     buf[0] = '\0';
@@ -230,13 +236,14 @@ static void ebpf_resolve_kernfs_node_to_string(char *buf, struct kernfs_node *kn
         cur += name_len & PATH_MAX_INDEX_MASK;
     }
 
-    return;
+    return cur + 1; // cur does not include the \0
 
 out_err:
     buf[0] = '\0';
+    return 1;
 }
 
-static void ebpf_resolve_pids_ss_cgroup_path_to_string(char *buf, const struct task_struct *task)
+static size_t ebpf_resolve_pids_ss_cgroup_path_to_string(char *buf, const struct task_struct *task)
 {
     /*
      * Since pids_cgrp_id is an enum value, we need to get it at runtime as it
@@ -249,11 +256,11 @@ static void ebpf_resolve_pids_ss_cgroup_path_to_string(char *buf, const struct t
     } else {
         /* Pids cgroup is not enabled on this kernel */
         buf[0] = '\0';
-        return;
+        return 1;
     }
 
     struct kernfs_node *kn = BPF_CORE_READ(task, cgroups, subsys[cgrp_id], cgroup, kn);
-    ebpf_resolve_kernfs_node_to_string(buf, kn);
+    return ebpf_resolve_kernfs_node_to_string(buf, kn);
 }
 
 #endif // EBPF_EVENTPROBE_PATHRESOLVER_H

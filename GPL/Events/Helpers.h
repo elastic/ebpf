@@ -132,27 +132,19 @@ static bool IS_ERR_OR_NULL(const void *ptr)
     return (!ptr) || (unsigned long)ptr >= (unsigned long)-MAX_ERRNO;
 }
 
-// Reimplementation of memset:
-//
-// This is necessary because __builtin_memset, if passed a large enough size,
-// will be converted by LLVM to a call to the _library function_ memset, which
-// does not exist in BPF-land. An error that looks like this will be logged at
-// compile-time:
-//
-// error: A call to built-in function 'memset' is not supported.
-//
-// buf _must_ be declared as volatile, otherwise LLVM will decide to convert
-// this entire function to its memset intrinsic (as it does for
-// __builtin_memset when passed a large enough size), which will, when passed
-// to the BPF backend, be converted into a call to the library function memset,
-// and fail for the same reason stated above.
-static void memset(volatile char *buf, char data, size_t size)
+// Wrapper around bpf_probe_read_kernel_str that reads an empty string upon a read failure
+static long read_kernel_str_or_empty_str(void *dst, int size, const void *unsafe_ptr)
 {
-    for (size_t i = 0; i < size; i++)
-        buf[i] = data;
+    long ret = bpf_probe_read_kernel_str(dst, size, unsafe_ptr);
+    if (ret < 0) {
+        ((char *)dst)[0] = '\0';
+        return 1;
+    }
+
+    return ret;
 }
 
-static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct *task)
+static long ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct *task)
 {
     unsigned long start, end, size;
 
@@ -162,11 +154,12 @@ static void ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct
     size = end - start;
     size = size > buf_size ? buf_size : size;
 
-    memset(buf, '\0', buf_size);
     bpf_probe_read_user(buf, size, (void *)start);
 
     // Prevent final arg from being unterminated if buf is too small for args
     buf[buf_size - 1] = '\0';
+
+    return size;
 }
 
 static void ebpf_tty_dev__fill(struct ebpf_tty_dev *tty_dev, const struct tty_struct *tty)

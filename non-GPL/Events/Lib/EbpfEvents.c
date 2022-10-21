@@ -201,6 +201,23 @@ static int probe_fill_relos(struct btf *btf, struct EventProbe_bpf *obj)
     return err;
 }
 
+static int probe_resize_maps(struct EventProbe_bpf *obj)
+{
+    int ncpu = libbpf_num_possible_cpus();
+    if (ncpu < 0) {
+        verbose("could not determine number of CPUs: %d\n", ncpu);
+        return ncpu;
+    }
+
+    int err = 0;
+    if ((err = bpf_map__set_max_entries(obj->maps.event_buffer_map, ncpu)) < 0) {
+        verbose("could not resize event buffer map: %d\n", err);
+        return err;
+    };
+
+    return 0;
+}
+
 /* Some programs in the skeleton are mutually exclusive, based on local kernel features.
  */
 static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj, uint64_t features)
@@ -573,6 +590,10 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx, ebpf_event_handler_fn cb, u
     probe->rodata->consumer_pid = getpid();
 
     err = probe_fill_relos(btf, probe);
+    if (err != 0)
+        goto out_destroy_probe;
+
+    err = probe_resize_maps(probe);
     if (err != 0)
         goto out_destroy_probe;
 

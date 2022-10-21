@@ -15,6 +15,16 @@
 
 #include "Helpers.h"
 #include "PathResolver.h"
+#include "Varlen.h"
+
+// Limits on large things we send up as variable length parameters.
+//
+// These should be kept _well_ under half the size of the event_buffer_map or
+// the verifier will be unhappy due to bounds checks. Putting a cap on these
+// things also prevents any one process from DoS'ing and filling up the
+// ringbuffer with super rapid-fire events.
+#define ARGV_MAX 20000
+#define TTY_OUT_MAX 8192
 
 SEC("tp_btf/sched_process_fork")
 int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct task_struct *child)
@@ -30,7 +40,7 @@ int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct 
     if (!is_thread_group_leader(child) || is_kernel_thread(child))
         goto out;
 
-    struct ebpf_process_fork_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    struct ebpf_process_fork_event *event = get_event_buffer();
     if (!event)
         goto out;
 
@@ -38,9 +48,18 @@ int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct 
     event->hdr.ts   = bpf_ktime_get_ns();
     ebpf_pid_info__fill(&event->parent_pids, parent);
     ebpf_pid_info__fill(&event->child_pids, child);
-    ebpf_resolve_pids_ss_cgroup_path_to_string(event->pids_ss_cgroup_path, child);
 
-    bpf_ringbuf_submit(event, 0);
+    // Variable length fields
+    ebpf_vl_fields__init(&event->vl_fields);
+    struct ebpf_varlen_field *field;
+    long size;
+
+    // pids_ss_cgroup_path
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
+    size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, child);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 
 out:
     return 0;
@@ -60,7 +79,7 @@ int BPF_PROG(sched_process_exec,
     if (is_kernel_thread(task))
         goto out;
 
-    struct ebpf_process_exec_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    struct ebpf_process_exec_event *event = get_event_buffer();
     if (!event)
         goto out;
 
@@ -70,12 +89,33 @@ int BPF_PROG(sched_process_exec,
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_cred_info__fill(&event->creds, task);
     ebpf_ctty__fill(&event->ctty, task);
-    ebpf_argv__fill(event->argv, sizeof(event->argv), task);
-    ebpf_resolve_path_to_string(event->cwd, &task->fs->pwd, task);
-    ebpf_resolve_pids_ss_cgroup_path_to_string(event->pids_ss_cgroup_path, task);
-    bpf_probe_read_kernel_str(event->filename, sizeof(event->filename), binprm->filename);
 
-    bpf_ringbuf_submit(event, 0);
+    // Variable length fields
+    ebpf_vl_fields__init(&event->vl_fields);
+    struct ebpf_varlen_field *field;
+    long size;
+
+    // pids ss cgroup path
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
+    size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    // argv
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_ARGV);
+    size  = ebpf_argv__fill(field->data, ARGV_MAX, task);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    // cwd
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_CWD);
+    size  = ebpf_resolve_path_to_string(field->data, &task->fs->pwd, task);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    // filename
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_FILENAME);
+    size  = read_kernel_str_or_empty_str(field->data, PATH_MAX, binprm->filename);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 
 out:
     return 0;
@@ -104,7 +144,7 @@ static int taskstats_exit__enter(const struct task_struct *task, int group_dead)
     if (!group_dead || is_kernel_thread(task))
         goto out;
 
-    struct ebpf_process_exit_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    struct ebpf_process_exit_event *event = get_event_buffer();
     if (!event)
         goto out;
 
@@ -115,9 +155,18 @@ static int taskstats_exit__enter(const struct task_struct *task, int group_dead)
     int exit_code    = BPF_CORE_READ(task, exit_code);
     event->exit_code = (exit_code >> 8) & 0xFF;
     ebpf_pid_info__fill(&event->pids, task);
-    ebpf_resolve_pids_ss_cgroup_path_to_string(event->pids_ss_cgroup_path, task);
 
-    bpf_ringbuf_submit(event, 0);
+    // Variable length fields
+    ebpf_vl_fields__init(&event->vl_fields);
+    struct ebpf_varlen_field *field;
+    long size;
+
+    // pids_ss_cgroup_path
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
+    size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 
 out:
     return 0;
@@ -278,36 +327,38 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
     const struct iovec *iov        = BPF_CORE_READ(from, iov);
 
     for (u8 seg = 0; seg < nr_segs; seg++) {
-        struct ebpf_process_tty_write_event *event =
-            bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+        struct ebpf_process_tty_write_event *event = get_event_buffer();
         if (!event)
             goto out;
 
         struct iovec *cur_iov = (struct iovec *)&iov[seg];
         const char *base      = BPF_CORE_READ(cur_iov, iov_base);
         size_t len            = BPF_CORE_READ(cur_iov, iov_len);
-        if (len <= 0) {
-            bpf_ringbuf_discard(event, 0);
+        if (len <= 0)
             continue;
-        }
 
         event->hdr.type          = EBPF_EVENT_PROCESS_TTY_WRITE;
         event->hdr.ts            = bpf_ktime_get_ns();
         u64 len_cap              = len > TTY_OUT_MAX ? TTY_OUT_MAX : len;
-        event->tty_out_len       = len_cap;
         event->tty_out_truncated = len > TTY_OUT_MAX ? len - TTY_OUT_MAX : 0;
         event->tty               = slave;
         ebpf_pid_info__fill(&event->pids, task);
         ebpf_ctty__fill(&event->ctty, task);
         bpf_get_current_comm(event->comm, TASK_COMM_LEN);
 
-        if (bpf_probe_read_user(event->tty_out, len_cap, (void *)base)) {
+        // Variable length fields
+        ebpf_vl_fields__init(&event->vl_fields);
+        struct ebpf_varlen_field *field;
+
+        // tty_out
+        field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_TTY_OUT);
+        if (bpf_probe_read_user(field->data, len_cap, (void *)base)) {
             bpf_printk("tty_write__enter: error reading base\n");
-            bpf_ringbuf_discard(event, 0);
             goto out;
         }
+        ebpf_vl_field__set_size(&event->vl_fields, field, len_cap);
 
-        bpf_ringbuf_submit(event, 0);
+        bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
     }
 
 out:

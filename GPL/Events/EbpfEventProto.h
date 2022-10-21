@@ -10,17 +10,7 @@
 #ifndef EBPF_EVENTPROBE_EBPFEVENTPROTO_H
 #define EBPF_EVENTPROBE_EBPFEVENTPROTO_H
 
-#define ARGV_MAX 8192 // See issue #43, quite possibly too small
-
-#define PATH_MAX 4096
-// When computing the path we need to allocate twice the size of PATH_MAX
-// because the verifier does not have a way to know if the path actually
-// fits in PATH_MAX
-#define PATH_MAX_BUF PATH_MAX * 2
-
 #define TASK_COMM_LEN 16
-
-#define TTY_OUT_MAX 4096
 
 #ifndef __KERNEL__
 #include <stdint.h>
@@ -47,6 +37,44 @@ enum ebpf_event_type {
 struct ebpf_event_header {
     uint64_t ts;
     uint64_t type;
+} __attribute__((packed));
+
+// Some fields passed up (e.g. argv, path names) have a high maximum size but
+// most instances of them won't come close to hitting the maximum. Instead of
+// wasting a huge amount of memory by using a fixed-size buffer that's the
+// maximum possible size, we pack these fields into variable-length buffers at
+// the end of each event. If a new field to be added has a large maximum size
+// that won't often be reached, it should be added as a variable length field.
+enum ebpf_varlen_field_type {
+    EBPF_VL_FIELD_CWD,
+    EBPF_VL_FIELD_ARGV,
+    EBPF_VL_FIELD_FILENAME,
+    EBPF_VL_FIELD_PATH,
+    EBPF_VL_FIELD_OLD_PATH,
+    EBPF_VL_FIELD_NEW_PATH,
+    EBPF_VL_FIELD_TTY_OUT,
+    EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH,
+};
+
+// Convenience macro to iterate all the variable length fields in an event
+#define FOR_EACH_VARLEN_FIELD(vl_fields_start, cursor)                                             \
+    int __i = 0;                                                                                   \
+    cursor  = (struct ebpf_varlen_field *)vl_fields_start.data;                                    \
+    for (; __i < vl_fields_start.nfields;                                                          \
+         cursor = (struct ebpf_varlen_field *)((char *)cursor + cursor->size +                     \
+                                               sizeof(struct ebpf_varlen_field)),                  \
+         __i++)
+
+struct ebpf_varlen_fields_start {
+    uint32_t nfields;
+    size_t size;
+    char data[];
+} __attribute__((packed));
+
+struct ebpf_varlen_field {
+    enum ebpf_varlen_field_type type;
+    uint32_t size;
+    char data[];
 } __attribute__((packed));
 
 struct ebpf_pid_info {
@@ -90,33 +118,40 @@ struct ebpf_tty_dev {
 struct ebpf_file_delete_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
-    char path[PATH_MAX_BUF];
     uint32_t mntns;
     char comm[TASK_COMM_LEN];
+
+    // Variable length fields: path
+    struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
 struct ebpf_file_create_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
-    char path[PATH_MAX_BUF];
     uint32_t mntns;
     char comm[TASK_COMM_LEN];
+
+    // Variable length fields: path
+    struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
 struct ebpf_file_rename_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
-    char old_path[PATH_MAX_BUF];
-    char new_path[PATH_MAX_BUF];
     uint32_t mntns;
     char comm[TASK_COMM_LEN];
+
+    // Variable length fields: old_path, new_path
+    struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
 struct ebpf_process_fork_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info parent_pids;
     struct ebpf_pid_info child_pids;
-    char pids_ss_cgroup_path[PATH_MAX];
+
+    // Variable length fields: pids_ss_cgroup_path
+    struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
 struct ebpf_process_exec_event {
@@ -124,17 +159,18 @@ struct ebpf_process_exec_event {
     struct ebpf_pid_info pids;
     struct ebpf_cred_info creds;
     struct ebpf_tty_dev ctty;
-    char filename[PATH_MAX];
-    char cwd[PATH_MAX];
-    char argv[ARGV_MAX];
-    char pids_ss_cgroup_path[PATH_MAX];
+
+    // Variable length fields: cwd, argv, filename, pids_ss_cgroup_path
+    struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
 struct ebpf_process_exit_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
     int32_t exit_code;
-    char pids_ss_cgroup_path[PATH_MAX];
+
+    // Variable length fields: pids_ss_cgroup_path
+    struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
 struct ebpf_process_setsid_event {
@@ -154,14 +190,17 @@ struct ebpf_process_setuid_event {
 struct ebpf_process_tty_write_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
-    char tty_out[TTY_OUT_MAX];
-    uint64_t tty_out_len;
     uint64_t tty_out_truncated;
+
     // Controlling TTY.
     struct ebpf_tty_dev ctty;
+
     // Destination TTY.
     struct ebpf_tty_dev tty;
     char comm[TASK_COMM_LEN];
+
+    // Variable length fields: tty_out
+    struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
 struct ebpf_process_setgid_event {
