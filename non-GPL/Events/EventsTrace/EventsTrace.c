@@ -174,6 +174,16 @@ static void out_newline()
     printf("\n");
 }
 
+static void out_bool_flag(const char *name, bool value)
+{
+    printf("\"%s\":%s", name, value ? "true" : "false");
+}
+
+static void out_named_object_start(const char *name)
+{
+    printf("\"%s\":{", name);
+}
+
 static void out_object_start()
 {
     printf("{");
@@ -444,6 +454,15 @@ static void out_process_exec(struct ebpf_process_exec_event *evt)
     out_comma();
 
     out_cred_info("creds", &evt->creds);
+    out_comma();
+
+    out_named_object_start("red_flags");
+    out_bool_flag("is_memfd", evt->is_memfd);
+    out_comma();
+    out_bool_flag("is_setuid", evt->is_setuid);
+    out_comma();
+    out_bool_flag("is_setgid", evt->is_setgid);
+    out_object_end();
     out_comma();
 
     out_tty_dev("ctty", &evt->ctty);

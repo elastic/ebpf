@@ -17,6 +17,9 @@
 #include "PathResolver.h"
 #include "Varlen.h"
 
+#define S_ISUID  0004000
+#define S_ISGID  0002000
+
 // Limits on large things we send up as variable length parameters.
 //
 // These should be kept _well_ under half the size of the event_buffer_map or
@@ -114,6 +117,15 @@ int BPF_PROG(sched_process_exec,
     field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_FILENAME);
     size  = read_kernel_str_or_empty_str(field->data, PATH_MAX, binprm->filename);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    // memfd exec
+    char buf [7];
+    bpf_probe_read_kernel_str(buf, 7, binprm->file->f_path.dentry->d_iname);
+    if (buf[0] == 'm' && buf[1] == 'e' && buf[2] == 'm' && buf[3] == 'f' && buf[4] == 'd' && buf[5] == ':' )
+        event->is_memfd = 1;
+
+    event->is_setuid = (binprm->file->f_inode->i_mode & S_ISUID) ? true : false;
+    event->is_setgid = (binprm->file->f_inode->i_mode & S_ISGID) ? true : false;
 
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 

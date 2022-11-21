@@ -159,6 +159,9 @@ struct ebpf_process_exec_event {
     struct ebpf_pid_info pids;
     struct ebpf_cred_info creds;
     struct ebpf_tty_dev ctty;
+    bool is_memfd;
+    bool is_setuid;
+    bool is_setgid;
 
     // Variable length fields: cwd, argv, filename, pids_ss_cgroup_path
     struct ebpf_varlen_fields_start vl_fields;
