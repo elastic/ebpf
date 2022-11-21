@@ -14,7 +14,7 @@ BUILD_CONTAINER_IMAGE ?=
 
 CONTAINER_ENGINE ?= docker
 CONTAINER_REPOSITORY ?= ghcr.io/elastic/ebpf-builder
-CONTAINER_PULL_TAG ?= 20220731-1104
+CONTAINER_PULL_TAG ?= 20221121-1315
 CONTAINER_LOCAL_TAG ?= ebpf-builder:${USER}-latest
 
 IMAGEPACK_REPOSITORY ?= ghcr.io/elastic/ebpf-imagepack
