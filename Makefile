@@ -11,6 +11,7 @@ export MAKESYSPATH = ${MAKE_SYS_PATH}
 # Container Settings
 NOCONTAINER ?=
 BUILD_CONTAINER_IMAGE ?=
+NO_CACHE ?=
 
 CONTAINER_ENGINE ?= docker
 CONTAINER_REPOSITORY ?= ghcr.io/elastic/ebpf-builder
@@ -88,17 +89,17 @@ endif
 endif
 
 container:
-	${CONTAINER_ENGINE} buildx build --progress plain --platform=linux/${ARCH} -t ${CONTAINER_LOCAL_TAG} -f docker/Dockerfile.builder .
+	${CONTAINER_ENGINE} buildx build ${NO_CACHE} --progress plain --platform=linux/${ARCH} -t ${CONTAINER_LOCAL_TAG} -f docker/Dockerfile.builder .
 
 tag-container:
 	${CONTAINER_ENGINE} tag ${CONTAINER_LOCAL_TAG} ${CONTAINER_IMAGE}
 	@echo -e "\n++ Tagged image as ${CONTAINER_IMAGE} ++\n"
 
 release-container:
-	${CONTAINER_ENGINE} buildx build --progress plain --platform linux/amd64 \
+	${CONTAINER_ENGINE} buildx build ${NO_CACHE} --progress plain --platform linux/amd64 \
 	-t ${CONTAINER_RELEASE_IMAGE}-amd64 -f docker/Dockerfile.builder .
 
-	${CONTAINER_ENGINE} buildx build --progress plain --platform linux/arm64 \
+	${CONTAINER_ENGINE} buildx build ${NO_CACHE} --progress plain --platform linux/arm64 \
 	-t ${CONTAINER_RELEASE_IMAGE}-arm64 -f docker/Dockerfile.builder .
 
 	${CONTAINER_ENGINE} push ${CONTAINER_RELEASE_IMAGE}-arm64
