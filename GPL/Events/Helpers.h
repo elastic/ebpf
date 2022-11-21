@@ -157,7 +157,25 @@ static long ebpf_argv__fill(char *buf, size_t buf_size, const struct task_struct
     bpf_probe_read_user(buf, size, (void *)start);
 
     // Prevent final arg from being unterminated if buf is too small for args
-    buf[buf_size - 1] = '\0';
+    buf[size - 1] = '\0';
+
+    return size;
+}
+
+static long ebpf_env__fill(char *buf, size_t buf_size, const struct task_struct *task)
+{
+    unsigned long start, end, size;
+
+    start = BPF_CORE_READ(task, mm, env_start);
+    end   = BPF_CORE_READ(task, mm, env_end);
+
+    size = end - start;
+    size = size > buf_size ? buf_size : size;
+
+    bpf_probe_read_user(buf, size, (void *)start);
+
+    // Prevent final arg from being unterminated if buf is too small for args
+    buf[size - 1] = '\0';
 
     return size;
 }

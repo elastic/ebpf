@@ -23,7 +23,8 @@
 // the verifier will be unhappy due to bounds checks. Putting a cap on these
 // things also prevents any one process from DoS'ing and filling up the
 // ringbuffer with super rapid-fire events.
-#define ARGV_MAX 20000
+#define ARGV_MAX 20480
+#define ENV_MAX 40960
 #define TTY_OUT_MAX 8192
 
 SEC("tp_btf/sched_process_fork")
@@ -103,6 +104,11 @@ int BPF_PROG(sched_process_exec,
     // argv
     field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_ARGV);
     size  = ebpf_argv__fill(field->data, ARGV_MAX, task);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    // env
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_ENV);
+    size  = ebpf_env__fill(field->data, ENV_MAX, task);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
     // cwd

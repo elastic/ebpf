@@ -306,6 +306,28 @@ static void out_argv(const char *name, char *buf, size_t buf_size)
     out_string(name, scratch_space);
 }
 
+static void out_env(const char *name, char *buf, size_t buf_size)
+{
+    // Buf is the argv array, with each argument delimited by a '\0', rework
+    // it in a scratch space so it's a space-separated string we can print
+    char scratch_space[buf_size];
+    memcpy(scratch_space, buf, buf_size);
+
+    for (int i = 0; i < buf_size; i++) {
+        if (scratch_space[i] == '\0')
+            scratch_space[i] = ' ';
+    }
+
+    for (int i = buf_size - 2; i >= 0; i--) {
+        if (scratch_space[i] != ' ') {
+            scratch_space[i + 1] = '\0';
+            break;
+        }
+    }
+
+    out_string(name, scratch_space);
+}
+
 static void out_file_delete(struct ebpf_file_delete_event *evt)
 {
     out_object_start();
@@ -464,6 +486,9 @@ static void out_process_exec(struct ebpf_process_exec_event *evt)
             break;
         case EBPF_VL_FIELD_ARGV:
             out_argv("argv", field->data, field->size);
+            break;
+        case EBPF_VL_FIELD_ENV:
+            out_env("env", field->data, field->size);
             break;
         default:
             fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
