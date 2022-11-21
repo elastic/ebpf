@@ -172,6 +172,11 @@ static long ebpf_env__fill(char *buf, size_t buf_size, const struct task_struct 
     size = end - start;
     size = size > buf_size ? buf_size : size;
 
+    if (size == 0) {
+        buf[0] = '\0';
+        return 1;
+    }
+
     bpf_probe_read_user(buf, size, (void *)start);
 
     // Prevent final arg from being unterminated if buf is too small for args
