@@ -133,7 +133,7 @@ func TestForkExec(et *EventsTraceInstance) {
 	AssertStringsEqual(execEvent.FileName, "./do_nothing")
 	AssertStringsEqual(execEvent.Argv[0], "./do_nothing")
 	AssertStringsEqual(execEvent.Env[0], "TEST_ENV_KEY1=TEST_ENV_VAL1")
-	AssertStringsEqual(execEvent.Env[0], "TEST_ENV_KEY2=TEST_ENV_VAL2")
+	AssertStringsEqual(execEvent.Env[1], "TEST_ENV_KEY2=TEST_ENV_VAL2")
 	AssertStringsEqual(execEvent.Cwd, "/")
 }
 
