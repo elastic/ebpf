@@ -84,7 +84,7 @@ RUN printf "#!/bin/bash\nsource scl_source enable rh-python38\nexec pip3 \"\$@\"
     && chmod a+x /usr/bin/pip3
 
 # Install clang-format. Anything to not build/maintain clang/llvm.
-RUN python3 -m pip install --no-cache --upgrade pip clang-format
+RUN python3 -m pip install --no-cache --upgrade pip clang-format==14.0.6
 
 RUN printf "#!/bin/bash\nsource scl_source enable rh-python38\nexec clang-format \"\$@\"\n" > /usr/bin/clang-format \
     && chmod a+x /usr/bin/clang-format
