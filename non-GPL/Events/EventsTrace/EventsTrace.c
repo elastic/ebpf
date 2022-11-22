@@ -209,9 +209,8 @@ static void out_int(const char *name, const long value)
     printf("\"%s\":%ld", name, value);
 }
 
-static void out_string(const char *name, const char *value)
+static void out_escaped_string(const char *value)
 {
-    printf("\"%s\":\"", name);
     for (size_t i = 0; i < strlen(value); i++) {
         char c = value[i];
         switch (c) {
@@ -240,7 +239,12 @@ static void out_string(const char *name, const char *value)
                 printf("%c", c);
         }
     }
+}
 
+static void out_string(const char *name, const char *value)
+{
+    printf("\"%s\":\"", name);
+    out_escaped_string(value);
     printf("\"");
 }
 
@@ -303,7 +307,9 @@ static void out_null_delimited_string_array(const char *name, char *buf, size_t 
     out_array_start();
     for (uint64_t index = 0; index < buf_size && buf_size != 1;) {
         char *elem = buf + index;
-        printf(" \"%s\"", elem);
+        printf(" \"");
+        out_escaped_string(elem);
+        printf("\"");
         index += (strlen(elem) + 1);
         if (index < buf_size - 1) {
             out_comma();
