@@ -28,7 +28,7 @@ int main()
         printf("{ \"parent_info\": %s, \"child_pid\": %d}\n", pid_info, pid);
     } else {
         char *env_list[] = {"TEST_ENV_KEY1=TEST_ENV_VAL1", "TEST_ENV_KEY2=TEST_ENV_VAL2", NULL};
-        CHECK(execle("./do_nothing", "./do_nothing", env_list), -1);
+        CHECK(execle("./do_nothing", "./do_nothing", NULL, env_list), -1);
     }
 
     return 0;
