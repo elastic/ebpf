@@ -174,6 +174,16 @@ static void out_newline()
     printf("\n");
 }
 
+static void out_array_start()
+{
+    printf("[");
+}
+
+static void out_array_end()
+{
+    printf("]");
+}
+
 static void out_object_start()
 {
     printf("{");
@@ -199,9 +209,8 @@ static void out_int(const char *name, const long value)
     printf("\"%s\":%ld", name, value);
 }
 
-static void out_string(const char *name, const char *value)
+static void out_escaped_string(const char *value)
 {
-    printf("\"%s\":\"", name);
     for (size_t i = 0; i < strlen(value); i++) {
         char c = value[i];
         switch (c) {
@@ -230,7 +239,12 @@ static void out_string(const char *name, const char *value)
                 printf("%c", c);
         }
     }
+}
 
+static void out_string(const char *name, const char *value)
+{
+    printf("\"%s\":\"", name);
+    out_escaped_string(value);
     printf("\"");
 }
 
@@ -284,26 +298,26 @@ static void out_cred_info(const char *name, struct ebpf_cred_info *cred_info)
     out_object_end();
 }
 
-static void out_argv(const char *name, char *buf, size_t buf_size)
+static void out_null_delimited_string_array(const char *name, char *buf, size_t buf_size)
 {
-    // Buf is the argv array, with each argument delimited by a '\0', rework
-    // it in a scratch space so it's a space-separated string we can print
-    char scratch_space[buf_size];
-    memcpy(scratch_space, buf, buf_size);
+    // buf is an array (argv, env etc.) with multiple values delimited by a '\0'
 
-    for (int i = 0; i < buf_size; i++) {
-        if (scratch_space[i] == '\0')
-            scratch_space[i] = ' ';
-    }
+    printf("\"%s\":", name);
 
-    for (int i = buf_size - 2; i >= 0; i--) {
-        if (scratch_space[i] != ' ') {
-            scratch_space[i + 1] = '\0';
-            break;
+    out_array_start();
+    for (uint64_t index = 0; index < buf_size && buf_size != 1;) {
+        char *elem = buf + index;
+        printf(" \"");
+        out_escaped_string(elem);
+        printf("\"");
+        index += (strlen(elem) + 1);
+        if (index < buf_size - 1) {
+            out_comma();
+        } else {
+            printf(" ");
         }
     }
-
-    out_string(name, scratch_space);
+    out_array_end();
 }
 
 static void out_file_delete(struct ebpf_file_delete_event *evt)
@@ -463,7 +477,10 @@ static void out_process_exec(struct ebpf_process_exec_event *evt)
             out_string("cwd", field->data);
             break;
         case EBPF_VL_FIELD_ARGV:
-            out_argv("argv", field->data, field->size);
+            out_null_delimited_string_array("argv", field->data, field->size);
+            break;
+        case EBPF_VL_FIELD_ENV:
+            out_null_delimited_string_array("env", field->data, field->size);
             break;
         default:
             fprintf(stderr, "Unexpected variable length field: %d\n", field->type);

@@ -85,7 +85,8 @@ type ProcessExecEvent struct {
 	Ctty     TtyInfo  `json:"ctty"`
 	FileName string   `json:"filename"`
 	Cwd      string   `json:"cwd"`
-	Argv     string   `json:"argv"`
+	Argv     []string `json:"argv"`
+	Env      []string `json:"env"`
 }
 
 type FileCreateEvent struct {

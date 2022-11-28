@@ -48,6 +48,7 @@ struct ebpf_event_header {
 enum ebpf_varlen_field_type {
     EBPF_VL_FIELD_CWD,
     EBPF_VL_FIELD_ARGV,
+    EBPF_VL_FIELD_ENV,
     EBPF_VL_FIELD_FILENAME,
     EBPF_VL_FIELD_PATH,
     EBPF_VL_FIELD_OLD_PATH,
@@ -160,7 +161,7 @@ struct ebpf_process_exec_event {
     struct ebpf_cred_info creds;
     struct ebpf_tty_dev ctty;
 
-    // Variable length fields: cwd, argv, filename, pids_ss_cgroup_path
+    // Variable length fields: cwd, argv, env, filename, pids_ss_cgroup_path
     struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
