@@ -22,6 +22,8 @@ static int inet_csk_accept__exit(struct sock *sk)
 {
     if (!sk)
         goto out;
+    if (ebpf_events_is_trusted_pid(0))
+        goto out;
 
     struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
@@ -56,6 +58,8 @@ static int tcp_connect(struct sock *sk, int ret)
 {
     if (ret)
         goto out;
+    if (ebpf_events_is_trusted_pid(0))
+        goto out;
 
     struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
@@ -84,6 +88,8 @@ int BPF_KPROBE(kprobe__tcp_v4_connect, struct sock *sk)
 {
     struct ebpf_events_state state = {};
     state.tcp_v4_connect.sk        = sk;
+    if (ebpf_events_is_trusted_pid(0))
+        return 0;
     ebpf_events_state__set(EBPF_EVENTS_STATE_TCP_V4_CONNECT, &state);
     return 0;
 }
@@ -92,6 +98,9 @@ SEC("kretprobe/tcp_v4_connect")
 int BPF_KRETPROBE(kretprobe__tcp_v4_connect, int ret)
 {
     struct ebpf_events_state *state;
+
+    if (ebpf_events_is_trusted_pid(0))
+        return 0;
 
     state = ebpf_events_state__get(EBPF_EVENTS_STATE_TCP_V4_CONNECT);
     if (!state)
@@ -111,6 +120,8 @@ int BPF_KPROBE(kprobe__tcp_v6_connect, struct sock *sk)
 {
     struct ebpf_events_state state = {};
     state.tcp_v6_connect.sk        = sk;
+    if (ebpf_events_is_trusted_pid(0))
+        return 0;
     ebpf_events_state__set(EBPF_EVENTS_STATE_TCP_V6_CONNECT, &state);
     return 0;
 }
@@ -119,6 +130,9 @@ SEC("kretprobe/tcp_v6_connect")
 int BPF_KRETPROBE(kretprobe__tcp_v6_connect, int ret)
 {
     struct ebpf_events_state *state;
+
+    if (ebpf_events_is_trusted_pid(0))
+        return 0;
 
     state = ebpf_events_state__get(EBPF_EVENTS_STATE_TCP_V6_CONNECT);
     if (!state)
@@ -129,6 +143,9 @@ int BPF_KRETPROBE(kretprobe__tcp_v6_connect, int ret)
 
 static int tcp_close__enter(struct sock *sk)
 {
+    if (ebpf_events_is_trusted_pid(0))
+        goto out;
+
     struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;

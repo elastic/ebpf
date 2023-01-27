@@ -137,4 +137,25 @@ static long ebpf_events_scratch_space__set(enum ebpf_events_state_op op,
     return bpf_map_update_elem(&elastic_ebpf_events_scratch_space, &key, ss, BPF_ANY);
 }
 
+/* Trusted Apps - list of trusted pids */
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(key_size, sizeof(u32));
+    __uint(value_size, sizeof(u32));
+    __uint(max_entries, 512);
+} elastic_ebpf_events_trusted_pids SEC(".maps");
+
+/* Trusted Apps - check if current pid is trusted for given event type */
+static bool ebpf_events_is_trusted_pid(int type)
+{
+    (void)type; // ignore type in current version
+    u32 pid = bpf_get_current_pid_tgid() >> 32;
+    u32 *val = bpf_map_lookup_elem(&elastic_ebpf_events_trusted_pids, &pid);
+    if (val) {
+        // tgid (userspace PID) is allowed, don't process this event
+        return true;
+    }
+    return false;
+}
+
 #endif // EBPF_EVENTPROBE_EVENTS_STATE_H
