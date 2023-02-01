@@ -686,20 +686,17 @@ void ebpf_event_ctx__destroy(struct ebpf_event_ctx **ctx)
 
 struct bpf_map *ebpf_event_get_trustlist_map(struct ebpf_event_ctx *ctx)
 {
-    if (NULL == ctx)
-    {
+    if (NULL == ctx) {
         verbose("ebpf ctx is NULL");
         return NULL;
     }
     struct EventProbe_bpf *probe = ctx->probe;
-    if (NULL == probe)
-    {
+    if (NULL == probe) {
         verbose("Ebpf events probe is NULL");
         return NULL;
     }
     struct bpf_map *map = probe->maps.elastic_ebpf_events_trusted_pids;
-    if (NULL == map)
-    {
+    if (NULL == map) {
         verbose("Ebpf trusted pids map is NULL");
         return NULL;
     }
@@ -767,7 +764,7 @@ int ebpf_set_process_trustlist(struct bpf_map *map, uint32_t *pids, int count)
     for (i = 0; i < count; i++) {
         uint32_t val = 1;
         uint32_t pid = pids[i];
-        rv = bpf_map_update_elem(map_fd, &pid, &val, BPF_ANY);
+        rv           = bpf_map_update_elem(map_fd, &pid, &val, BPF_ANY);
         if (rv) {
             verbose("Error: failed to add entry to trusted pids map, errno=%d\n", errno);
             return rv;
@@ -776,4 +773,3 @@ int ebpf_set_process_trustlist(struct bpf_map *map, uint32_t *pids, int count)
 
     return rv;
 }
-

@@ -149,7 +149,7 @@ struct {
 static bool ebpf_events_is_trusted_pid(int type)
 {
     (void)type; // ignore type in current version
-    u32 pid = bpf_get_current_pid_tgid() >> 32;
+    u32 pid  = bpf_get_current_pid_tgid() >> 32;
     u32 *val = bpf_map_lookup_elem(&elastic_ebpf_events_trusted_pids, &pid);
     if (val) {
         // tgid (userspace PID) is allowed, don't process this event
