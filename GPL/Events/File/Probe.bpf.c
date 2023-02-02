@@ -36,7 +36,7 @@ static int do_unlinkat__enter()
 {
     struct ebpf_events_state state = {};
     state.unlink.step              = UNLINK_STATE_INIT;
-    if (ebpf_events_is_trusted_pid(0)) {
+    if (ebpf_events_is_trusted_pid()) {
         return 0;
     }
     ebpf_events_state__set(EBPF_EVENTS_STATE_UNLINK, &state);
@@ -59,9 +59,6 @@ static int mnt_want_write__enter(struct vfsmount *mnt)
 {
     struct ebpf_events_state *state = NULL;
 
-    if (ebpf_events_is_trusted_pid(0)) {
-        goto out;
-    }
     state = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
     if (state) {
         // Certain filesystems (eg. overlayfs) call mnt_want_write
@@ -105,8 +102,6 @@ int BPF_KPROBE(kprobe__mnt_want_write, struct vfsmount *mnt)
 static int vfs_unlink__exit(int ret)
 {
     if (ret != 0)
-        goto out;
-    if (ebpf_events_is_trusted_pid(0))
         goto out;
 
     struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
@@ -169,9 +164,6 @@ int BPF_KRETPROBE(kretprobe__vfs_unlink, int ret)
 
 static int vfs_unlink__enter(struct dentry de)
 {
-    if (ebpf_events_is_trusted_pid(0))
-        goto out;
-
     struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
     if (!state || state->unlink.step != UNLINK_STATE_MOUNT_SET) {
         // Omit logging as this happens in the happy path.
@@ -218,7 +210,7 @@ static int do_filp_open__exit(struct file *f)
     if (IS_ERR_OR_NULL(f))
         goto out;
 
-    if (ebpf_events_is_trusted_pid(0))
+    if (ebpf_events_is_trusted_pid())
         goto out;
 
     fmode_t fmode = BPF_CORE_READ(f, f_mode);
@@ -274,7 +266,7 @@ static int do_renameat2__enter()
     struct ebpf_events_state state = {};
     state.rename.step              = RENAME_STATE_INIT;
 
-    if (ebpf_events_is_trusted_pid(0))
+    if (ebpf_events_is_trusted_pid())
         goto out;
     ebpf_events_state__set(EBPF_EVENTS_STATE_RENAME, &state);
 
@@ -305,8 +297,6 @@ static int vfs_rename__enter(struct dentry *old_dentry, struct dentry *new_dentr
 {
     struct ebpf_events_state *state;
 
-    if (ebpf_events_is_trusted_pid(0))
-        goto out;
     state = ebpf_events_state__get(EBPF_EVENTS_STATE_RENAME);
     if (!state || state->rename.step != RENAME_STATE_MOUNT_SET) {
         // Omit logging as this happens in the happy path.
@@ -385,8 +375,6 @@ int BPF_KPROBE(kprobe__vfs_rename)
 static int vfs_rename__exit(int ret)
 {
     if (ret)
-        goto out;
-    if (ebpf_events_is_trusted_pid(0))
         goto out;
 
     struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_RENAME);
