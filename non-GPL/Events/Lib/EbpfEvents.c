@@ -683,3 +683,93 @@ void ebpf_event_ctx__destroy(struct ebpf_event_ctx **ctx)
         *ctx = NULL;
     }
 }
+
+struct bpf_map *ebpf_event_get_trustlist_map(struct ebpf_event_ctx *ctx)
+{
+    if (NULL == ctx) {
+        verbose("ebpf ctx is NULL");
+        return NULL;
+    }
+    struct EventProbe_bpf *probe = ctx->probe;
+    if (NULL == probe) {
+        verbose("Ebpf events probe is NULL");
+        return NULL;
+    }
+    struct bpf_map *map = probe->maps.elastic_ebpf_events_trusted_pids;
+    if (NULL == map) {
+        verbose("Ebpf trusted pids map is NULL");
+        return NULL;
+    }
+    return map;
+}
+
+static int ebpf_clear_process_trustlist(int map_fd)
+{
+    int rv                   = 0;
+    uint8_t key_buf[64]      = {0};
+    uint8_t next_key_buf[64] = {0};
+
+    // get the first key
+    if (bpf_map_get_next_key(map_fd, NULL, key_buf) < 0) {
+        if (errno == ENOENT) {
+            // map is already empty
+            rv = 0;
+            return rv;
+        } else {
+            // failure (perhaps not supported)
+            verbose("Error getting next key while clearing trusted pids map, errno=%d\n", errno);
+            rv = -1;
+            return rv;
+        }
+    }
+
+    // iterate over map
+    while (0 == bpf_map_get_next_key(map_fd, key_buf, next_key_buf)) {
+        // return value 0 means 'key' exists and 'next_key' has been set
+        (void)bpf_map_delete_elem(map_fd, key_buf);
+        memcpy(key_buf, next_key_buf, sizeof(key_buf));
+    }
+
+    // -1 was returned so 'key' is the last element - delete it
+    (void)bpf_map_delete_elem(map_fd, key_buf);
+
+    return 0;
+}
+
+int ebpf_set_process_trustlist(struct bpf_map *map, uint32_t *pids, int count)
+{
+    int rv = 0;
+
+    if (!map || libbpf_get_error(map)) {
+        verbose("Error: invalid trustlist map, errno=%d\n", errno);
+        rv = -1;
+        return rv;
+    }
+
+    int map_fd = bpf_map__fd(map);
+    if (map_fd < 0) {
+        verbose("Error: invalid trustlist map fd, errno=%d\n", errno);
+        rv = -1;
+        return rv;
+    }
+    // first clear the entire map
+    rv = ebpf_clear_process_trustlist(map_fd);
+    if (rv) {
+        verbose("Error: failed to clear trusted pids map, errno=%d\n", errno);
+        return rv;
+    }
+
+    // add entries to trustlist
+    int i = 0;
+    for (i = 0; i < count; i++) {
+        uint32_t val = 1;
+        uint32_t pid = pids[i];
+        rv           = bpf_map_update_elem(map_fd, &pid, &val, BPF_ANY);
+        if (rv) {
+            verbose("Error: failed to add entry to trusted pids map, errno=%d\n", errno);
+            return rv;
+        }
+    }
+
+    return rv;
+}

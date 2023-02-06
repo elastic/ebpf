@@ -36,6 +36,9 @@ static int do_unlinkat__enter()
 {
     struct ebpf_events_state state = {};
     state.unlink.step              = UNLINK_STATE_INIT;
+    if (ebpf_events_is_trusted_pid()) {
+        return 0;
+    }
     ebpf_events_state__set(EBPF_EVENTS_STATE_UNLINK, &state);
     return 0;
 }
@@ -207,6 +210,9 @@ static int do_filp_open__exit(struct file *f)
     if (IS_ERR_OR_NULL(f))
         goto out;
 
+    if (ebpf_events_is_trusted_pid())
+        goto out;
+
     fmode_t fmode = BPF_CORE_READ(f, f_mode);
     if (fmode & (fmode_t)0x100000) { // FMODE_CREATED
         struct ebpf_file_create_event *event = get_event_buffer();
@@ -259,6 +265,9 @@ static int do_renameat2__enter()
 {
     struct ebpf_events_state state = {};
     state.rename.step              = RENAME_STATE_INIT;
+
+    if (ebpf_events_is_trusted_pid())
+        goto out;
     ebpf_events_state__set(EBPF_EVENTS_STATE_RENAME, &state);
 
     u32 zero = 0;
@@ -287,6 +296,7 @@ int BPF_KPROBE(kprobe__do_renameat2)
 static int vfs_rename__enter(struct dentry *old_dentry, struct dentry *new_dentry)
 {
     struct ebpf_events_state *state;
+
     state = ebpf_events_state__get(EBPF_EVENTS_STATE_RENAME);
     if (!state || state->rename.step != RENAME_STATE_MOUNT_SET) {
         // Omit logging as this happens in the happy path.

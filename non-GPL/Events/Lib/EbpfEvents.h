@@ -47,4 +47,9 @@ int ebpf_event_ctx__next(struct ebpf_event_ctx *ctx, int timeout);
 
 void ebpf_event_ctx__destroy(struct ebpf_event_ctx **ctx);
 
+/* Retrieve app trustlist map from ctx */
+struct bpf_map *ebpf_event_get_trustlist_map(struct ebpf_event_ctx *ctx);
+/* Set a new app trustlist */
+int ebpf_set_process_trustlist(struct bpf_map *map, uint32_t *pids, int count);
+
 #endif // EBPF_EVENTS_H_
