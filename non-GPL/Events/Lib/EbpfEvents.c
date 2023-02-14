@@ -654,7 +654,7 @@ out_destroy_probe:
     return err;
 }
 
-int ebpf_event_ctx__poll(struct ebpf_event_ctx *ctx, int timeout)
+int ebpf_event_ctx__next(struct ebpf_event_ctx *ctx, int timeout)
 {
     if (!ctx)
         return -1;
@@ -663,13 +663,20 @@ int ebpf_event_ctx__poll(struct ebpf_event_ctx *ctx, int timeout)
     return consumed > 0 ? 0 : consumed;
 }
 
+int ebpf_event_ctx__poll(struct ebpf_event_ctx *ctx, int timeout)
+{
+    if (!ctx)
+        return -1;
+
+    return ring_buffer__poll(ctx->ringbuf, timeout);
+}
+
 int ebpf_event_ctx__consume(struct ebpf_event_ctx *ctx)
 {
     if (!ctx)
         return -1;
 
-    int consumed = ring_buffer__consume(ctx->ringbuf);
-    return consumed > 0 ? 0 : consumed;
+    return ring_buffer__consume(ctx->ringbuf);
 }
 
 void ebpf_event_ctx__destroy(struct ebpf_event_ctx **ctx)

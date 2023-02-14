@@ -797,7 +797,7 @@ int main(int argc, char **argv)
         print_init_msg(ebpf_event_ctx__get_features(ctx));
 
     while (!exiting) {
-        err = ebpf_event_ctx__poll(ctx, 10);
+        err = ebpf_event_ctx__next(ctx, 10);
         if (err < 0 && err != -EINTR) {
             fprintf(stderr, "Failed to poll event context %d: %s\n", err, strerror(-err));
             break;

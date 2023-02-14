@@ -41,13 +41,24 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx, ebpf_event_handler_fn cb, u
 uint64_t ebpf_event_ctx__get_features(struct ebpf_event_ctx *ctx);
 
 /* Consumes as many events as possible from the event context and returns the
- * number consumed. This will internally poll for events.
+ * number consumed.
+ *
+ * returns 0 on success, or less than 0 on failure
+ */
+int ebpf_event_ctx__next(struct ebpf_event_ctx *ctx, int timeout);
+
+/* Consumes as many events as possible from the event context and returns the
+ * number consumed.  This will internally poll for events.
+ *
+ * returns the number of events acted upon, or less than 0 on failure.
  */
 int ebpf_event_ctx__poll(struct ebpf_event_ctx *ctx, int timeout);
 
 /* Consumes as many events as possible from the event context and returns the
  * number consumed. Does not poll. This is good if you are polling outside
  * this library.
+ *
+ * returns the number of events acted upon, or less than 0 on failure.
  */
 int ebpf_event_ctx__consume(struct ebpf_event_ctx *ctx);
 
