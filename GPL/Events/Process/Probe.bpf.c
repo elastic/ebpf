@@ -300,8 +300,7 @@ static int output_tty_event(struct ebpf_tty_dev *slave, const void *base, size_t
     int ret = 0;
 
     event = get_event_buffer();
-    if (!event)
-    {
+    if (!event) {
         ret = 1;
         goto out;
     }
@@ -332,12 +331,10 @@ out:
     return ret;
 }
 
-
 static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
 {
 
-    if (is_consumer())
-    {
+    if (is_consumer()) {
         goto out;
     }
 
@@ -375,8 +372,7 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
     nr_segs                 = nr_segs > MAX_NR_SEGS ? MAX_NR_SEGS : nr_segs;
     const struct iovec *iov = BPF_CORE_READ(from, iov);
 
-    if (nr_segs == 0)
-    {
+    if (nr_segs == 0) {
         u64 count = BPF_CORE_READ(from, count);
         (void)output_tty_event(&slave, (void *)iov, count);
         goto out;
@@ -387,8 +383,7 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
         const char *base      = BPF_CORE_READ(cur_iov, iov_base);
         size_t len            = BPF_CORE_READ(cur_iov, iov_len);
 
-        if (output_tty_event(&slave, base, len))
-        {
+        if (output_tty_event(&slave, base, len)) {
             goto out;
         }
     }
