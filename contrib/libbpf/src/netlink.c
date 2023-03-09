@@ -27,6 +27,14 @@ typedef int (*libbpf_dump_nlmsg_t)(void *cookie, void *msg, struct nlattr **tb);
 typedef int (*__dump_nlmsg_t)(struct nlmsghdr *nlmsg, libbpf_dump_nlmsg_t,
 			      void *cookie);
 
+struct xdp_link_info {
+	__u32 prog_id;
+	__u32 drv_prog_id;
+	__u32 hw_prog_id;
+	__u32 skb_prog_id;
+	__u8 attach_mode;
+};
+
 struct xdp_id_md {
 	int ifindex;
 	__u32 flags;
@@ -87,29 +95,75 @@ enum {
 	NL_DONE,
 };
 
+static int netlink_recvmsg(int sock, struct msghdr *mhdr, int flags)
+{
+	int len;
+
+	do {
+		len = recvmsg(sock, mhdr, flags);
+	} while (len < 0 && (errno == EINTR || errno == EAGAIN));
+
+	if (len < 0)
+		return -errno;
+	return len;
+}
+
+static int alloc_iov(struct iovec *iov, int len)
+{
+	void *nbuf;
+
+	nbuf = realloc(iov->iov_base, len);
+	if (!nbuf)
+		return -ENOMEM;
+
+	iov->iov_base = nbuf;
+	iov->iov_len = len;
+	return 0;
+}
+
 static int libbpf_netlink_recv(int sock, __u32 nl_pid, int seq,
 			       __dump_nlmsg_t _fn, libbpf_dump_nlmsg_t fn,
 			       void *cookie)
 {
+	struct iovec iov = {};
+	struct msghdr mhdr = {
+		.msg_iov = &iov,
+		.msg_iovlen = 1,
+	};
 	bool multipart = true;
 	struct nlmsgerr *err;
 	struct nlmsghdr *nh;
-	char buf[4096];
 	int len, ret;
+
+	ret = alloc_iov(&iov, 4096);
+	if (ret)
+		goto done;
 
 	while (multipart) {
 start:
 		multipart = false;
-		len = recv(sock, buf, sizeof(buf), 0);
+		len = netlink_recvmsg(sock, &mhdr, MSG_PEEK | MSG_TRUNC);
 		if (len < 0) {
-			ret = -errno;
+			ret = len;
+			goto done;
+		}
+
+		if (len > iov.iov_len) {
+			ret = alloc_iov(&iov, len);
+			if (ret)
+				goto done;
+		}
+
+		len = netlink_recvmsg(sock, &mhdr, 0);
+		if (len < 0) {
+			ret = len;
 			goto done;
 		}
 
 		if (len == 0)
 			break;
 
-		for (nh = (struct nlmsghdr *)buf; NLMSG_OK(nh, len);
+		for (nh = (struct nlmsghdr *)iov.iov_base; NLMSG_OK(nh, len);
 		     nh = NLMSG_NEXT(nh, len)) {
 			if (nh->nlmsg_pid != nl_pid) {
 				ret = -LIBBPF_ERRNO__WRNGPID;
@@ -130,7 +184,8 @@ start:
 				libbpf_nla_dump_errormsg(nh);
 				goto done;
 			case NLMSG_DONE:
-				return 0;
+				ret = 0;
+				goto done;
 			default:
 				break;
 			}
@@ -142,15 +197,17 @@ start:
 				case NL_NEXT:
 					goto start;
 				case NL_DONE:
-					return 0;
+					ret = 0;
+					goto done;
 				default:
-					return ret;
+					goto done;
 				}
 			}
 		}
 	}
 	ret = 0;
 done:
+	free(iov.iov_base);
 	return ret;
 }
 
@@ -237,31 +294,6 @@ int bpf_xdp_attach(int ifindex, int prog_fd, __u32 flags, const struct bpf_xdp_a
 int bpf_xdp_detach(int ifindex, __u32 flags, const struct bpf_xdp_attach_opts *opts)
 {
 	return bpf_xdp_attach(ifindex, -1, flags, opts);
-}
-
-int bpf_set_link_xdp_fd_opts(int ifindex, int fd, __u32 flags,
-			     const struct bpf_xdp_set_link_opts *opts)
-{
-	int old_fd = -1, ret;
-
-	if (!OPTS_VALID(opts, bpf_xdp_set_link_opts))
-		return libbpf_err(-EINVAL);
-
-	if (OPTS_HAS(opts, old_fd)) {
-		old_fd = OPTS_GET(opts, old_fd, -1);
-		flags |= XDP_FLAGS_REPLACE;
-	}
-
-	ret = __bpf_set_link_xdp_fd_replace(ifindex, fd, old_fd, flags);
-	return libbpf_err(ret);
-}
-
-int bpf_set_link_xdp_fd(int ifindex, int fd, __u32 flags)
-{
-	int ret;
-
-	ret = __bpf_set_link_xdp_fd_replace(ifindex, fd, 0, flags);
-	return libbpf_err(ret);
 }
 
 static int __dump_link_nlmsg(struct nlmsghdr *nlh,
@@ -364,30 +396,6 @@ int bpf_xdp_query(int ifindex, int xdp_flags, struct bpf_xdp_query_opts *opts)
 	return 0;
 }
 
-int bpf_get_link_xdp_info(int ifindex, struct xdp_link_info *info,
-			  size_t info_size, __u32 flags)
-{
-	LIBBPF_OPTS(bpf_xdp_query_opts, opts);
-	size_t sz;
-	int err;
-
-	if (!info_size)
-		return libbpf_err(-EINVAL);
-
-	err = bpf_xdp_query(ifindex, flags, &opts);
-	if (err)
-		return libbpf_err(err);
-
-	/* struct xdp_link_info field layout matches struct bpf_xdp_query_opts
-	 * layout after sz field
-	 */
-	sz = min(info_size, offsetofend(struct xdp_link_info, attach_mode));
-	memcpy(info, &opts.prog_id, sz);
-	memset((void *)info + sz, 0, info_size - sz);
-
-	return 0;
-}
-
 int bpf_xdp_query_id(int ifindex, int flags, __u32 *prog_id)
 {
 	LIBBPF_OPTS(bpf_xdp_query_opts, opts);
@@ -413,11 +421,6 @@ int bpf_xdp_query_id(int ifindex, int flags, __u32 *prog_id)
 	return 0;
 }
 
-
-int bpf_get_link_xdp_id(int ifindex, __u32 *prog_id, __u32 flags)
-{
-	return bpf_xdp_query_id(ifindex, flags, prog_id);
-}
 
 typedef int (*qdisc_config_t)(struct libbpf_nla_req *req);
 
@@ -584,11 +587,12 @@ static int get_tc_info(struct nlmsghdr *nh, libbpf_dump_nlmsg_t fn,
 
 static int tc_add_fd_and_name(struct libbpf_nla_req *req, int fd)
 {
-	struct bpf_prog_info info = {};
+	struct bpf_prog_info info;
 	__u32 info_len = sizeof(info);
 	char name[256];
 	int len, ret;
 
+	memset(&info, 0, info_len);
 	ret = bpf_obj_get_info_by_fd(fd, &info, &info_len);
 	if (ret < 0)
 		return ret;

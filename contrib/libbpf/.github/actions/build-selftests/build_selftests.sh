@@ -6,9 +6,9 @@ THISDIR="$(cd $(dirname $0) && pwd)"
 
 source ${THISDIR}/helpers.sh
 
-travis_fold start prepare_selftests "Building selftests"
+foldable start prepare_selftests "Building selftests"
 
-LLVM_VER=15
+LLVM_VER=16
 LIBBPF_PATH="${REPO_ROOT}"
 
 PREPARE_SELFTESTS_SCRIPT=${THISDIR}/prepare_selftests-${KERNEL}.sh
@@ -39,4 +39,4 @@ cd ${LIBBPF_PATH}
 rm selftests/bpf/.gitignore
 git add selftests
 
-travis_fold end prepare_selftests
+foldable end prepare_selftests

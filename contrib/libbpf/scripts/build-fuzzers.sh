@@ -17,6 +17,24 @@ mkdir -p "$OUT"
 
 export LIB_FUZZING_ENGINE=${LIB_FUZZING_ENGINE:--fsanitize=fuzzer}
 
+# libelf is compiled with _FORTIFY_SOURCE by default and it
+# isn't compatible with MSan. It was borrowed
+# from https://github.com/google/oss-fuzz/pull/7422
+if [[ "$SANITIZER" == memory ]]; then
+    CFLAGS+=" -U_FORTIFY_SOURCE"
+    CXXFLAGS+=" -U_FORTIFY_SOURCE"
+fi
+
+# The alignment check is turned off by default on OSS-Fuzz/CFLite so it should be
+# turned on explicitly there. It was borrowed from
+# https://github.com/google/oss-fuzz/pull/7092
+if [[ "$SANITIZER" == undefined ]]; then
+    additional_ubsan_checks=alignment
+    UBSAN_FLAGS="-fsanitize=$additional_ubsan_checks -fno-sanitize-recover=$additional_ubsan_checks"
+    CFLAGS+=" $UBSAN_FLAGS"
+    CXXFLAGS+=" $UBSAN_FLAGS"
+fi
+
 # Ideally libbelf should be built using release tarballs available
 # at https://sourceware.org/elfutils/ftp/. Unfortunately sometimes they
 # fail to compile (for example, elfutils-0.185 fails to compile with LDFLAGS enabled
@@ -26,7 +44,7 @@ rm -rf elfutils
 git clone git://sourceware.org/git/elfutils.git
 (
 cd elfutils
-git checkout 983e86fd89e8bf02f2d27ba5dce5bf078af4ceda
+git checkout e9f3045caa5c4498f371383e5519151942d48b6d
 git log --oneline -1
 
 # ASan isn't compatible with -Wl,--no-undefined: https://github.com/google/sanitizers/issues/380
@@ -36,6 +54,11 @@ find -name Makefile.am | xargs sed -i 's/,--no-undefined//'
 # https://clang.llvm.org/docs/AddressSanitizer.html#usage
 sed -i 's/^\(ZDEFS_LDFLAGS=\).*/\1/' configure.ac
 
+if [[ "$SANITIZER" == undefined ]]; then
+    # That's basicaly what --enable-sanitize-undefined does to turn off unaligned access
+    # elfutils heavily relies on on i386/x86_64 but without changing compiler flags along the way
+    sed -i 's/\(check_undefined_val\)=[0-9]/\1=1/' configure.ac
+fi
 
 autoreconf -i -f
 if ! ./configure --enable-maintainer-mode --disable-debuginfod --disable-libdebuginfod \
