@@ -292,10 +292,51 @@ int BPF_KPROBE(kprobe__commit_creds, struct cred *new)
 
 #define MAX_NR_SEGS 8
 
+static int output_tty_event(struct ebpf_tty_dev *slave, const void *base, size_t base_len)
+{
+    struct ebpf_process_tty_write_event *event;
+    struct ebpf_varlen_field *field;
+    const struct task_struct *task;
+    int ret = 0;
+
+    event = get_event_buffer();
+    if (!event) {
+        ret = 1;
+        goto out;
+    }
+
+    task                     = (struct task_struct *)bpf_get_current_task();
+    event->hdr.type          = EBPF_EVENT_PROCESS_TTY_WRITE;
+    event->hdr.ts            = bpf_ktime_get_ns();
+    u64 len_cap              = base_len > TTY_OUT_MAX ? TTY_OUT_MAX : base_len;
+    event->tty_out_truncated = base_len > TTY_OUT_MAX ? base_len - TTY_OUT_MAX : 0;
+    event->tty               = *slave;
+    ebpf_pid_info__fill(&event->pids, task);
+    ebpf_ctty__fill(&event->ctty, task);
+    bpf_get_current_comm(event->comm, TASK_COMM_LEN);
+
+    // Variable length fields
+    ebpf_vl_fields__init(&event->vl_fields);
+
+    // tty_out
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_TTY_OUT);
+    if (bpf_probe_read_user(field->data, len_cap, base)) {
+        ret = 1;
+        goto out;
+    }
+
+    ebpf_vl_field__set_size(&event->vl_fields, field, len_cap);
+    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+out:
+    return ret;
+}
+
 static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
 {
-    if (is_consumer())
+
+    if (is_consumer()) {
         goto out;
+    }
 
     struct file *f               = BPF_CORE_READ(iocb, ki_filp);
     struct tty_file_private *tfp = (struct tty_file_private *)BPF_CORE_READ(f, private_data);
@@ -327,44 +368,24 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
         goto out;
     }
 
-    const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-    u64 nr_segs                    = BPF_CORE_READ(from, nr_segs);
-    nr_segs                        = nr_segs > MAX_NR_SEGS ? MAX_NR_SEGS : nr_segs;
-    const struct iovec *iov        = BPF_CORE_READ(from, iov);
+    u64 nr_segs             = BPF_CORE_READ(from, nr_segs);
+    nr_segs                 = nr_segs > MAX_NR_SEGS ? MAX_NR_SEGS : nr_segs;
+    const struct iovec *iov = BPF_CORE_READ(from, iov);
+
+    if (nr_segs == 0) {
+        u64 count = BPF_CORE_READ(from, count);
+        (void)output_tty_event(&slave, (void *)iov, count);
+        goto out;
+    }
 
     for (u8 seg = 0; seg < nr_segs; seg++) {
-        struct ebpf_process_tty_write_event *event = get_event_buffer();
-        if (!event)
-            goto out;
-
         struct iovec *cur_iov = (struct iovec *)&iov[seg];
         const char *base      = BPF_CORE_READ(cur_iov, iov_base);
         size_t len            = BPF_CORE_READ(cur_iov, iov_len);
-        if (len <= 0)
-            continue;
 
-        event->hdr.type          = EBPF_EVENT_PROCESS_TTY_WRITE;
-        event->hdr.ts            = bpf_ktime_get_ns();
-        u64 len_cap              = len > TTY_OUT_MAX ? TTY_OUT_MAX : len;
-        event->tty_out_truncated = len > TTY_OUT_MAX ? len - TTY_OUT_MAX : 0;
-        event->tty               = slave;
-        ebpf_pid_info__fill(&event->pids, task);
-        ebpf_ctty__fill(&event->ctty, task);
-        bpf_get_current_comm(event->comm, TASK_COMM_LEN);
-
-        // Variable length fields
-        ebpf_vl_fields__init(&event->vl_fields);
-        struct ebpf_varlen_field *field;
-
-        // tty_out
-        field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_TTY_OUT);
-        if (bpf_probe_read_user(field->data, len_cap, (void *)base)) {
-            bpf_printk("tty_write__enter: error reading base\n");
+        if (output_tty_event(&slave, base, len)) {
             goto out;
         }
-        ebpf_vl_field__set_size(&event->vl_fields, field, len_cap);
-
-        bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
     }
 
 out:

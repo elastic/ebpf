@@ -52,25 +52,23 @@ class BPFTcFilterTests : public ::testing::Test
 
     virtual void SetUp() override
     {
-        struct bpf_object_load_attr load_attr = {};
-        struct bpf_program *prog              = nullptr;
-        char *object_path_env                 = getenv(OBJECT_PATH_ENV_VAR);
-        int err                               = 0;
-        m_obj = object_path_env == NULL ? bpf_object__open(DEFAULT_OBJECT_PATH)
-                                        : bpf_object__open(object_path_env);
+        struct bpf_program *prog = nullptr;
+        char *object_path_env    = getenv(OBJECT_PATH_ENV_VAR);
+        int err                  = 0;
+        m_obj                    = object_path_env == NULL ? bpf_object__open(DEFAULT_OBJECT_PATH)
+                                                           : bpf_object__open(object_path_env);
 
         if (libbpf_get_error(m_obj)) {
             FAIL() << "Cannot open ELF object to test, you can pass a custom one with the "
                    << OBJECT_PATH_ENV_VAR << " environment variable";
         }
-        load_attr.obj = m_obj;
 
         prog = bpf_object__find_program_by_name(m_obj, CLASSIFIER_SECTION_NAME);
         ASSERT_FALSE(prog == NULL);
 
         bpf_program__set_type(prog, BPF_PROG_TYPE_SCHED_CLS);
 
-        err = bpf_object__load_xattr(&load_attr);
+        err = bpf_object__load(m_obj);
         if (err) {
             FAIL() << "Could not load the bpf program, please check your permissions";
             return;
