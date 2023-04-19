@@ -6,7 +6,7 @@ ExternalProject_Add(
     libz-external
     BINARY_DIR ${LIBZ_BUILD_DIR}
     DOWNLOAD_COMMAND ""
-    CONFIGURE_COMMAND ${EBPF_EXT_ENV_FLAGS} /bin/sh -c "CFLAGS=-fPIE ${LIBZ_SRC_DIR}/configure --static"
+    CONFIGURE_COMMAND ${EBPF_EXT_ENV_FLAGS} /bin/sh -c "CFLAGS='-O3 -fPIE' ${LIBZ_SRC_DIR}/configure --static"
     BUILD_COMMAND ${EBPF_EXT_ENV_FLAGS} /bin/sh -c "make"
     INSTALL_COMMAND /bin/sh -c "make install prefix= DESTDIR=${EBPF_INSTALL_DIR}"
     BUILD_IN_SOURCE 0
