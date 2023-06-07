@@ -47,7 +47,7 @@
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __type(key, u32);
-    __type(value, struct dentry *[PATH_RESOLVER_MAX_COMPONENTS]);
+    __type(value, struct dentry * [PATH_RESOLVER_MAX_COMPONENTS]);
     __uint(max_entries, 1);
 } path_resolver_dentry_scratch_map SEC(".maps");
 
@@ -177,7 +177,7 @@ out_err:
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __type(key, u32);
-    __type(value, struct kernfs_node *[PATH_RESOLVER_MAX_COMPONENTS]);
+    __type(value, struct kernfs_node * [PATH_RESOLVER_MAX_COMPONENTS]);
     __uint(max_entries, 1);
 } path_resolver_kernfs_node_scratch_map SEC(".maps");
 
