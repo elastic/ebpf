@@ -30,12 +30,16 @@ jobs:
         run: make package ARCH=${{inputs.architecture}}
       - name: Test for source differences post-build
         run: git diff --exit-code
-      - name: Get Env
-        run: echo "ELASTIC_EBPF_VERSION=$(cat VERSION)" >> $GITHUB_ENV && echo "PWD=$(pwd)" >> $GITHUB_ENV
+      - name: Set Version
+        id: version-generator
+        run: echo "ELASTIC_EBPF_VERSION=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+      - name: Set Path
+        id: path-generator
+        run: echo "PWD=$(pwd)" >> "$GITHUB_OUTPUT"
       - name: Archive Build Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: elastic-ebpf-${{ inputs.architecture }}
-          path: ${{ env.PWD }}/artifacts-${{ inputs.architecture }}/elastic-ebpf-${{ env.ELASTIC_EBPF_VERSION }}-SNAPSHOT.tar.gz
+          path: ${{ steps.path-generator.outputs.PWD }}/artifacts-${{ inputs.architecture }}/elastic-ebpf-${{ steps.version-generator.outputs.ELASTIC_EBPF_VERSION }}-SNAPSHOT.tar.gz
           if-no-files-found: error
           retention-days: 3
