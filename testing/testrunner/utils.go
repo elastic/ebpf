@@ -31,7 +31,7 @@ type TestPidInfo struct {
 	Ppid int64 `json:"ppid"`
 	Pgid int64 `json:"pgid"`
 	Sid  int64 `json:"sid"`
-    CapPermitted uint64 `json:"cap_permitted,string"`
+	CapPermitted uint64 `json:"cap_permitted,string"`
 	CapEffective uint64 `json:"cap_effective,string"`
 }
 
@@ -59,7 +59,7 @@ type CredInfo struct {
 	Egid int64 `json:"egid"`
 	Suid int64 `json:"suid"`
 	Sgid int64 `json:"sgid"`
-    CapPermitted uint64 `json:"cap_permitted,string"`
+	CapPermitted uint64 `json:"cap_permitted,string"`
 	CapEffective uint64 `json:"cap_effective,string"`
 }
 
