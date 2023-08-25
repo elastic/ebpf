@@ -94,6 +94,8 @@ struct ebpf_cred_info {
     uint32_t egid; // Effective group ID
     uint32_t suid; // Saved user ID
     uint32_t sgid; // Saved group ID
+    uint64_t cap_permitted;
+    uint64_t cap_effective;
 } __attribute__((packed));
 
 struct ebpf_tty_winsize {
@@ -150,6 +152,7 @@ struct ebpf_process_fork_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info parent_pids;
     struct ebpf_pid_info child_pids;
+    struct ebpf_cred_info creds;
 
     // Variable length fields: pids_ss_cgroup_path
     struct ebpf_varlen_fields_start vl_fields;

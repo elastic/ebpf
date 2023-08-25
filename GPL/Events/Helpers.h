@@ -235,6 +235,37 @@ static void ebpf_cred_info__fill(struct ebpf_cred_info *ci, const struct task_st
     ci->rgid = BPF_CORE_READ(task, cred, gid.val);
     ci->egid = BPF_CORE_READ(task, cred, egid.val);
     ci->sgid = BPF_CORE_READ(task, cred, sgid.val);
+
+    if (bpf_core_field_exists(task->cred->cap_permitted.cap)) {
+        kernel_cap_t dest;
+
+        dest.cap[0]       = 0;
+        dest.cap[1]       = 0;
+        dest              = BPF_CORE_READ(task, cred, cap_permitted);
+        ci->cap_permitted = (((u64)dest.cap[1]) << 32) + dest.cap[0];
+
+        dest.cap[0]       = 0;
+        dest.cap[1]       = 0;
+        dest              = BPF_CORE_READ(task, cred, cap_effective);
+        ci->cap_effective = (((u64)dest.cap[1]) << 32) + dest.cap[0];
+    } else {
+        const struct cred *cred = BPF_CORE_READ(task, cred);
+        const void *cap         = NULL;
+
+        struct new_kernel_cap_struct {
+            u64 val;
+        } dest;
+
+        dest.val = 0;
+        cap      = &cred->cap_permitted;
+        bpf_core_read(&dest, bpf_core_type_size(struct new_kernel_cap_struct), cap);
+        ci->cap_permitted = dest.val;
+
+        dest.val = 0;
+        cap      = &cred->cap_effective;
+        bpf_core_read(&dest, bpf_core_type_size(struct new_kernel_cap_struct), cap);
+        ci->cap_effective = dest.val;
+    }
 }
 
 static bool is_kernel_thread(const struct task_struct *task)

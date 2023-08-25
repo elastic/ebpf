@@ -8,6 +8,7 @@
  */
 
 #include <stdio.h>
+#include <sys/capability.h>
 #include <sys/types.h>
 #include <syscall.h>
 #include <unistd.h>
@@ -29,6 +30,18 @@ pid_t gettid()
 
 void gen_pid_info_json(char *buf, size_t size)
 {
-    snprintf(buf, size, "{\"tid\": %d, \"ppid\": %d, \"tgid\": %d, \"sid\": %d, \"pgid\": %d}",
-             gettid(), getppid(), getpid(), getsid(0), getpgid(0));
+    struct __user_cap_header_struct hdr   = {_LINUX_CAPABILITY_VERSION_3, 0};
+    struct __user_cap_data_struct data[2] = {{0}};
+    uint64_t cap_permitted                = 0;
+    uint64_t cap_effective                = 0;
+
+    (void)capget(&hdr, data);
+    cap_permitted = ((uint64_t)data[1].permitted << 32) + (uint64_t)data[0].permitted;
+    cap_effective = ((uint64_t)data[1].effective << 32) + (uint64_t)data[0].effective;
+
+    snprintf(buf, size,
+             "{\"tid\": %d, \"ppid\": %d, \"tgid\": %d, \"sid\": %d, \"pgid\": %d, "
+             "\"cap_permitted\": \"%lu\", \"cap_effective\":\"%lu\"}",
+             (pid_t)syscall(SYS_gettid), getppid(), getpid(), getsid(0), getpgid(0), cap_permitted,
+             cap_effective);
 }

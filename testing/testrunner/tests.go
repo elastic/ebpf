@@ -130,6 +130,10 @@ func TestForkExec(et *EventsTraceInstance) {
 		}
 	}
 
+	AssertUint64Equal(uint64(forkEvent.Creds.CapEffective), uint64(0x00000000f0f0f0f0))
+	AssertUint64Equal(uint64(forkEvent.Creds.CapEffective), uint64(0x00000000f0f0f0f0))
+	AssertUint64Equal(uint64(execEvent.Creds.CapPermitted), uint64(0x000001ffffffffff))
+	AssertUint64Equal(uint64(execEvent.Creds.CapEffective), uint64(0x000001ffffffffff))
 	AssertStringsEqual(execEvent.FileName, "./do_nothing")
 	AssertStringsEqual(execEvent.Argv[0], "./do_nothing")
 	AssertStringsEqual(execEvent.Env[0], "TEST_ENV_KEY1=TEST_ENV_VAL1")
