@@ -130,7 +130,7 @@ func TestForkExec(et *EventsTraceInstance) {
 		}
 	}
 
-	AssertUint64Equal(uint64(forkEvent.Creds.CapEffective), uint64(0x00000000f0f0f0f0))
+	AssertUint64Equal(uint64(forkEvent.Creds.CapPermitted), uint64(0x00000000f0f0f0f0))
 	AssertUint64Equal(uint64(forkEvent.Creds.CapEffective), uint64(0x00000000f0f0f0f0))
 	AssertUint64Equal(uint64(execEvent.Creds.CapPermitted), uint64(0x000001ffffffffff))
 	AssertUint64Equal(uint64(execEvent.Creds.CapEffective), uint64(0x000001ffffffffff))
