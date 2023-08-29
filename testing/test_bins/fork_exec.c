@@ -17,6 +17,15 @@
 int main()
 {
     pid_t pid;
+    struct __user_cap_header_struct hdr   = {_LINUX_CAPABILITY_VERSION_3, 0};
+    struct __user_cap_data_struct data[2] = {{0}};
+
+    data[0].permitted = 0xffffffff;
+    data[1].permitted = 0;
+    data[0].effective = 0xf0f0f0f0;
+    data[1].effective = 0;
+    CHECK(capset(&hdr, &data[0]), -1);
+
     CHECK(pid = fork(), -1);
 
     if (pid != 0) {

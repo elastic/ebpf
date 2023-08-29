@@ -295,6 +295,10 @@ static void out_cred_info(const char *name, struct ebpf_cred_info *cred_info)
     out_int("suid", cred_info->suid);
     out_comma();
     out_int("sgid", cred_info->sgid);
+    out_comma();
+    printf("\"cap_permitted\": \"%lu\"", cred_info->cap_permitted);
+    out_comma();
+    printf("\"cap_effective\": \"%lu\"", cred_info->cap_effective);
     out_object_end();
 }
 
@@ -429,6 +433,9 @@ static void out_process_fork(struct ebpf_process_fork_event *evt)
     out_comma();
 
     out_pid_info("child_pids", &evt->child_pids);
+    out_comma();
+
+    out_cred_info("creds", &evt->creds);
 
     struct ebpf_varlen_field *field;
     FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)

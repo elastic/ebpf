@@ -31,6 +31,8 @@ type TestPidInfo struct {
 	Ppid int64 `json:"ppid"`
 	Pgid int64 `json:"pgid"`
 	Sid  int64 `json:"sid"`
+	CapPermitted uint64 `json:"cap_permitted,string"`
+	CapEffective uint64 `json:"cap_effective,string"`
 }
 
 // Definitions of types printed by EventsTrace for conversion from JSON
@@ -57,6 +59,8 @@ type CredInfo struct {
 	Egid int64 `json:"egid"`
 	Suid int64 `json:"suid"`
 	Sgid int64 `json:"sgid"`
+	CapPermitted uint64 `json:"cap_permitted,string"`
+	CapEffective uint64 `json:"cap_effective,string"`
 }
 
 type TtyInfo struct {
@@ -77,6 +81,7 @@ type NetInfo struct {
 type ProcessForkEvent struct {
 	ParentPids PidInfo `json:"parent_pids"`
 	ChildPids  PidInfo `json:"child_pids"`
+	Creds    CredInfo `json:"creds"`
 }
 
 type ProcessExecEvent struct {
@@ -220,6 +225,12 @@ func AssertInt64Equal(a, b int64) {
 func AssertInt64NotEqual(a, b int64) {
 	if a == b {
 		TestFail(fmt.Sprintf("Test assertion failed %d == %d", a, b))
+	}
+}
+
+func AssertUint64Equal(a, b uint64) {
+	if a != b {
+		TestFail(fmt.Sprintf("Test assertion failed 0x%016x != 0x%016x", a, b))
 	}
 }
 

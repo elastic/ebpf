@@ -49,6 +49,7 @@ int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct 
     event->hdr.ts   = bpf_ktime_get_ns();
     ebpf_pid_info__fill(&event->parent_pids, parent);
     ebpf_pid_info__fill(&event->child_pids, child);
+    ebpf_cred_info__fill(&event->creds, parent);
 
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);
