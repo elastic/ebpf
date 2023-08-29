@@ -236,6 +236,18 @@ static void ebpf_cred_info__fill(struct ebpf_cred_info *ci, const struct task_st
     ci->egid = BPF_CORE_READ(task, cred, egid.val);
     ci->sgid = BPF_CORE_READ(task, cred, sgid.val);
 
+    // This check is to determine when the kernel_cap_t definition changed.
+    //
+    // Previously it was:
+    // typedef struct kernel_cap_struct {
+    //    __u32 cap[_KERNEL_CAPABILITY_U32S];
+    // } kernel_cap_t;
+    //
+    // Currently it is:
+    // typedef struct { u64 val; } kernel_cap_t;
+    //
+    // See https://github.com/torvalds/linux/commit/f122a08b197d076ccf136c73fae0146875812a88
+    //
     if (bpf_core_field_exists(task->cred->cap_permitted.cap)) {
         kernel_cap_t dest;
 
