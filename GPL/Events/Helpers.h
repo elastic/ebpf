@@ -270,12 +270,12 @@ static void ebpf_cred_info__fill(struct ebpf_cred_info *ci, const struct task_st
 
         dest.val = 0;
         cap      = &cred->cap_permitted;
-        bpf_core_read(&dest, bpf_core_type_size(struct new_kernel_cap_struct), cap);
+        bpf_core_read(&dest, sizeof(struct new_kernel_cap_struct), cap);
         ci->cap_permitted = dest.val;
 
         dest.val = 0;
         cap      = &cred->cap_effective;
-        bpf_core_read(&dest, bpf_core_type_size(struct new_kernel_cap_struct), cap);
+        bpf_core_read(&dest, sizeof(struct new_kernel_cap_struct), cap);
         ci->cap_effective = dest.val;
     }
 }
