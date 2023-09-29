@@ -369,9 +369,15 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
         goto out;
     }
 
-    u64 nr_segs             = BPF_CORE_READ(from, nr_segs);
-    nr_segs                 = nr_segs > MAX_NR_SEGS ? MAX_NR_SEGS : nr_segs;
-    const struct iovec *iov = BPF_CORE_READ(from, iov);
+    u64 nr_segs = BPF_CORE_READ(from, nr_segs);
+    nr_segs     = nr_segs > MAX_NR_SEGS ? MAX_NR_SEGS : nr_segs;
+
+    const struct iovec *iov;
+    if (bpf_core_field_exists(struct iov_iter, __iov)) {
+        iov = BPF_CORE_READ(from, __iov);
+    } else {
+        iov = BPF_CORE_READ(from, iov);
+    }
 
     if (nr_segs == 0) {
         u64 count = BPF_CORE_READ(from, count);
