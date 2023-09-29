@@ -332,9 +332,24 @@ out:
     return ret;
 }
 
+struct iov_iter____new {
+    union {
+        struct iovec __ubuf_iovec;
+        struct {
+            union {
+                const struct iovec *__iov;
+                const struct kvec *kvec;
+                const struct bio_vec *bvec;
+                struct xarray *xarray;
+                void *ubuf;
+            };
+            size_t count;
+        };
+    };
+} __attribute__((preserve_access_index));
+
 static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
 {
-
     if (is_consumer()) {
         goto out;
     }
@@ -369,9 +384,19 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
         goto out;
     }
 
-    u64 nr_segs             = BPF_CORE_READ(from, nr_segs);
-    nr_segs                 = nr_segs > MAX_NR_SEGS ? MAX_NR_SEGS : nr_segs;
-    const struct iovec *iov = BPF_CORE_READ(from, iov);
+    u64 nr_segs = BPF_CORE_READ(from, nr_segs);
+    nr_segs     = nr_segs > MAX_NR_SEGS ? MAX_NR_SEGS : nr_segs;
+
+    const struct iovec *iov;
+    if (bpf_core_field_exists(struct iov_iter____new, __iov)) {
+        u64 iov_off = offsetof(struct iov_iter____new, __iov);
+        bpf_core_read(&iov, bpf_core_type_size(struct iov_iter), (void *)from + iov_off);
+    } else if (bpf_core_field_exists(from->iov)) {
+        iov = BPF_CORE_READ(from, iov);
+    } else {
+        bpf_printk("tty_write__enter: error reading iov\n");
+        goto out;
+    }
 
     if (nr_segs == 0) {
         u64 count = BPF_CORE_READ(from, count);
