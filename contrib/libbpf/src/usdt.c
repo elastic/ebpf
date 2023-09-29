@@ -1,3 +1,4 @@
+#if 0
 // SPDX-License-Identifier: (LGPL-2.1 OR BSD-2-Clause)
 /* Copyright (c) 2022 Meta Platforms, Inc. and affiliates. */
 #include <ctype.h>
@@ -612,6 +613,7 @@ static int collect_usdt_targets(struct usdt_manager *man, Elf *elf, const char *
 
 	data = elf_getdata(notes_scn, 0);
 	off = 0;
+#if 0
 	while ((off = gelf_getnote(data, off, &nhdr, &name_off, &desc_off)) > 0) {
 		long usdt_abs_ip, usdt_rel_ip, usdt_sema_off = 0;
 		struct usdt_note note;
@@ -782,6 +784,7 @@ static int collect_usdt_targets(struct usdt_manager *man, Elf *elf, const char *
 
 		target_cnt++;
 	}
+#endif
 
 	*out_targets = targets;
 	*out_target_cnt = target_cnt;
@@ -1556,4 +1559,5 @@ static int parse_usdt_arg(const char *arg_str, int arg_num, struct usdt_arg_spec
 	return -ENOTSUP;
 }
 
+#endif
 #endif

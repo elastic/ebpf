@@ -8322,7 +8322,7 @@ void bpf_object__close(struct bpf_object *obj)
 	if (IS_ERR_OR_NULL(obj))
 		return;
 
-	usdt_manager_free(obj->usdt_man);
+	//usdt_manager_free(obj->usdt_man);
 	obj->usdt_man = NULL;
 
 	bpf_gen__free(obj->gen_loader);
@@ -8642,7 +8642,7 @@ int bpf_program__set_log_buf(struct bpf_program *prog, char *log_buf, size_t log
 static int attach_kprobe(const struct bpf_program *prog, long cookie, struct bpf_link **link);
 static int attach_uprobe(const struct bpf_program *prog, long cookie, struct bpf_link **link);
 static int attach_ksyscall(const struct bpf_program *prog, long cookie, struct bpf_link **link);
-static int attach_usdt(const struct bpf_program *prog, long cookie, struct bpf_link **link);
+//static int attach_usdt(const struct bpf_program *prog, long cookie, struct bpf_link **link);
 static int attach_tp(const struct bpf_program *prog, long cookie, struct bpf_link **link);
 static int attach_raw_tp(const struct bpf_program *prog, long cookie, struct bpf_link **link);
 static int attach_trace(const struct bpf_program *prog, long cookie, struct bpf_link **link);
@@ -8664,7 +8664,7 @@ static const struct bpf_sec_def section_defs[] = {
 	SEC_DEF("kretprobe.multi+",	KPROBE,	BPF_TRACE_KPROBE_MULTI, SEC_NONE, attach_kprobe_multi),
 	SEC_DEF("ksyscall+",		KPROBE,	0, SEC_NONE, attach_ksyscall),
 	SEC_DEF("kretsyscall+",		KPROBE, 0, SEC_NONE, attach_ksyscall),
-	SEC_DEF("usdt+",		KPROBE,	0, SEC_NONE, attach_usdt),
+	//SEC_DEF("usdt+",		KPROBE,	0, SEC_NONE, attach_usdt),
 	SEC_DEF("tc",			SCHED_CLS, 0, SEC_NONE),
 	SEC_DEF("classifier",		SCHED_CLS, 0, SEC_NONE),
 	SEC_DEF("action",		SCHED_ACT, 0, SEC_NONE),
@@ -11236,6 +11236,7 @@ struct bpf_link *bpf_program__attach_uprobe(const struct bpf_program *prog,
 	return bpf_program__attach_uprobe_opts(prog, pid, binary_path, func_offset, &opts);
 }
 
+#if 0
 struct bpf_link *bpf_program__attach_usdt(const struct bpf_program *prog,
 					  pid_t pid, const char *binary_path,
 					  const char *usdt_provider, const char *usdt_name,
@@ -11288,6 +11289,7 @@ struct bpf_link *bpf_program__attach_usdt(const struct bpf_program *prog,
 		return libbpf_err_ptr(err);
 	return link;
 }
+#endif
 
 static int attach_usdt(const struct bpf_program *prog, long cookie, struct bpf_link **link)
 {
