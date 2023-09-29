@@ -16,7 +16,6 @@ global_data
 global_data_init
 global_func_args
 hashmap
-l4lb_all
 legacy_printk
 linked_funcs
 linked_maps
@@ -50,6 +49,5 @@ tcp_rtt
 tp_attach_query
 usdt/urand_pid_attach
 xdp
-xdp_info
 xdp_noinline
 xdp_perf
