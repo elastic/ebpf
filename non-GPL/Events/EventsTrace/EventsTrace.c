@@ -794,7 +794,6 @@ int main(int argc, char **argv)
         ebpf_set_verbose_logging();
 
     err = ebpf_event_ctx__new(&ctx, event_ctx_callback, g_events_env);
-
     if (err < 0) {
         fprintf(stderr, "Could not create event context: %d %s\n", err, strerror(-err));
         goto out;
