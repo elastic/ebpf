@@ -123,7 +123,6 @@ const struct btf_type *resolve_btf_type_by_func(struct btf *btf, const char *fun
             continue;
 
         const struct btf_type *btf_type_ptr = btf__type_by_id(btf, btf_type);
-
         if (!btf_is_func(btf_type_ptr))
             continue;
 
@@ -145,6 +144,7 @@ const struct btf_type *resolve_btf_type_by_func(struct btf *btf, const char *fun
     }
 
 out:
+    verbose("resolve_btf_type_by_func(%s): not found\n", func);
     return NULL;
 }
 
@@ -155,8 +155,6 @@ static int resolve_btf_func_arg_idx(struct btf *btf, const char *func, const cha
 
     const struct btf_type *proto_btf_type_ptr = resolve_btf_type_by_func(btf, func);
     if (!proto_btf_type_ptr)
-        goto out;
-    if (!arg)
         goto out;
 
     struct btf_param *params = btf_params(proto_btf_type_ptr);
@@ -170,6 +168,7 @@ static int resolve_btf_func_arg_idx(struct btf *btf, const char *func, const cha
             goto out;
         }
     }
+    verbose("resolve_btf_func_arg_idx(%s, %s): not found\n", func, arg);
 
 out:
     return ret;
@@ -198,6 +197,8 @@ out:
         int r   = resolve_btf_func_arg_idx(btf, #func, #arg);                                      \
         if (r >= 0)                                                                                \
             __r = 0;                                                                               \
+        else                                                                                       \
+            verbose("fill func arg idx (%s, %s): %d\n", #func, #arg, r);                           \
         obj->rodata->arg__##func##__##arg##__ = r;                                                 \
         __r;                                                                                       \
     })
@@ -209,6 +210,8 @@ out:
         int r   = resolve_btf_func_ret_idx(btf, #func);                                            \
         if (r >= 0)                                                                                \
             __r = 0;                                                                               \
+        else                                                                                       \
+            verbose("fill func ret idx (%s): %d\n", #func, r);                                     \
         obj->rodata->ret__##func##__ = r;                                                          \
         __r;                                                                                       \
     })
@@ -223,6 +226,8 @@ out:
         if (r >= 0) {                                                                              \
             obj->rodata->exists__##func##__##arg##__ = true;                                       \
             __r                                      = 0;                                          \
+        } else {                                                                                   \
+            verbose("fill func arg exists (%s, %s): %d\n", #func, #arg, r);                        \
         }                                                                                          \
         __r;                                                                                       \
     })
@@ -236,6 +241,8 @@ out:
         int r   = resolve_btf_field_off(btf, #struct, #field);                                     \
         if (r >= 0)                                                                                \
             __r = 0;                                                                               \
+        else                                                                                       \
+            verbose("fill field offset (%s, %s): %d\n", #struct, #field, r);                       \
         obj->rodata->off__##struct##__##field##__ = r;                                             \
         __r;                                                                                       \
     })
@@ -659,6 +666,7 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx, ebpf_event_handler_fn cb, u
         /* EventProbe_bpf__open doesn't report errors, hard to find something
          * that fits perfect here
          */
+        verbose("EventProbe_bpf__open: %d\n", err);
         err = -ENOENT;
         goto out_destroy_probe;
     }
@@ -666,24 +674,34 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx, ebpf_event_handler_fn cb, u
     probe->rodata->consumer_pid = getpid();
 
     err = probe_fill_relos(btf, probe);
-    if (err != 0)
+    if (err != 0) {
+        verbose("probe_fill_relos: %d\n", err);
         goto out_destroy_probe;
+    }
 
     err = probe_resize_maps(probe);
-    if (err != 0)
+    if (err != 0) {
+        verbose("probe_resize_maps: %d\n", err);
         goto out_destroy_probe;
+    }
 
     err = probe_set_autoload(btf, probe, features);
-    if (err != 0)
+    if (err != 0) {
+        verbose("probe_set_autoload: %d\n", err);
         goto out_destroy_probe;
+    }
 
     err = EventProbe_bpf__load(probe);
-    if (err != 0)
+    if (err != 0) {
+        verbose("EventProbe_bpf__load: %d\n", err);
         goto out_destroy_probe;
+    }
 
     err = EventProbe_bpf__attach(probe);
-    if (err != 0)
+    if (err != 0) {
+        verbose("EventProbe_bpf__attach: %d\n", err);
         goto out_destroy_probe;
+    }
 
     if (!ctx)
         goto out_destroy_probe;

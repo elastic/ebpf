@@ -26,11 +26,11 @@ import (
 // This is a JSON type printed by the test binaries (not by EventsTrace), it's
 // used all over the place, so define it here to save space
 type TestPidInfo struct {
-	Tid  int64 `json:"tid"`
-	Tgid int64 `json:"tgid"`
-	Ppid int64 `json:"ppid"`
-	Pgid int64 `json:"pgid"`
-	Sid  int64 `json:"sid"`
+	Tid          int64  `json:"tid"`
+	Tgid         int64  `json:"tgid"`
+	Ppid         int64  `json:"ppid"`
+	Pgid         int64  `json:"pgid"`
+	Sid          int64  `json:"sid"`
 	CapPermitted uint64 `json:"cap_permitted,string"`
 	CapEffective uint64 `json:"cap_effective,string"`
 }
@@ -53,12 +53,12 @@ type PidInfo struct {
 }
 
 type CredInfo struct {
-	Ruid int64 `json:"ruid"`
-	Rgid int64 `json:"rgid"`
-	Euid int64 `json:"euid"`
-	Egid int64 `json:"egid"`
-	Suid int64 `json:"suid"`
-	Sgid int64 `json:"sgid"`
+	Ruid         int64  `json:"ruid"`
+	Rgid         int64  `json:"rgid"`
+	Euid         int64  `json:"euid"`
+	Egid         int64  `json:"egid"`
+	Suid         int64  `json:"suid"`
+	Sgid         int64  `json:"sgid"`
 	CapPermitted uint64 `json:"cap_permitted,string"`
 	CapEffective uint64 `json:"cap_effective,string"`
 }
@@ -79,9 +79,9 @@ type NetInfo struct {
 }
 
 type ProcessForkEvent struct {
-	ParentPids PidInfo `json:"parent_pids"`
-	ChildPids  PidInfo `json:"child_pids"`
-	Creds    CredInfo `json:"creds"`
+	ParentPids PidInfo  `json:"parent_pids"`
+	ChildPids  PidInfo  `json:"child_pids"`
+	Creds      CredInfo `json:"creds"`
 }
 
 type ProcessExecEvent struct {

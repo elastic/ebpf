@@ -18,16 +18,14 @@ readonly BUILD_ARCHES=(
 
 # We hit every minor release here, and grab a number of different patch
 # releases from each LTS series (e.g. 5.10, 5.15)
-readonly BUILD_VERSIONS=(
+readonly BUILD_VERSIONS_PAHOLE_120=(
     "5.10.16" # Oldest we support
-    "5.10.50"
     "5.10.130"
     "5.11"
     "5.12"
     "5.13"
     "5.14"
     "5.15"
-    "5.15.50"
     "5.15.133"
     "5.16"
     "5.17"
@@ -36,6 +34,9 @@ readonly BUILD_VERSIONS=(
     "6.0"
     "6.1"
     "6.1.55"
+)
+
+readonly BUILD_VERSIONS_PAHOLE_SOURCE=(
     "6.2"
     "6.3"
     "6.4"
@@ -103,9 +104,15 @@ fetch_and_build() {
 }
 
 main() {
-    for version in ${BUILD_VERSIONS[@]}; do
-        fetch_and_build $version
-    done
+    if [ "$(pahole --version)" = "v1.20" ]; then
+        for version in ${BUILD_VERSIONS_PAHOLE_120[@]}; do
+            fetch_and_build $version
+        done
+    else
+        for version in ${BUILD_VERSIONS_PAHOLE_SOURCE[@]}; do
+            fetch_and_build $version
+        done
+    fi
 }
 
 main
