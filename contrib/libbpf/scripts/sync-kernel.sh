@@ -43,8 +43,10 @@ PATH_MAP=(									\
 	[tools/include/uapi/linux/bpf.h]=include/uapi/linux/bpf.h		\
 	[tools/include/uapi/linux/btf.h]=include/uapi/linux/btf.h		\
 	[tools/include/uapi/linux/fcntl.h]=include/uapi/linux/fcntl.h		\
+	[tools/include/uapi/linux/openat2.h]=include/uapi/linux/openat2.h	\
 	[tools/include/uapi/linux/if_link.h]=include/uapi/linux/if_link.h	\
 	[tools/include/uapi/linux/if_xdp.h]=include/uapi/linux/if_xdp.h		\
+	[tools/include/uapi/linux/netdev.h]=include/uapi/linux/netdev.h		\
 	[tools/include/uapi/linux/netlink.h]=include/uapi/linux/netlink.h	\
 	[tools/include/uapi/linux/pkt_cls.h]=include/uapi/linux/pkt_cls.h	\
 	[tools/include/uapi/linux/pkt_sched.h]=include/uapi/linux/pkt_sched.h	\
@@ -260,7 +262,7 @@ if ((${COMMIT_CNT} <= 0)); then
 fi
 
 # Exclude baseline commit and generate nice cover letter with summary
-git format-patch ${SQUASH_BASE_TAG}..${SQUASH_TIP_TAG} --cover-letter -o ${TMP_DIR}/patches
+git format-patch --no-signature ${SQUASH_BASE_TAG}..${SQUASH_TIP_TAG} --cover-letter -o ${TMP_DIR}/patches
 
 # Now is time to re-apply libbpf-related linux patches to libbpf repo
 cd_to ${LIBBPF_REPO}

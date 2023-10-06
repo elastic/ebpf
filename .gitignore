@@ -22,6 +22,7 @@ testing/testrunner/testrunner
 testing/test_bins/bin/*
 testing/init/bin/*
 testing/kernels
+testing/kernel_builder/kernels
 testing/virtme
 
 *.swp

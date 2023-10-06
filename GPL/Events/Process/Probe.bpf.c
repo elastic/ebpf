@@ -17,6 +17,9 @@
 #include "PathResolver.h"
 #include "Varlen.h"
 
+/* tty_write */
+DECL_FIELD_OFFSET(iov_iter, __iov);
+
 // Limits on large things we send up as variable length parameters.
 //
 // These should be kept _well_ under half the size of the event_buffer_map or
@@ -334,7 +337,6 @@ out:
 
 static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
 {
-
     if (is_consumer()) {
         goto out;
     }
@@ -369,9 +371,15 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
         goto out;
     }
 
-    u64 nr_segs             = BPF_CORE_READ(from, nr_segs);
-    nr_segs                 = nr_segs > MAX_NR_SEGS ? MAX_NR_SEGS : nr_segs;
-    const struct iovec *iov = BPF_CORE_READ(from, iov);
+    const struct iovec *iov;
+    if (FIELD_OFFSET(iov_iter, __iov)) {
+        iov = (const struct iovec *)((char *)from + FIELD_OFFSET(iov_iter, __iov));
+    } else {
+        iov = BPF_CORE_READ(from, iov);
+    }
+
+    u64 nr_segs = BPF_CORE_READ(from, nr_segs);
+    nr_segs     = nr_segs > MAX_NR_SEGS ? MAX_NR_SEGS : nr_segs;
 
     if (nr_segs == 0) {
         u64 count = BPF_CORE_READ(from, count);
@@ -379,7 +387,12 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
         goto out;
     }
 
-    for (u8 seg = 0; seg < nr_segs; seg++) {
+    for (int seg = 0; seg < nr_segs; seg++) {
+        // NOTE(matt): this check needs to be here because the verifier
+        // detects an infinite loop otherwise.
+        if (seg >= MAX_NR_SEGS)
+            goto out;
+
         struct iovec *cur_iov = (struct iovec *)&iov[seg];
         const char *base      = BPF_CORE_READ(cur_iov, iov_base);
         size_t len            = BPF_CORE_READ(cur_iov, iov_len);

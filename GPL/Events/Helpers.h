@@ -117,6 +117,9 @@ const volatile int consumer_pid = 0;
 #define DECL_FUNC_ARG_EXISTS(func, arg) const volatile bool exists__##func##__##arg##__ = false;
 #define FUNC_ARG_EXISTS(func, arg) exists__##func##__##arg##__
 
+#define DECL_FIELD_OFFSET(struct, field) const volatile int off__##struct##__##field##__ = 0;
+#define FIELD_OFFSET(struct, field) off__##struct##__##field##__
+
 // From linux/err.h
 #define MAX_ERRNO 4095
 

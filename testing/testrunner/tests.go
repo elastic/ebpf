@@ -18,28 +18,33 @@ import (
 )
 
 func TestFeaturesCorrect(et *EventsTraceInstance) {
-	var buf syscall.Utsname
-	if err := syscall.Uname(&buf); err != nil {
+	var utsname syscall.Utsname
+	if err := syscall.Uname(&utsname); err != nil {
 		TestFail(fmt.Sprintf("Failed to run uname: %s", err))
 	}
 
-	archBytes := []byte{}
-	for _, b := range buf.Machine {
-		if b == 0 {
-			break
+	int8ArrayToString := func(arr [65]int8) string {
+		var buf []byte
+		for _, el := range arr {
+			if el == 0 {
+				break
+			}
+			buf = append(buf, byte(el))
 		}
-
-		archBytes = append(archBytes, byte(b))
+		return string(buf)
 	}
-	arch := string(archBytes)
+	contains := func(s []string, str string) bool {
+		for _, el := range s {
+			if el == str {
+				return true
+			}
+		}
+		return false
+	}
 
-	// BPF trampolines are only supported on x86 at present.
-	//
-	// As of June 2022, there is a patchset circulating that will add support
-	// to ARM64 (https://lwn.net/Articles/899093/). This check should be
-	// updated when that is merged into the mainline such that it ensures BPF
-	// trampolines are disabled on all aarch64 kernels pre-<first Linux
-	// version with ARM64 BPF trampoline support>.
+	arch := int8ArrayToString(utsname.Machine)
+	kernelVersion := int8ArrayToString(utsname.Release)
+
 	switch arch {
 	case "x86_64":
 		// All x86 kernels in the CI test matrix currently enable bpf
@@ -49,9 +54,15 @@ func TestFeaturesCorrect(et *EventsTraceInstance) {
 		// handle it here.
 		AssertTrue(et.InitMsg.Features.BpfTramp)
 	case "aarch64":
-		AssertFalse(et.InitMsg.Features.BpfTramp)
+		hasBpfTramp := []string{"6.4.0", "6.4.16", "6.5.0"}
+
+		if contains(hasBpfTramp, kernelVersion) {
+			AssertTrue(et.InitMsg.Features.BpfTramp)
+		} else {
+			AssertFalse(et.InitMsg.Features.BpfTramp)
+		}
 	default:
-		TestFail(fmt.Sprintf("Unknown arch %s, please add to the TestFeaturesCorrect test", arch))
+		TestFail(fmt.Sprintf("unknown arch %s, please add to the TestFeaturesCorrect test", arch))
 	}
 }
 
