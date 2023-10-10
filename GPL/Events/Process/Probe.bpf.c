@@ -372,11 +372,12 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
     }
 
     const struct iovec *iov;
-    if (FIELD_OFFSET(iov_iter, __iov)) {
+    if (FIELD_OFFSET(iov_iter, __iov))
         iov = (const struct iovec *)((char *)from + FIELD_OFFSET(iov_iter, __iov));
-    } else {
+    else if (bpf_core_field_exists(from->iov))
         iov = BPF_CORE_READ(from, iov);
-    }
+    else
+        goto out;
 
     u64 nr_segs = BPF_CORE_READ(from, nr_segs);
     nr_segs     = nr_segs > MAX_NR_SEGS ? MAX_NR_SEGS : nr_segs;
