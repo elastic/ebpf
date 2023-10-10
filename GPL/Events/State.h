@@ -32,7 +32,7 @@ enum ebpf_events_unlink_state_step {
 struct ebpf_events_unlink_state {
     enum ebpf_events_unlink_state_step step;
     struct vfsmount *mnt;
-    struct dentry de;
+    struct dentry *de;
 };
 
 enum ebpf_events_rename_state_step {

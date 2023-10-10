@@ -31,11 +31,9 @@ const volatile int consumer_pid = 0;
     })
 
 /*
- *  Reads the specified argument from struct pt_regs without dereferencing it
- *  (unlike FUNC_ARG_READ_PTREGS) (i.e. we get a  pointer to the argument, not
- *  the argument itself). Note that we first have to read the value in struct
- *  pt_regs into a volatile temporary (_dst). Without this, LLVM can generate
- *  code like the following, which will fail to verify:
+ *  Reads the specified argument from struct pt_regs without dereferencing it. Note that
+ *  we first have to read the value in struct pt_regs into a volatile temporary (_dst).
+ *  Without this, LLVM can generate code like the following, which will fail to verify:
  *
  *  r3 = 8                      # The register value we want to read is at offset 8 in the context
  *  r2 = r1                     # r1 = ctx pointer
@@ -52,7 +50,7 @@ const volatile int consumer_pid = 0;
  *  r3 = *(u64 *)(r2 + 8)       # Dereference it, putting the increment in the dereference insn
  *  ...pass r3 to a function
  */
-#define FUNC_ARG_READ_PTREGS_NODEREF(dst, func, arg)                                               \
+#define FUNC_ARG_READ_PTREGS(dst, func, arg)                                                       \
     ({                                                                                             \
         int ret = 0;                                                                               \
         volatile typeof(dst) _dst;                                                                 \
@@ -76,32 +74,6 @@ const volatile int consumer_pid = 0;
             ret = -1;                                                                              \
         };                                                                                         \
         dst = _dst;                                                                                \
-        barrier();                                                                                 \
-        ret;                                                                                       \
-    })
-
-#define FUNC_ARG_READ_PTREGS(dst, func, arg)                                                       \
-    ({                                                                                             \
-        int ret = 0;                                                                               \
-        switch (arg__##func##__##arg##__) {                                                        \
-        case 0:                                                                                    \
-            bpf_core_read(&dst, sizeof(dst), (void *)PT_REGS_PARM1(ctx));                          \
-            break;                                                                                 \
-        case 1:                                                                                    \
-            bpf_core_read(&dst, sizeof(dst), (void *)PT_REGS_PARM2(ctx));                          \
-            break;                                                                                 \
-        case 2:                                                                                    \
-            bpf_core_read(&dst, sizeof(dst), (void *)PT_REGS_PARM3(ctx));                          \
-            break;                                                                                 \
-        case 3:                                                                                    \
-            bpf_core_read(&dst, sizeof(dst), (void *)PT_REGS_PARM4(ctx));                          \
-            break;                                                                                 \
-        case 4:                                                                                    \
-            bpf_core_read(&dst, sizeof(dst), (void *)PT_REGS_PARM5(ctx));                          \
-            break;                                                                                 \
-        default:                                                                                   \
-            ret = -1;                                                                              \
-        };                                                                                         \
         barrier();                                                                                 \
         ret;                                                                                       \
     })
