@@ -123,7 +123,7 @@ static int vfs_unlink__exit(int ret)
     ebpf_pid_info__fill(&event->pids, task);
 
     struct path p;
-    p.dentry     = &state->unlink.de;
+    p.dentry     = state->unlink.de;
     p.mnt        = state->unlink.mnt;
     event->mntns = mntns(task);
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
@@ -162,7 +162,7 @@ int BPF_KRETPROBE(kretprobe__vfs_unlink, int ret)
     return vfs_unlink__exit(ret);
 }
 
-static int vfs_unlink__enter(struct dentry de)
+static int vfs_unlink__enter(struct dentry *de)
 {
     struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
     if (!state || state->unlink.step != UNLINK_STATE_MOUNT_SET) {
@@ -180,18 +180,15 @@ out:
 SEC("fentry/vfs_unlink")
 int BPF_PROG(fentry__vfs_unlink)
 {
-    struct dentry *tmp = FUNC_ARG_READ(___type(tmp), vfs_unlink, dentry);
-    struct dentry de;
-    bpf_core_read(&de, sizeof(de), tmp);
+    struct dentry *de = FUNC_ARG_READ(___type(de), vfs_unlink, dentry);
     return vfs_unlink__enter(de);
 }
 
 SEC("kprobe/vfs_unlink")
 int BPF_KPROBE(kprobe__vfs_unlink)
 {
-    struct dentry de;
-    int err = FUNC_ARG_READ_PTREGS(de, vfs_unlink, dentry);
-    if (err) {
+    struct dentry *de;
+    if (FUNC_ARG_READ_PTREGS(de, vfs_unlink, dentry)) {
         bpf_printk("kprobe__vfs_unlink: error reading dentry\n");
         return 0;
     }
@@ -346,7 +343,6 @@ int BPF_PROG(fentry__vfs_rename)
 SEC("kprobe/vfs_rename")
 int BPF_KPROBE(kprobe__vfs_rename)
 {
-    int err;
     struct dentry *old_dentry, *new_dentry;
 
     if (FUNC_ARG_EXISTS(vfs_rename, rd)) {
@@ -357,13 +353,11 @@ int BPF_KPROBE(kprobe__vfs_rename)
         new_dentry = rd.new_dentry;
     } else {
         /* Dentries are accessible from ctx */
-        err = FUNC_ARG_READ_PTREGS_NODEREF(old_dentry, vfs_rename, old_dentry);
-        if (err) {
+        if (FUNC_ARG_READ_PTREGS(old_dentry, vfs_rename, old_dentry)) {
             bpf_printk("kprobe__vfs_rename: error reading old_dentry\n");
             return 0;
         }
-        err = FUNC_ARG_READ_PTREGS_NODEREF(new_dentry, vfs_rename, new_dentry);
-        if (err) {
+        if (FUNC_ARG_READ_PTREGS(new_dentry, vfs_rename, new_dentry)) {
             bpf_printk("kprobe__vfs_rename: error reading new_dentry\n");
             return 0;
         }
