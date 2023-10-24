@@ -119,9 +119,14 @@ struct ebpf_tty_dev {
 } __attribute__((packed));
 
 enum ebpf_file_type {
-    EBPF_FILE_TYPE_FILE    = 1,
-    EBPF_FILE_TYPE_DIR     = 2,
-    EBPF_FILE_TYPE_SYMLINK = 3,
+    EBPF_FILE_TYPE_UNKNOWN          = 0,
+    EBPF_FILE_TYPE_FILE             = 1,
+    EBPF_FILE_TYPE_DIR              = 2,
+    EBPF_FILE_TYPE_SYMLINK          = 3,
+    EBPF_FILE_TYPE_CHARACTER_DEVICE = 4,
+    EBPF_FILE_TYPE_BLOCK_DEVICE     = 5,
+    EBPF_FILE_TYPE_NAMED_PIPE       = 6,
+    EBPF_FILE_TYPE_SOCKET           = 7,
 };
 
 struct ebpf_file_info {
@@ -131,6 +136,7 @@ struct ebpf_file_info {
     uint64_t size;
     uint32_t uid;
     uint32_t gid;
+    uint64_t atime;
     uint64_t mtime;
     uint64_t ctime;
 } __attribute__((packed));

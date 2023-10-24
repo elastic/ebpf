@@ -322,6 +322,21 @@ static void out_file_info(const char *name, struct ebpf_file_info *finfo)
     case EBPF_FILE_TYPE_SYMLINK:
         out_string("type", "SYMLINK");
         break;
+    case EBPF_FILE_TYPE_CHARACTER_DEVICE:
+        out_string("type", "CHARACTER_DEVICE");
+        break;
+    case EBPF_FILE_TYPE_BLOCK_DEVICE:
+        out_string("type", "BLOCK_DEVICE");
+        break;
+    case EBPF_FILE_TYPE_NAMED_PIPE:
+        out_string("type", "NAMED_PIPE");
+        break;
+    case EBPF_FILE_TYPE_SOCKET:
+        out_string("type", "SOCKET");
+        break;
+    case EBPF_FILE_TYPE_UNKNOWN:
+        out_string("type", "UNKNOWN");
+        break;
     }
     out_comma();
 
@@ -338,6 +353,9 @@ static void out_file_info(const char *name, struct ebpf_file_info *finfo)
     out_comma();
 
     out_int("gid", finfo->gid);
+    out_comma();
+
+    out_uint("atime", finfo->atime);
     out_comma();
 
     out_uint("mtime", finfo->mtime);

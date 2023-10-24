@@ -128,11 +128,7 @@ static int vfs_unlink__exit(int ret)
     p.mnt        = state->unlink.mnt;
     event->mntns = mntns(task);
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
-
-    if (ebpf_file_info__fill(&event->finfo, p.dentry)) {
-        bpf_printk("vfs_unlink__exit: failed to fill file info\n");
-        goto out;
-    }
+    ebpf_file_info__fill(&event->finfo, p.dentry);
 
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);
@@ -239,11 +235,7 @@ static int do_filp_open__exit(struct file *f)
         ebpf_pid_info__fill(&event->pids, task);
         event->mntns = mntns(task);
         bpf_get_current_comm(event->comm, TASK_COMM_LEN);
-
-        if (ebpf_file_info__fill(&event->finfo, p.dentry)) {
-            bpf_printk("do_filp_open__exit: failed to fill file info\n");
-            goto out;
-        }
+        ebpf_file_info__fill(&event->finfo, p.dentry);
 
         // Variable length fields
         ebpf_vl_fields__init(&event->vl_fields);
@@ -415,17 +407,15 @@ static int vfs_rename__exit(int ret)
         goto out;
 
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    // NOTE: this temp variable is necessary to keep the verifier happy
+    struct dentry *de = (struct dentry *)state->rename.de;
 
     event->hdr.type = EBPF_EVENT_FILE_RENAME;
     event->hdr.ts   = bpf_ktime_get_ns();
     ebpf_pid_info__fill(&event->pids, task);
     event->mntns = mntns(task);
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
-
-    if (ebpf_file_info__fill(&event->finfo, state->rename.de)) {
-        bpf_printk("vfs_rename__exit: failed to fill file info\n");
-        goto out;
-    }
+    ebpf_file_info__fill(&event->finfo, de);
 
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);
@@ -443,11 +433,9 @@ static int vfs_rename__exit(int ret)
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
     // symlink_target_path
-    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_SYMLINK_TARGET_PATH);
-    // NOTE: this temp variable is necessary to keep the verifier happy
-    struct dentry *tmp = (struct dentry *)state->rename.de;
-    char *link         = BPF_CORE_READ(tmp, d_inode, i_link);
-    size               = read_kernel_str_or_empty_str(field->data, PATH_MAX, link);
+    field      = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_SYMLINK_TARGET_PATH);
+    char *link = BPF_CORE_READ(de, d_inode, i_link);
+    size       = read_kernel_str_or_empty_str(field->data, PATH_MAX, link);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);

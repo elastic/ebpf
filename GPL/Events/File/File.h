@@ -35,22 +35,9 @@
 #define S_ISFIFO(m) (((m)&S_IFMT) == S_IFIFO)
 #define S_ISSOCK(m) (((m)&S_IFMT) == S_IFSOCK)
 
-#define S_IRWXU 00700
-#define S_IRUSR 00400
-#define S_IWUSR 00200
-#define S_IXUSR 00100
+#define NANOSECONDS_IN_SECOND 1000000000
 
-#define S_IRWXG 00070
-#define S_IRGRP 00040
-#define S_IWGRP 00020
-#define S_IXGRP 00010
-
-#define S_IRWXO 00007
-#define S_IROTH 00004
-#define S_IWOTH 00002
-#define S_IXOTH 00001
-
-static int ebpf_file_info__fill(struct ebpf_file_info *finfo, struct dentry *de)
+static void ebpf_file_info__fill(struct ebpf_file_info *finfo, struct dentry *de)
 {
     struct inode *ino = BPF_CORE_READ(de, d_inode);
 
@@ -59,8 +46,12 @@ static int ebpf_file_info__fill(struct ebpf_file_info *finfo, struct dentry *de)
     finfo->size  = BPF_CORE_READ(ino, i_size);
     finfo->uid   = BPF_CORE_READ(ino, i_uid.val);
     finfo->gid   = BPF_CORE_READ(ino, i_gid.val);
-    finfo->mtime = BPF_CORE_READ(ino, i_mtime.tv_nsec);
-    finfo->ctime = BPF_CORE_READ(ino, i_ctime.tv_nsec);
+    finfo->atime = BPF_CORE_READ(ino, i_atime.tv_sec) * NANOSECONDS_IN_SECOND +
+                   BPF_CORE_READ(ino, i_atime.tv_nsec);
+    finfo->mtime = BPF_CORE_READ(ino, i_mtime.tv_sec) * NANOSECONDS_IN_SECOND +
+                   BPF_CORE_READ(ino, i_mtime.tv_nsec);
+    finfo->ctime = BPF_CORE_READ(ino, i_ctime.tv_sec) * NANOSECONDS_IN_SECOND +
+                   BPF_CORE_READ(ino, i_ctime.tv_nsec);
 
     if (S_ISREG(finfo->mode)) {
         finfo->type = EBPF_FILE_TYPE_FILE;
@@ -68,12 +59,17 @@ static int ebpf_file_info__fill(struct ebpf_file_info *finfo, struct dentry *de)
         finfo->type = EBPF_FILE_TYPE_DIR;
     } else if (S_ISLNK(finfo->mode)) {
         finfo->type = EBPF_FILE_TYPE_SYMLINK;
+    } else if (S_ISCHR(finfo->mode)) {
+        finfo->type = EBPF_FILE_TYPE_CHARACTER_DEVICE;
+    } else if (S_ISBLK(finfo->mode)) {
+        finfo->type = EBPF_FILE_TYPE_BLOCK_DEVICE;
+    } else if (S_ISFIFO(finfo->mode)) {
+        finfo->type = EBPF_FILE_TYPE_NAMED_PIPE;
+    } else if (S_ISSOCK(finfo->mode)) {
+        finfo->type = EBPF_FILE_TYPE_SOCKET;
     } else {
-        bpf_printk("unknown file type (mode=%d)", finfo->mode);
-        return -1;
+        finfo->type = EBPF_FILE_TYPE_UNKNOWN;
     }
-
-    return 0;
 }
 
 #endif // EBPF_EVENTPROBE_FILE_H
