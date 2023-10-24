@@ -209,6 +209,11 @@ static void out_int(const char *name, const long value)
     printf("\"%s\":%ld", name, value);
 }
 
+static void out_octal(const char *name, const short unsigned value)
+{
+    printf("\"%s\":%o", name, value);
+}
+
 static void out_escaped_string(const char *value)
 {
     for (size_t i = 0; i < strlen(value); i++) {
@@ -302,6 +307,46 @@ static void out_cred_info(const char *name, struct ebpf_cred_info *cred_info)
     out_object_end();
 }
 
+static void out_file_info(const char *name, struct ebpf_file_info *finfo)
+{
+    printf("\"%s\":", name);
+    out_object_start();
+
+    switch (finfo->type) {
+    case EBPF_FILE_TYPE_DIR:
+        out_string("type", "DIR");
+        break;
+    case EBPF_FILE_TYPE_FILE:
+        out_string("type", "FILE");
+        break;
+    case EBPF_FILE_TYPE_SYMLINK:
+        out_string("type", "SYMLINK");
+        break;
+    }
+    out_comma();
+
+    out_uint("inode", finfo->inode);
+    out_comma();
+
+    out_octal("mode", finfo->mode);
+    out_comma();
+
+    out_uint("size", finfo->size);
+    out_comma();
+
+    out_int("uid", finfo->uid);
+    out_comma();
+
+    out_int("gid", finfo->gid);
+    out_comma();
+
+    out_uint("mtime", finfo->mtime);
+    out_comma();
+
+    out_uint("ctime", finfo->ctime);
+    out_object_end();
+}
+
 static void out_null_delimited_string_array(const char *name, char *buf, size_t buf_size)
 {
     // buf is an array (argv, env etc.) with multiple values delimited by a '\0'
@@ -337,6 +382,9 @@ static void out_file_delete(struct ebpf_file_delete_event *evt)
     out_comma();
 
     out_string("comm", (const char *)&evt->comm);
+    out_comma();
+
+    out_file_info("file_info", &evt->finfo);
 
     struct ebpf_varlen_field *field;
     FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
@@ -345,6 +393,9 @@ static void out_file_delete(struct ebpf_file_delete_event *evt)
         switch (field->type) {
         case EBPF_VL_FIELD_PATH:
             out_string("path", field->data);
+            break;
+        case EBPF_VL_FIELD_SYMLINK_TARGET_PATH:
+            out_string("symlink_target_path", field->data);
             break;
         default:
             fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
@@ -369,6 +420,9 @@ static void out_file_create(struct ebpf_file_create_event *evt)
     out_comma();
 
     out_string("comm", (const char *)&evt->comm);
+    out_comma();
+
+    out_file_info("file_info", &evt->finfo);
 
     struct ebpf_varlen_field *field;
     FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
@@ -377,6 +431,9 @@ static void out_file_create(struct ebpf_file_create_event *evt)
         switch (field->type) {
         case EBPF_VL_FIELD_PATH:
             out_string("path", field->data);
+            break;
+        case EBPF_VL_FIELD_SYMLINK_TARGET_PATH:
+            out_string("symlink_target_path", field->data);
             break;
         default:
             fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
@@ -401,6 +458,9 @@ static void out_file_rename(struct ebpf_file_rename_event *evt)
     out_comma();
 
     out_string("comm", (const char *)&evt->comm);
+    out_comma();
+
+    out_file_info("file_info", &evt->finfo);
 
     struct ebpf_varlen_field *field;
     FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
@@ -412,6 +472,9 @@ static void out_file_rename(struct ebpf_file_rename_event *evt)
             break;
         case EBPF_VL_FIELD_NEW_PATH:
             out_string("new_path", field->data);
+            break;
+        case EBPF_VL_FIELD_SYMLINK_TARGET_PATH:
+            out_string("symlink_target_path", field->data);
             break;
         default:
             fprintf(stderr, "Unexpected variable length field: %d\n", field->type);

@@ -32,7 +32,10 @@ enum ebpf_events_unlink_state_step {
 struct ebpf_events_unlink_state {
     enum ebpf_events_unlink_state_step step;
     struct vfsmount *mnt;
-    struct dentry *de;
+    // NOTE: for this specific hook, storing a dentry pointer
+    // doesn't work because the content will be emptied out
+    // in the exit function.
+    struct dentry de;
 };
 
 enum ebpf_events_rename_state_step {
@@ -44,6 +47,7 @@ enum ebpf_events_rename_state_step {
 struct ebpf_events_rename_state {
     enum ebpf_events_rename_state_step step;
     struct vfsmount *mnt;
+    struct dentry *de;
 };
 
 struct ebpf_events_tcp_connect_state {
