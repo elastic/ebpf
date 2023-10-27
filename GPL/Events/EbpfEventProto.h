@@ -55,6 +55,7 @@ enum ebpf_varlen_field_type {
     EBPF_VL_FIELD_NEW_PATH,
     EBPF_VL_FIELD_TTY_OUT,
     EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH,
+    EBPF_VL_FIELD_SYMLINK_TARGET_PATH,
 };
 
 // Convenience macro to iterate all the variable length fields in an event
@@ -117,34 +118,60 @@ struct ebpf_tty_dev {
     struct ebpf_tty_termios termios;
 } __attribute__((packed));
 
+enum ebpf_file_type {
+    EBPF_FILE_TYPE_UNKNOWN          = 0,
+    EBPF_FILE_TYPE_FILE             = 1,
+    EBPF_FILE_TYPE_DIR              = 2,
+    EBPF_FILE_TYPE_SYMLINK          = 3,
+    EBPF_FILE_TYPE_CHARACTER_DEVICE = 4,
+    EBPF_FILE_TYPE_BLOCK_DEVICE     = 5,
+    EBPF_FILE_TYPE_NAMED_PIPE       = 6,
+    EBPF_FILE_TYPE_SOCKET           = 7,
+};
+
+struct ebpf_file_info {
+    enum ebpf_file_type type;
+    uint64_t inode;
+    uint16_t mode;
+    uint64_t size;
+    uint32_t uid;
+    uint32_t gid;
+    uint64_t atime;
+    uint64_t mtime;
+    uint64_t ctime;
+} __attribute__((packed));
+
 // Full events follow
 struct ebpf_file_delete_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
+    struct ebpf_file_info finfo;
     uint32_t mntns;
     char comm[TASK_COMM_LEN];
 
-    // Variable length fields: path
+    // Variable length fields: path, symlink_target_path
     struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
 struct ebpf_file_create_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
+    struct ebpf_file_info finfo;
     uint32_t mntns;
     char comm[TASK_COMM_LEN];
 
-    // Variable length fields: path
+    // Variable length fields: path, symlink_target_path
     struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
 struct ebpf_file_rename_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
+    struct ebpf_file_info finfo;
     uint32_t mntns;
     char comm[TASK_COMM_LEN];
 
-    // Variable length fields: old_path, new_path
+    // Variable length fields: old_path, new_path, symlink_target_path
     struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 

@@ -13,6 +13,7 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 
+#include "File.h"
 #include "Helpers.h"
 #include "PathResolver.h"
 #include "State.h"
@@ -123,10 +124,11 @@ static int vfs_unlink__exit(int ret)
     ebpf_pid_info__fill(&event->pids, task);
 
     struct path p;
-    p.dentry     = state->unlink.de;
+    p.dentry     = &state->unlink.de;
     p.mnt        = state->unlink.mnt;
     event->mntns = mntns(task);
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
+    ebpf_file_info__fill(&event->finfo, p.dentry);
 
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);
@@ -136,6 +138,12 @@ static int vfs_unlink__exit(int ret)
     // path
     field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PATH);
     size  = ebpf_resolve_path_to_string(field->data, &p, task);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    // symlink_target_path
+    field      = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_SYMLINK_TARGET_PATH);
+    char *link = BPF_CORE_READ(p.dentry, d_inode, i_link);
+    size       = read_kernel_str_or_empty_str(field->data, PATH_MAX, link);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
@@ -170,7 +178,10 @@ static int vfs_unlink__enter(struct dentry *de)
         goto out;
     }
 
-    state->unlink.de   = de;
+    if (bpf_core_read(&state->unlink.de, sizeof(struct dentry), de)) {
+        bpf_printk("vfs_unlink__enter: failed to read dentry\n");
+        goto out;
+    }
     state->unlink.step = UNLINK_STATE_DENTRY_SET;
 
 out:
@@ -224,6 +235,7 @@ static int do_filp_open__exit(struct file *f)
         ebpf_pid_info__fill(&event->pids, task);
         event->mntns = mntns(task);
         bpf_get_current_comm(event->comm, TASK_COMM_LEN);
+        ebpf_file_info__fill(&event->finfo, p.dentry);
 
         // Variable length fields
         ebpf_vl_fields__init(&event->vl_fields);
@@ -233,6 +245,12 @@ static int do_filp_open__exit(struct file *f)
         // path
         field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PATH);
         size  = ebpf_resolve_path_to_string(field->data, &p, task);
+        ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+        // symlink_target_path
+        field      = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_SYMLINK_TARGET_PATH);
+        char *link = BPF_CORE_READ(p.dentry, d_inode, i_link);
+        size       = read_kernel_str_or_empty_str(field->data, PATH_MAX, link);
         ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
         bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
@@ -316,6 +334,7 @@ static int vfs_rename__enter(struct dentry *old_dentry, struct dentry *new_dentr
     ebpf_resolve_path_to_string(ss->rename.new_path, &p, task);
 
     state->rename.step = RENAME_STATE_PATHS_SET;
+    state->rename.de   = old_dentry;
 
 out:
     return 0;
@@ -388,12 +407,15 @@ static int vfs_rename__exit(int ret)
         goto out;
 
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    // NOTE: this temp variable is necessary to keep the verifier happy
+    struct dentry *de = (struct dentry *)state->rename.de;
 
     event->hdr.type = EBPF_EVENT_FILE_RENAME;
     event->hdr.ts   = bpf_ktime_get_ns();
     ebpf_pid_info__fill(&event->pids, task);
     event->mntns = mntns(task);
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
+    ebpf_file_info__fill(&event->finfo, de);
 
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);
@@ -408,6 +430,12 @@ static int vfs_rename__exit(int ret)
     // new path
     field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_NEW_PATH);
     size  = read_kernel_str_or_empty_str(field->data, PATH_MAX, ss->rename.new_path);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    // symlink_target_path
+    field      = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_SYMLINK_TARGET_PATH);
+    char *link = BPF_CORE_READ(de, d_inode, i_link);
+    size       = read_kernel_str_or_empty_str(field->data, PATH_MAX, link);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);

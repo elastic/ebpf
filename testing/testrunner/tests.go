@@ -177,6 +177,13 @@ func TestFileCreate(et *EventsTraceInstance) {
 
 	AssertPidInfoEqual(binOutput.PidInfo, fileCreateEvent.Pids)
 	AssertStringsEqual(fileCreateEvent.Path, binOutput.FileNameOrig)
+	// File Info
+	AssertStringsEqual(fileCreateEvent.Finfo.Type, "FILE")
+	AssertUint64NotEqual(fileCreateEvent.Finfo.Inode, 0)
+	AssertUint64Equal(fileCreateEvent.Finfo.Mode, 100644)
+	AssertUint64Equal(fileCreateEvent.Finfo.Size, 0)
+	AssertUint64Equal(fileCreateEvent.Finfo.Uid, 0)
+	AssertUint64Equal(fileCreateEvent.Finfo.Gid, 0)
 }
 
 func TestFileDelete(et *EventsTraceInstance) {
@@ -204,6 +211,13 @@ func TestFileDelete(et *EventsTraceInstance) {
 
 	AssertPidInfoEqual(binOutput.PidInfo, fileDeleteEvent.Pids)
 	AssertStringsEqual(fileDeleteEvent.Path, binOutput.FileNameNew)
+	// File Info
+	AssertStringsEqual(fileDeleteEvent.Finfo.Type, "FILE")
+	AssertUint64NotEqual(fileDeleteEvent.Finfo.Inode, 0)
+	AssertUint64Equal(fileDeleteEvent.Finfo.Mode, 100644)
+	AssertUint64Equal(fileDeleteEvent.Finfo.Size, 0)
+	AssertUint64Equal(fileDeleteEvent.Finfo.Uid, 0)
+	AssertUint64Equal(fileDeleteEvent.Finfo.Gid, 0)
 }
 
 func TestFileRename(et *EventsTraceInstance) {
@@ -232,6 +246,13 @@ func TestFileRename(et *EventsTraceInstance) {
 	AssertPidInfoEqual(binOutput.PidInfo, fileRenameEvent.Pids)
 	AssertStringsEqual(fileRenameEvent.OldPath, binOutput.FileNameOrig)
 	AssertStringsEqual(fileRenameEvent.NewPath, binOutput.FileNameNew)
+	// File Info
+	AssertStringsEqual(fileRenameEvent.Finfo.Type, "FILE")
+	AssertUint64NotEqual(fileRenameEvent.Finfo.Inode, 0)
+	AssertUint64Equal(fileRenameEvent.Finfo.Mode, 100644)
+	AssertUint64Equal(fileRenameEvent.Finfo.Size, 0)
+	AssertUint64Equal(fileRenameEvent.Finfo.Uid, 0)
+	AssertUint64Equal(fileRenameEvent.Finfo.Gid, 0)
 }
 
 func TestSetuid(et *EventsTraceInstance) {

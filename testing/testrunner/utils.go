@@ -78,6 +78,17 @@ type NetInfo struct {
 	NetNs      int64  `json:"network_namespace"`
 }
 
+type FileInfo struct {
+	Type  string `json:"type"`
+	Inode uint64 `json:"inode"`
+	Mode  uint64 `json:"mode"`
+	Size  uint64 `json:"size"`
+	Uid   uint64 `json:"uid"`
+	Gid   uint64 `json:"gid"`
+	Mtime uint64 `json:"mtime"`
+	Ctime uint64 `json:"ctime"`
+}
+
 type ProcessForkEvent struct {
 	ParentPids PidInfo  `json:"parent_pids"`
 	ChildPids  PidInfo  `json:"child_pids"`
@@ -95,19 +106,22 @@ type ProcessExecEvent struct {
 }
 
 type FileCreateEvent struct {
-	Pids PidInfo `json:"pids"`
-	Path string  `json:"path"`
+	Pids  PidInfo  `json:"pids"`
+	Path  string   `json:"path"`
+	Finfo FileInfo `json:"file_info"`
 }
 
 type FileDeleteEvent struct {
-	Pids PidInfo `json:"pids"`
-	Path string  `json:"path"`
+	Pids  PidInfo  `json:"pids"`
+	Path  string   `json:"path"`
+	Finfo FileInfo `json:"file_info"`
 }
 
 type FileRenameEvent struct {
-	Pids    PidInfo `json:"pids"`
-	OldPath string  `json:"old_path"`
-	NewPath string  `json:"new_path"`
+	Pids    PidInfo  `json:"pids"`
+	OldPath string   `json:"old_path"`
+	NewPath string   `json:"new_path"`
+	Finfo   FileInfo `json:"file_info"`
 }
 
 type SetUidEvent struct {
@@ -231,6 +245,12 @@ func AssertInt64NotEqual(a, b int64) {
 func AssertUint64Equal(a, b uint64) {
 	if a != b {
 		TestFail(fmt.Sprintf("Test assertion failed 0x%016x != 0x%016x", a, b))
+	}
+}
+
+func AssertUint64NotEqual(a, b uint64) {
+	if a == b {
+		TestFail(fmt.Sprintf("Test assertion failed 0x%016x == 0x%016x", a, b))
 	}
 }
 
