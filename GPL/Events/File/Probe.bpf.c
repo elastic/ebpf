@@ -216,6 +216,57 @@ int BPF_KPROBE(kprobe__vfs_unlink)
     return vfs_unlink__enter(de);
 }
 
+// prepare a file event and send it to ringbuf.
+// if path_prefix is non-NULL then event will only be sent to ringbuf if file path has that prefix
+static void prepare_and_send_file_event(struct file *f, enum ebpf_event_type type, const char *path_prefix, int path_prefix_len)
+{
+    struct ebpf_file_create_event *event = get_event_buffer();
+    if (!event)
+        return;
+
+    event->hdr.type = type;
+    event->hdr.ts   = bpf_ktime_get_ns();
+
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    struct path p            = BPF_CORE_READ(f, f_path);
+    ebpf_pid_info__fill(&event->pids, task);
+    ebpf_cred_info__fill(&event->creds, task);
+    event->mntns = mntns(task);
+    bpf_get_current_comm(event->comm, TASK_COMM_LEN);
+    ebpf_file_info__fill(&event->finfo, p.dentry);
+
+    // Variable length fields
+    ebpf_vl_fields__init(&event->vl_fields);
+    struct ebpf_varlen_field *field;
+    long size;
+
+    // path
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PATH);
+    size  = ebpf_resolve_path_to_string(field->data, &p, task);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    // symlink_target_path
+    field      = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_SYMLINK_TARGET_PATH);
+    char *link = BPF_CORE_READ(p.dentry, d_inode, i_link);
+    size       = read_kernel_str_or_empty_str(field->data, PATH_MAX, link);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    // pids ss cgroup path
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
+    size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    // skip event if prefix is specified and file path does not start with it
+    if (path_prefix) {
+        if ((path_prefix_len > 0) && (size >= path_prefix_len)) {
+            if (is_equal_prefix(field->data, path_prefix, path_prefix_len))
+                bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+        }
+    } else {
+        bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+    }
+}
+
 static int do_filp_open__exit(struct file *f)
 {
     /*
@@ -232,43 +283,49 @@ static int do_filp_open__exit(struct file *f)
 
     fmode_t fmode = BPF_CORE_READ(f, f_mode);
     if (fmode & (fmode_t)0x100000) { // FMODE_CREATED
-        struct ebpf_file_create_event *event = get_event_buffer();
-        if (!event)
-            goto out;
-
-        event->hdr.type = EBPF_EVENT_FILE_CREATE;
-        event->hdr.ts   = bpf_ktime_get_ns();
-
-        struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+        // generate a file creation event
+        prepare_and_send_file_event(f, EBPF_EVENT_FILE_CREATE, NULL, 0);
+    } else {
+        // check if memfd file is being opened
         struct path p            = BPF_CORE_READ(f, f_path);
-        ebpf_pid_info__fill(&event->pids, task);
-        ebpf_cred_info__fill(&event->creds, task);
-        event->mntns = mntns(task);
-        bpf_get_current_comm(event->comm, TASK_COMM_LEN);
-        ebpf_file_info__fill(&event->finfo, p.dentry);
+        struct dentry *curr_dentry =  BPF_CORE_READ(&p, dentry);
+        struct qstr component = BPF_CORE_READ(curr_dentry, d_name);
+        char buf_filename[8] = {0};
+        int ret = bpf_probe_read_kernel_str(buf_filename,
+                                            sizeof(MEMFD_STRING),
+                                            (void *)component.name);
+        if (ret <= 0) {
+            bpf_printk("could not read d_name at %p\n", component.name);
+            goto out;
+        }
+        // check if file name starts with "memfd:"
+        int is_memfd = is_equal_prefix(MEMFD_STRING, buf_filename, sizeof(MEMFD_STRING) - 1);
+        if (is_memfd) {
+            // generate a memfd file open event
+            prepare_and_send_file_event(f, EBPF_EVENT_FILE_MEMFD_OPEN, NULL, 0);
+            goto out;
+        }
 
-        // Variable length fields
-        ebpf_vl_fields__init(&event->vl_fields);
-        struct ebpf_varlen_field *field;
-        long size;
+        struct vfsmount *curr_vfsmount = BPF_CORE_READ(&p, mnt);
+        const char *fs_type_name = BPF_CORE_READ(curr_vfsmount, mnt_sb, s_type, name);
 
-        // path
-        field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PATH);
-        size  = ebpf_resolve_path_to_string(field->data, &p, task);
-        ebpf_vl_field__set_size(&event->vl_fields, field, size);
+        // check if /dev/shm shared memory file is being opened
+        // first check if fs is tmpfs
+        char buf_fsname[8] = {0};
+        ret = bpf_probe_read_kernel_str(buf_fsname,
+                                        sizeof(TMPFS_STRING),
+                                        (void *)fs_type_name);
+        if (ret <= 0) {
+            bpf_printk("could not read fsname at %p\n", fs_type_name);
+            goto out;
+        }
 
-        // symlink_target_path
-        field      = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_SYMLINK_TARGET_PATH);
-        char *link = BPF_CORE_READ(p.dentry, d_inode, i_link);
-        size       = read_kernel_str_or_empty_str(field->data, PATH_MAX, link);
-        ebpf_vl_field__set_size(&event->vl_fields, field, size);
-
-        // pids ss cgroup path
-        field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
-        size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
-        ebpf_vl_field__set_size(&event->vl_fields, field, size);
-
-        bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+        int is_tmpfs = is_equal_prefix(buf_fsname, TMPFS_STRING, sizeof(TMPFS_STRING) - 1);
+        if (is_tmpfs)
+        {
+            // now filter for /dev/shm prefix, if there is match - send an SHMEM file open event
+            prepare_and_send_file_event(f, EBPF_EVENT_FILE_SHMEM_OPEN, DEVSHM_STRING, sizeof(DEVSHM_STRING) - 1);
+        }
     }
 
 out:

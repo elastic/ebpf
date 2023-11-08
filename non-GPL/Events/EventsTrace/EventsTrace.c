@@ -29,10 +29,9 @@ const char argp_program_doc[] =
     "\n"
     "Prints process, network and file events sourced from the Elastic ebpf events library\n"
     "\n"
-    "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename] "
-    "[--file-modify]\n"
+    "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename] [--file-memfd-open] [--file-shmem-open] [--file-modify]\n"
     "[--process-fork] [--process-exec] [--process-exit] [--process-setsid] [--process-setuid] "
-    "[--process-setgid] [--process-tty-write]\n"
+    "[--process-setgid] [--process-tty-write] [--process-memfd_create] [--process-shmget] [--process-ptrace] [--process-load_module]\n"
     "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n"
     "[--print-features-on-init] [--unbuffer-stdout] [--libbpf-verbose]\n";
 
@@ -46,6 +45,8 @@ enum cmdline_opts {
     FILE_CREATE,
     FILE_RENAME,
     FILE_MODIFY,
+    FILE_MEMFD_OPEN,
+    FILE_SHMEM_OPEN,
     PROCESS_FORK,
     PROCESS_EXEC,
     PROCESS_EXIT,
@@ -53,6 +54,10 @@ enum cmdline_opts {
     PROCESS_SETUID,
     PROCESS_SETGID,
     PROCESS_TTY_WRITE,
+    PROCESS_MEMFD_CREATE,
+    PROCESS_SHMGET,
+    PROCESS_PTRACE,
+    PROCESS_LOAD_MODULE,
     NETWORK_CONNECTION_ATTEMPTED,
     NETWORK_CONNECTION_ACCEPTED,
     NETWORK_CONNECTION_CLOSED,
@@ -66,6 +71,8 @@ static uint64_t cmdline_to_lib[CMDLINE_MAX] = {
     x(FILE_CREATE)
     x(FILE_RENAME)
     x(FILE_MODIFY)
+    x(FILE_MEMFD_OPEN)
+    x(FILE_SHMEM_OPEN)
     x(PROCESS_FORK)
     x(PROCESS_EXEC)
     x(PROCESS_EXIT)
@@ -73,6 +80,10 @@ static uint64_t cmdline_to_lib[CMDLINE_MAX] = {
     x(PROCESS_SETUID)
     x(PROCESS_SETGID)
     x(PROCESS_TTY_WRITE)
+    x(PROCESS_MEMFD_CREATE)
+    x(PROCESS_SHMGET)
+    x(PROCESS_PTRACE)
+    x(PROCESS_LOAD_MODULE)
     x(NETWORK_CONNECTION_ATTEMPTED)
     x(NETWORK_CONNECTION_ACCEPTED)
     x(NETWORK_CONNECTION_CLOSED)
@@ -86,6 +97,8 @@ static const struct argp_option opts[] = {
     {"file-create", FILE_CREATE, NULL, false, "Print file create events", 0},
     {"file-rename", FILE_RENAME, NULL, false, "Print file rename events", 0},
     {"file-modify", FILE_MODIFY, NULL, false, "Print file modification events", 0},
+    {"file-memfd-open", FILE_MEMFD_OPEN, NULL, false, "Print memfd file open events", 0},
+    {"file-shmem-open", FILE_SHMEM_OPEN, NULL, false, "Print shmem (/dev/shm) file open events", 0},
     {"process-fork", PROCESS_FORK, NULL, false, "Print process fork events", 0},
     {"process-exec", PROCESS_EXEC, NULL, false, "Print process exec events", 0},
     {"process-exit", PROCESS_EXIT, NULL, false, "Print process exit events", 0},
@@ -93,6 +106,10 @@ static const struct argp_option opts[] = {
     {"process-setuid", PROCESS_SETUID, NULL, false, "Print process setuid events", 0},
     {"process-setgid", PROCESS_SETGID, NULL, false, "Print process setgid events", 0},
     {"process-tty-write", PROCESS_TTY_WRITE, NULL, false, "Print process tty-write events", 0},
+    {"process-memfd-create", PROCESS_MEMFD_CREATE, NULL, false, "Print memfd_create events", 0},
+    {"process-shmget", PROCESS_SHMGET, NULL, false, "Print shmget events", 0},
+    {"process-ptrace", PROCESS_PTRACE, NULL, false, "Print ptrace events", 0},
+    {"process-load-module", PROCESS_LOAD_MODULE, NULL, false, "Print kernel module load events", 0},
     {"net-conn-accept", NETWORK_CONNECTION_ACCEPTED, NULL, false,
      "Print network connection accepted events", 0},
     {"net-conn-attempt", NETWORK_CONNECTION_ATTEMPTED, NULL, false,
@@ -133,6 +150,8 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case FILE_CREATE:
     case FILE_RENAME:
     case FILE_MODIFY:
+    case FILE_MEMFD_OPEN:
+    case FILE_SHMEM_OPEN:
     case PROCESS_FORK:
     case PROCESS_EXEC:
     case PROCESS_EXIT:
@@ -140,6 +159,10 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case PROCESS_SETUID:
     case PROCESS_SETGID:
     case PROCESS_TTY_WRITE:
+    case PROCESS_MEMFD_CREATE:
+    case PROCESS_SHMGET:
+    case PROCESS_PTRACE:
+    case PROCESS_LOAD_MODULE:
     case NETWORK_CONNECTION_ACCEPTED:
     case NETWORK_CONNECTION_ATTEMPTED:
     case NETWORK_CONNECTION_CLOSED:
@@ -258,6 +281,11 @@ static void out_string(const char *name, const char *value)
     printf("\"%s\":\"", name);
     out_escaped_string(value);
     printf("\"");
+}
+
+static void out_bool(const char *name, bool value)
+{
+    printf("\"%s\":%s", name, value ? "true" : "false");
 }
 
 static void out_tty_dev(const char *name, struct ebpf_tty_dev *tty_dev)
@@ -438,10 +466,10 @@ static void out_file_delete(struct ebpf_file_delete_event *evt)
     out_newline();
 }
 
-static void out_file_create(struct ebpf_file_create_event *evt)
+static void out_file_generic(struct ebpf_file_create_event *evt, const char *event_type_str)
 {
     out_object_start();
-    out_event_type("FILE_CREATE");
+    out_event_type(event_type_str);
     out_comma();
 
     out_pid_info("pids", &evt->pids);
@@ -478,6 +506,121 @@ static void out_file_create(struct ebpf_file_create_event *evt)
         }
     }
 
+    out_object_end();
+    out_newline();
+}
+static void out_file_create(struct ebpf_file_create_event *evt)
+{
+    out_file_generic(evt, "FILE_CREATE");
+}
+
+// reuse struct ebpf_file_create_event for memfd open events
+static void out_file_memfd_open(struct ebpf_file_create_event *evt)
+{
+    out_file_generic(evt, "FILE_MEMFD_OPEN");
+}
+// reuse struct ebpf_file_create_event for shmem open events
+static void out_file_shmem_open(struct ebpf_file_create_event *evt)
+{
+    out_file_generic(evt, "FILE_SHMEM_OPEN");
+}
+// kernel load module event
+static void out_process_load_module(struct ebpf_process_load_module_event *evt)
+{
+    out_object_start();
+    out_event_type("PROCESS_LOAD_MODULE");
+    out_comma();
+    out_pid_info("pids", &evt->pids);
+
+    struct ebpf_varlen_field *field;
+    FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
+    {
+        out_comma();
+        switch (field->type) {
+        case EBPF_VL_FIELD_FILENAME:
+            out_string("filename", field->data);
+            break;
+        case EBPF_VL_FIELD_MOD_VERSION:
+            out_string("mod_version", field->data);
+            break;
+        case EBPF_VL_FIELD_MOD_SRCVERSION:
+            out_string("mod_srcversion", field->data);
+            break;
+        default:
+            fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
+            break;
+        }
+    }
+
+    out_object_end();
+    out_newline();
+}
+// ptrace() event
+static void out_process_ptrace(struct ebpf_process_ptrace_event *evt)
+{
+    out_object_start();
+    out_event_type("PROCESS_PTRACE");
+    out_comma();
+    out_pid_info("pids", &evt->pids);
+    out_comma();
+    out_int("child_pid", (int)evt->child_pid);
+    out_comma();
+    out_int("request", evt->request);
+
+    out_object_end();
+    out_newline();
+}
+// shmget() event
+static void out_process_shmget(struct ebpf_process_shmget_event *evt)
+{
+    out_object_start();
+    out_event_type("PROCESS_SHMGET");
+    out_comma();
+    out_pid_info("pids", &evt->pids);
+    out_comma();
+    out_uint("key", (unsigned int)evt->key);
+    out_comma();
+    out_uint("size", evt->size);
+    out_comma();
+    out_int("shmflg", evt->shmflg);
+
+    out_object_end();
+    out_newline();
+}
+// memfd_create() event
+static void out_process_memfd_create(struct ebpf_process_memfd_create_event *evt)
+{
+    out_object_start();
+    out_event_type("PROCESS_MEMFD_CREATE");
+    out_comma();
+    out_pid_info("pids", &evt->pids);
+    out_comma();
+
+    out_uint("flags", evt->flags);
+    out_comma();
+    out_bool("flag_cloexec", evt->flag_cloexec);
+    out_comma();
+    out_bool("flag_allow_seal", evt->flag_allow_seal);
+    out_comma();
+    out_bool("flag_hugetlb", evt->flag_hugetlb);
+    out_comma();
+    out_bool("flag_noexec_seal", evt->flag_noexec_seal);
+    out_comma();
+    out_bool("flag_exec", evt->flag_exec);
+
+    struct ebpf_varlen_field *field;
+    FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
+    {
+        out_comma();
+        switch (field->type) {
+        case EBPF_VL_FIELD_FILENAME:
+            out_string("filename", field->data);
+            break;
+        default:
+            fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
+            break;
+        }
+    }
     out_object_end();
     out_newline();
 }
@@ -643,6 +786,15 @@ static void out_process_exec(struct ebpf_process_exec_event *evt)
     out_comma();
 
     out_string("comm", evt->comm);
+
+    out_bool("is_setuid", evt->is_setuid);
+    out_comma();
+    out_bool("is_setgid", evt->is_setgid);
+    out_comma();
+    out_bool("is_memfd", evt->is_memfd);
+    out_comma();
+    unsigned int nlinks = evt->inode_nlink;
+    out_uint("inode_nlinks", nlinks);
 
     struct ebpf_varlen_field *field;
     FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
@@ -920,6 +1072,18 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
     case EBPF_EVENT_PROCESS_TTY_WRITE:
         out_process_tty_write((struct ebpf_process_tty_write_event *)evt_hdr);
         break;
+    case EBPF_EVENT_PROCESS_MEMFD_CREATE:
+        out_process_memfd_create((struct ebpf_process_memfd_create_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_PROCESS_SHMGET:
+        out_process_shmget((struct ebpf_process_shmget_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_PROCESS_PTRACE:
+        out_process_ptrace((struct ebpf_process_ptrace_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_PROCESS_LOAD_MODULE:
+        out_process_load_module((struct ebpf_process_load_module_event *)evt_hdr);
+        break;
     case EBPF_EVENT_FILE_DELETE:
         out_file_delete((struct ebpf_file_delete_event *)evt_hdr);
         break;
@@ -931,6 +1095,13 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         break;
     case EBPF_EVENT_FILE_MODIFY:
         out_file_modify((struct ebpf_file_modify_event *)evt_hdr);
+    case EBPF_EVENT_FILE_MEMFD_OPEN:
+        // reuses struct ebpf_file_create_event
+        out_file_memfd_open((struct ebpf_file_create_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_FILE_SHMEM_OPEN:
+        // reuses struct ebpf_file_create_event
+        out_file_shmem_open((struct ebpf_file_create_event *)evt_hdr);
         break;
     case EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED:
         out_network_connection_accepted_event((struct ebpf_net_event *)evt_hdr);
