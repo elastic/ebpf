@@ -30,6 +30,9 @@ DECL_FIELD_OFFSET(iov_iter, __iov);
 #define ENV_MAX 40960
 #define TTY_OUT_MAX 8192
 
+#define S_ISUID 0004000
+#define S_ISGID 0002000
+
 SEC("tp_btf/sched_process_fork")
 int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct task_struct *child)
 {
@@ -96,6 +99,32 @@ int BPF_PROG(sched_process_exec,
     ebpf_cred_info__fill(&event->creds, task);
     ebpf_ctty__fill(&event->ctty, task);
     ebpf_comm__fill(event->comm, sizeof(event->comm), task);
+
+    if (!binprm)
+      return 0;
+
+    // set setuid and setgid flags
+    struct file *f = BPF_CORE_READ(binprm, file);
+    struct inode *f_inode = BPF_CORE_READ(f, f_inode);
+    event->is_setuid = (BPF_CORE_READ(f_inode, i_mode) & S_ISUID) ? true : false;
+    event->is_setgid = (BPF_CORE_READ(f_inode, i_mode) & S_ISGID) ? true : false;
+
+    // set inode link count (0 means anonymous or deleted file)
+    event->inode_nlink = BPF_CORE_READ(f_inode, i_nlink);
+
+    // check if memfd file is being exec'd
+    struct path p            = BPF_CORE_READ(binprm, file, f_path);
+    struct dentry *curr_dentry =  BPF_CORE_READ(&p, dentry);
+    struct qstr component = BPF_CORE_READ(curr_dentry, d_name);
+    char buf_filename[8] = {0};
+    int ret = bpf_probe_read_kernel_str(buf_filename,
+                                        sizeof(MEMFD_STRING),
+                                        (void *)component.name);
+    if (ret <= 0) {
+        bpf_printk("could not read d_name at %p\n", component.name);
+        goto out;
+    }
+    event->is_memfd = is_equal_prefix(MEMFD_STRING, buf_filename, sizeof(MEMFD_STRING) - 1);
 
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);
@@ -221,6 +250,208 @@ int tracepoint_syscalls_sys_exit_setsid(struct trace_event_raw_sys_exit *args)
     ebpf_pid_info__fill(&event->pids, task);
 
     bpf_ringbuf_submit(event, 0);
+
+out:
+    return 0;
+}
+
+SEC("tp_btf/module_load")
+int BPF_PROG(module_load, struct module *mod)
+{
+    if (ebpf_events_is_trusted_pid())
+        goto out;
+
+    struct ebpf_process_load_module_event *event = get_event_buffer();
+    if (!event)
+        goto out;
+
+    event->hdr.type = EBPF_EVENT_PROCESS_LOAD_MODULE;
+    event->hdr.ts   = bpf_ktime_get_ns();
+
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+
+    if (is_kernel_thread(task))
+        goto out;
+
+    ebpf_pid_info__fill(&event->pids, task);
+
+    pid_t ppid = BPF_CORE_READ(task, group_leader, real_parent, tgid);
+    pid_t curr_tgid = BPF_CORE_READ(task, tgid);
+
+    // ignore if process is child of init/systemd/whatever
+    if ((1 == curr_tgid) || (2 == curr_tgid) || (1 == ppid) || (2 == ppid))
+        goto out;
+
+    // Variable length fields
+    ebpf_vl_fields__init(&event->vl_fields);
+    struct ebpf_varlen_field *field;
+    long size;
+
+    // from include/linux/moduleparam.h
+    #define MAX_PARAM_PREFIX_LEN (64 - sizeof(unsigned long))
+
+    // mod name
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_FILENAME);
+    size  = read_kernel_str_or_empty_str(field->data, MAX_PARAM_PREFIX_LEN, mod->name);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    // mod version
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_MOD_VERSION);
+    size  = read_kernel_str_or_empty_str(field->data, PATH_MAX, mod->version);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    // mod srcversion
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_MOD_SRCVERSION);
+    size  = read_kernel_str_or_empty_str(field->data, PATH_MAX, mod->srcversion);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+
+out:
+    return 0;
+}
+
+SEC("kprobe/ptrace_attach")
+int BPF_KPROBE(kprobe__ptrace_attach, struct task_struct *child, long request, unsigned long addr, unsigned long flags)
+{
+    if (ebpf_events_is_trusted_pid())
+        goto out;
+
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    pid_t curr_tgid = BPF_CORE_READ(task, tgid);
+    pid_t child_ppid = BPF_CORE_READ(child, group_leader, real_parent, tgid);
+    pid_t child_tgid = BPF_CORE_READ(child, tgid);
+
+    if (is_kernel_thread(task))
+        goto out;
+
+    // ignore if child is a child of current process (parents ptrace'ing their children is fine)
+    if (child_ppid == curr_tgid)
+        goto out;
+    // ignore if child is same as current process (process is inspecting itself)
+    if (child_tgid == curr_tgid)
+        goto out;
+
+    struct ebpf_process_ptrace_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    if (!event)
+        goto out;
+
+    event->hdr.type = EBPF_EVENT_PROCESS_PTRACE;
+    event->hdr.ts   = bpf_ktime_get_ns();
+
+    ebpf_pid_info__fill(&event->pids, task);
+
+    event->child_pid = child_tgid;
+    event->request = request;
+
+    bpf_ringbuf_submit(event, 0);
+
+out:
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_shmget")
+int tracepoint_syscalls_sys_enter_shmget(struct trace_event_raw_sys_enter *ctx)
+{
+    if (ebpf_events_is_trusted_pid())
+        goto out;
+
+    struct shmget_args {
+        short common_type;
+        char common_flags;
+        char common_preempt_count;
+        int common_pid;
+        int __syscall_nr;
+        long key;
+        size_t size;
+        long shmflg;
+    };
+    struct shmget_args *ex_args = (struct shmget_args *)ctx;
+
+    const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+
+    if (is_kernel_thread(task))
+        goto out;
+
+    struct ebpf_process_shmget_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    if (!event)
+        goto out;
+
+    event->hdr.type = EBPF_EVENT_PROCESS_SHMGET;
+    event->hdr.ts   = bpf_ktime_get_ns();
+    ebpf_pid_info__fill(&event->pids, task);
+
+    event->key = ex_args->key;
+    event->size = ex_args->size;
+    event->shmflg = ex_args->shmflg;
+
+    bpf_ringbuf_submit(event, 0);
+out:
+    return 0;
+}
+
+SEC("tracepoint/syscalls/sys_enter_memfd_create")
+int tracepoint_syscalls_sys_enter_memfd_create(struct trace_event_raw_sys_enter *ctx)
+{
+    if (ebpf_events_is_trusted_pid())
+        goto out;
+
+    // from: /sys/kernel/debug/tracing/events/syscalls/sys_enter_memfd_create/format
+    struct memfd_create_args {
+        short common_type;
+        char common_flags;
+        char common_preempt_count;
+        int common_pid;
+        int __syscall_nr;
+        const char *uname;
+        unsigned long flags;
+    };
+    struct memfd_create_args *ex_args = (struct memfd_create_args *)ctx;
+
+    const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+
+    if (is_kernel_thread(task))
+        goto out;
+
+    struct ebpf_process_memfd_create_event *event = get_event_buffer();
+    if (!event)
+        goto out;
+
+    event->hdr.type = EBPF_EVENT_PROCESS_MEMFD_CREATE;
+    event->hdr.ts   = bpf_ktime_get_ns();
+
+    // from linux/memfd.h:
+    //
+    /* flags for memfd_create(2) (unsigned int) */
+    #define MFD_CLOEXEC         0x0001U
+    #define MFD_ALLOW_SEALING   0x0002U
+    #define MFD_HUGETLB         0x0004U
+    /* not executable and sealed to prevent changing to executable. */
+    #define MFD_NOEXEC_SEAL     0x0008U
+    /* executable */
+    #define MFD_EXEC            0x0010U
+    event->flags = ex_args->flags;
+    event->flag_cloexec = (event->flags & MFD_CLOEXEC) ? true : false;
+    event->flag_allow_seal = (event->flags & MFD_ALLOW_SEALING) ? true : false;
+    event->flag_hugetlb = (event->flags & MFD_HUGETLB) ? true : false;
+    event->flag_noexec_seal = (event->flags & MFD_NOEXEC_SEAL) ? true : false;
+    event->flag_exec = (event->flags & MFD_EXEC) ? true : false;
+
+    ebpf_pid_info__fill(&event->pids, task);
+
+    // Variable length fields
+    ebpf_vl_fields__init(&event->vl_fields);
+    struct ebpf_varlen_field *field;
+    long size;
+
+    // memfd filename
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_FILENAME);
+    size = bpf_probe_read_user_str(field->data, PATH_MAX, ex_args->uname);
+    if (size < 0)
+        return 1;
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 
 out:
     return 0;
