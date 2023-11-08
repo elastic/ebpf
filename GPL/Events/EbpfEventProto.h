@@ -18,6 +18,13 @@
 #include "vmlinux.h"
 #endif
 
+// from include/uapi/linux/posix_types.h
+/* Type of a SYSV IPC key. */
+typedef int key_t;
+
+// from include/uapi/asm-generic/posix_types.h
+typedef int pid_t;
+
 enum ebpf_event_type {
     EBPF_EVENT_PROCESS_FORK                 = (1 << 1),
     EBPF_EVENT_PROCESS_EXEC                 = (1 << 2),
@@ -29,9 +36,15 @@ enum ebpf_event_type {
     EBPF_EVENT_FILE_DELETE                  = (1 << 8),
     EBPF_EVENT_FILE_CREATE                  = (1 << 9),
     EBPF_EVENT_FILE_RENAME                  = (1 << 10),
-    EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED  = (1 << 11),
-    EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED = (1 << 12),
-    EBPF_EVENT_NETWORK_CONNECTION_CLOSED    = (1 << 13),
+    EBPF_EVENT_FILE_MEMFD_OPEN              = (1 << 11),
+    EBPF_EVENT_FILE_SHMEM_OPEN              = (1 << 12),
+    EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED  = (1 << 13),
+    EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED = (1 << 14),
+    EBPF_EVENT_NETWORK_CONNECTION_CLOSED    = (1 << 15),
+    EBPF_EVENT_PROCESS_MEMFD_CREATE         = (1 << 16),
+    EBPF_EVENT_PROCESS_SHMGET               = (1 << 18),
+    EBPF_EVENT_PROCESS_PTRACE               = (1 << 19),
+    EBPF_EVENT_PROCESS_LOAD_MODULE          = (1 << 20),
 };
 
 struct ebpf_event_header {
@@ -56,6 +69,8 @@ enum ebpf_varlen_field_type {
     EBPF_VL_FIELD_TTY_OUT,
     EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH,
     EBPF_VL_FIELD_SYMLINK_TARGET_PATH,
+    EBPF_VL_FIELD_MOD_VERSION,
+    EBPF_VL_FIELD_MOD_SRCVERSION,
 };
 
 // Convenience macro to iterate all the variable length fields in an event
@@ -153,6 +168,7 @@ struct ebpf_file_delete_event {
     struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
+// reused by memfd_open and shmem_open events
 struct ebpf_file_create_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
@@ -190,6 +206,10 @@ struct ebpf_process_exec_event {
     struct ebpf_pid_info pids;
     struct ebpf_cred_info creds;
     struct ebpf_tty_dev ctty;
+    unsigned int inode_nlink;
+    bool is_setuid;
+    bool is_setgid;
+    bool is_memfd;
 
     // Variable length fields: cwd, argv, env, filename, pids_ss_cgroup_path
     struct ebpf_varlen_fields_start vl_fields;
@@ -241,6 +261,42 @@ struct ebpf_process_setgid_event {
     uint32_t new_egid;
     uint32_t new_ruid;
     uint32_t new_euid;
+} __attribute__((packed));
+
+struct ebpf_process_memfd_create_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
+    unsigned int flags; // memfd_create flags
+    bool flag_cloexec;
+    bool flag_allow_seal;
+    bool flag_hugetlb;
+    bool flag_noexec_seal;
+    bool flag_exec;
+
+    // Variable length fields: memfd name
+    struct ebpf_varlen_fields_start vl_fields;
+} __attribute__((packed));
+
+struct ebpf_process_shmget_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
+    key_t key;
+    size_t size;
+    long shmflg; // shmget() flags
+} __attribute__((packed));
+
+struct ebpf_process_ptrace_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
+    pid_t child_pid;
+    long request;
+} __attribute__((packed));
+
+struct ebpf_process_load_module_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
+    // Variable length fields: filename, mod version, mod srcversion
+    struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
 enum ebpf_net_info_transport {
