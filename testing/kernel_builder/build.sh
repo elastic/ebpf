@@ -12,7 +12,7 @@
 readonly KERNEL_OUTPUT_DIR="kernels"
 
 readonly BUILD_ARCHES=(
-    "aarch64"
+#    "aarch64"
     "x86_64"
 )
 
@@ -37,11 +37,11 @@ readonly BUILD_VERSIONS_PAHOLE_120=(
 )
 
 readonly BUILD_VERSIONS_PAHOLE_SOURCE=(
-    "6.2"
+#    "6.2"
     "6.3"
-    "6.4"
-    "6.4.16"
-    "6.5"
+#    "6.4"
+#j    "6.4.16"
+#    "6.5"
 )
 
 exit_error() {
@@ -53,6 +53,7 @@ build_kernel() {
     local arch=$1
     local src_dir=$2
     local dest=$3
+    local version=$4
 
     local make_arch
     local make_cc
@@ -77,9 +78,18 @@ build_kernel() {
     ARCH=${make_arch} make defconfig
     cat $customconfig >> .config
     yes | ARCH=${make_arch} make olddefconfig
+   yes | ARCH=${make_arch} CROSS_COMPILE=${make_cc} make -j$(nproc)
     yes | ARCH=${make_arch} CROSS_COMPILE=${make_cc} make ${make_target} -j$(nproc)
+    yes | ARCH=${make_arch} CROSS_COMPILE=${make_cc} make modules_prepare -j$(nproc)
+    #yes | ARCH=${make_arch} CROSS_COMPILE=${make_cc} make modules -j$(nproc)
+    yes | ARCH=${make_arch} CROSS_COMPILE=${make_cc} make vmlinux -j$(nproc)
+#    yes | ARCH=${make_arch} CROSS_COMPILE=${make_cc} make headers_install -j$(nproc) INSTALL_HDR_PATH=linux-headers-${version}-${make_arch}
+    cd simple-kmod
+    yes | ARCH=${make_arch} make all
+    cd ..
     popd
 
+    cp "${src_dir}/simple-kmod/simple-kmod.ko" "$(dirname "$dest")/simple-kmod-${version}.ko"
     mv ${src_dir}/${output_file} ${dest}
 }
 
@@ -89,9 +99,9 @@ fetch_and_build() {
 
     mkdir -p ${KERNEL_OUTPUT_DIR}/src/
 
-    curl -L "https://cdn.kernel.org/pub/linux/kernel/v${version%%.*}.x/linux-${version}.tar.xz" -o "${archive}"
-    tar -C $(dirname ${archive}) -axvf ${archive}
-    rm ${archive}
+#    curl -L "https://cdn.kernel.org/pub/linux/kernel/v${version%%.*}.x/linux-${version}.tar.xz" -o "${archive}"
+#    tar -C $(dirname ${archive}) -axvf ${archive}
+#    rm ${archive}
 
     for arch in ${BUILD_ARCHES[@]}; do
         echo "BUILD ${arch}/${version}"
@@ -99,7 +109,8 @@ fetch_and_build() {
         build_kernel \
             ${arch} \
             ${KERNEL_OUTPUT_DIR}/src/linux-${version} \
-            ${KERNEL_OUTPUT_DIR}/bin/${arch}/linux-${arch}-${version}
+            ${KERNEL_OUTPUT_DIR}/bin/${arch}/linux-${arch}-${version} \
+            ${version}
     done
 }
 

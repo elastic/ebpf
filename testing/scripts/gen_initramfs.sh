@@ -47,6 +47,18 @@ build_testrunner() {
     popd > /dev/null
 }
 
+readonly BUILD_VERSIONS_PAHOLE_SOURCE=(
+#    "6.2"
+    "6.3"
+#    "6.4"
+#    "6.4.16"
+#    "6.5"
+)
+readonly BUILD_ARCHES=(
+#    "aarch64"
+    "x86_64"
+)
+
 build_testbins() {
     local arch=$1
     pushd test_bins > /dev/null
@@ -60,7 +72,39 @@ build_testbins() {
             || exit_error "compilation of $c_src for $arch failed (see above)"
     done
 
+#    cp simple-kmod/simple-kmod.ko bin/$arch
+
+### MST
+#
+#    # Now, let's build the simple-kmod for all permutations
+#    pushd simple-kmod > /dev/null
+#
+#    for version in "${BUILD_VERSIONS_PAHOLE_SOURCE[@]}"; do
+#        for arch in "${BUILD_ARCHES[@]}"; do
+#            # Modify the KVER variable to include the architecture
+#            # Assuming the version needs to be suffixed with the architecture for the KVER variable
+#            local kver="${version}-${arch}"
+#
+#            # Running make with the specific KVER and ARCH
+#            make all KVER=$kver ARCH=$arch || exit_error "compilation of simple-kmod for KVER=$kver ARCH=$arch failed (see above)"
+#
+#            # Assuming you want to copy the .ko file to the bin directory with a specific naming convention
+#            # For example, the output file might be named simple-kmod-6.2-aarch64.ko
+#            # Adjust the cp command according to your output file naming from your make process
+#            local output_ko="simple-kmod-${version}-${arch}.ko"
+#            cp "simple-kmod.ko" "../test_bins/bin/$arch/$output_ko" || exit_error "copy of $output_ko to bin/$arch failed (see above)"
+#        done
+#    done
+#
+#    popd > /dev/null
+
+###END
+
     popd > /dev/null
+
+    # MST now we're in Ebpf/testing
+    # copy .ko file to test_bins
+    cp kernel_builder/kernels/bin/${arch}/*.ko test_bins/bin/${arch}/
 }
 
 invoke_bluebox() {

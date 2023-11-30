@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"strings"
 )
 
 func TestFeaturesCorrect(et *EventsTraceInstance) {
@@ -104,6 +105,15 @@ func TestForkExec(et *EventsTraceInstance) {
 	var binOutput struct {
 		ParentPidInfo TestPidInfo `json:"parent_info"`
 		ChildPid      int64       `json:"child_pid"`
+        IsSetUid      bool        `json:"is_setuid"`
+        IsSetGid      bool        `json:"is_setgid"`
+        IsMemfd       bool        `json:"is_memfd"`
+        Ruid          uint64      `json:"ruid"`
+        Euid          uint64      `json:"euid"`
+        Suid          uint64      `json:"suid"`
+        Rgid          uint64      `json:"rgid"`
+        Egid          uint64      `json:"egid"`
+        Sgid          uint64      `json:"sgid"`
 	}
 
 	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
@@ -118,7 +128,7 @@ func TestForkExec(et *EventsTraceInstance) {
 		eventType, err := getJsonEventType(line)
 		if err != nil {
 			et.DumpStderr()
-			TestFail(fmt.Sprintf("Failed to unmarshal the following JSON: \"%s\": %s", line, err))
+			TestFail(fmt.Sprintf("Fork_exec: Failed to unmarshal the following JSON: \"%s\": %s", line, err))
 		}
 
 		switch eventType {
@@ -145,11 +155,175 @@ func TestForkExec(et *EventsTraceInstance) {
 	AssertUint64Equal(uint64(forkEvent.Creds.CapEffective), uint64(0x00000000f0f0f0f0))
 	AssertUint64Equal(uint64(execEvent.Creds.CapPermitted), uint64(0x000001ffffffffff))
 	AssertUint64Equal(uint64(execEvent.Creds.CapEffective), uint64(0x000001ffffffffff))
+    AssertTrue(execEvent.IsSetUid == binOutput.IsSetUid)
+    AssertTrue(execEvent.IsSetGid == binOutput.IsSetGid)
+    AssertTrue(execEvent.IsMemfd ==  binOutput.IsMemfd)
+    AssertTrue(execEvent.InodeNlink != 0)
+	AssertUint64Equal(uint64(execEvent.Creds.Ruid), binOutput.Ruid)
+	AssertUint64Equal(uint64(execEvent.Creds.Rgid), binOutput.Rgid)
+	AssertUint64Equal(uint64(execEvent.Creds.Euid), binOutput.Euid)
+	AssertUint64Equal(uint64(execEvent.Creds.Egid), binOutput.Egid)
+	AssertUint64Equal(uint64(execEvent.Creds.Suid), binOutput.Suid)
+	AssertUint64Equal(uint64(execEvent.Creds.Sgid), binOutput.Sgid)
 	AssertStringsEqual(execEvent.FileName, "./do_nothing")
 	AssertStringsEqual(execEvent.Argv[0], "./do_nothing")
 	AssertStringsEqual(execEvent.Env[0], "TEST_ENV_KEY1=TEST_ENV_VAL1")
 	AssertStringsEqual(execEvent.Env[1], "TEST_ENV_KEY2=TEST_ENV_VAL2")
 	AssertStringsEqual(execEvent.Cwd, "/")
+}
+
+func TestLoadKernelModule(et *EventsTraceInstance) {
+       outputStr := runTestBin("poc_load_kernel_module")
+        var binOutput struct {
+            PidInfo       TestPidInfo  `json:"pid_info"`
+            FileName      string       `json:"filename"`
+            ModVersion    string       `json:"mod_version"`
+            ModSrcVersion string       `json:"mod_srcversion"`
+       }
+
+       if err := json.Unmarshal([]byte(outputStr), &binOutput); err != nil {
+               TestFail("failed to unmarshal json", err)
+       }
+
+       var loadModuleEvent *ProcessKernelLoadModuleEvent
+       for {
+               line := et.GetNextEventJson("PROCESS_LOAD_MODULE")
+               if err := json.Unmarshal([]byte(line), &loadModuleEvent); err != nil {
+                       TestFail("failed to unmarshal JSON: ", err)
+               }
+               if loadModuleEvent.Pids.Tgid == binOutput.PidInfo.Tgid {
+                       break
+               }
+       }
+
+       AssertStringsEqual(loadModuleEvent.FileName, binOutput.FileName)
+       AssertStringsEqual(loadModuleEvent.ModVersion, binOutput.ModVersion)
+       AssertStringsEqual(loadModuleEvent.ModSrcVersion, binOutput.ModSrcVersion)
+}
+
+func TestShmget(et *EventsTraceInstance) {
+       outputStr := runTestBin("poc_shmget")
+       var binOutput struct {
+               PidInfo    TestPidInfo `json:"pid_info"`
+               Key    uint32 `json:"key"`
+               Size    uint32 `json:"size"`
+               ShmFlg    int64 `json:"shmflg"`
+       }
+
+       if err := json.Unmarshal(outputStr, &binOutput); err != nil {
+               TestFail("failed to unmarshal json", err)
+       }
+
+       var shmgetEvent *ProcessShmgetEvent
+       for {
+               line := et.GetNextEventJson("PROCESS_SHMGET")
+               if err := json.Unmarshal([]byte(line), &shmgetEvent); err != nil {
+                       TestFail("failed to unmarshal JSON: ", err)
+               }
+               if shmgetEvent.Pids.Tgid == binOutput.PidInfo.Tgid {
+                       break
+               }
+       }
+       AssertUint32Equal(shmgetEvent.Key, binOutput.Key)
+       AssertUint32Equal(shmgetEvent.Size, binOutput.Size)
+       AssertInt64Equal(shmgetEvent.ShmFlg, binOutput.ShmFlg)
+}
+
+func TestMemfdCreate(et *EventsTraceInstance) {
+       outputStr := runTestBin("poc_memfd_create_exec")
+       var binOutput struct {
+               PidInfo   TestPidInfo `json:"pid_info"`
+               Flags     struct {
+                   Value            uint32 `json:"value"`
+                   MfdCloexec       bool   `json:"mfd_cloexec"`
+                   MfdAllowSealing  bool   `json:"mfd_allow_sealing"`
+                   MfdHugetlb       bool   `json:"mfd_hugetlb"`
+                   MfdNoexecSeal    bool   `json:"mfd_noexec_seal"`
+                   MfdExec          bool   `json:"mfd_exec"`
+               } `json:"flags"`
+               FileName  string `json:"filename"`
+       }
+
+       if err := json.Unmarshal(outputStr, &binOutput); err != nil {
+               TestFail("failed to unmarshal json memfdcreate binoutput", err)
+       }
+       var memfdCreateEvent *MemfdCreateEvent
+       var execEvent        *ProcessExecEvent
+       for memfdCreateEvent == nil || execEvent == nil {
+//       for memfdCreateEvent == nil {
+               line := et.GetNextEventJson("PROCESS_MEMFD_CREATE", "PROCESS_EXEC")
+               eventType, err := getJsonEventType(line)
+               if err != nil {
+                   et.DumpStderr()
+                   TestFail(fmt.Sprintf("MemfdCreate: Failed to unmarshal the following JSON: \"%s\": %s", line, err))
+               }
+
+               switch eventType {
+               case "PROCESS_MEMFD_CREATE":
+                   if memfdCreateEvent != nil {
+                       continue
+                   }
+                   memfdCreateEvent = new(MemfdCreateEvent)
+                   if err := json.Unmarshal([]byte(line), &memfdCreateEvent); err != nil {
+                       TestFail("failed to unmarshal json memfdcreate memfdcreateevent", err)
+                   }
+                   if memfdCreateEvent.Pids.Tgid != binOutput.PidInfo.Tgid {
+                       memfdCreateEvent = nil
+                   }
+               case "PROCESS_EXEC":
+                   if execEvent != nil {
+                       continue
+                   }
+                   execEvent = new(ProcessExecEvent)
+                   if err := json.Unmarshal([]byte(line), &execEvent); err != nil {
+                       TestFail("failed to unmarshal json memfdcreate execevent", err)
+                   }
+                   if execEvent.Pids.Tgid != binOutput.PidInfo.Tgid || !strings.Contains(execEvent.Argv[0], "/proc") {
+                       execEvent = nil
+                   }
+               }
+       }
+
+       AssertPidInfoEqual(binOutput.PidInfo, memfdCreateEvent.Pids)
+       AssertUint32Equal(memfdCreateEvent.Flags, binOutput.Flags.Value)
+       AssertTrue(memfdCreateEvent.FlagCloexec == binOutput.Flags.MfdCloexec)
+       AssertTrue(memfdCreateEvent.FlagAllowSeal == binOutput.Flags.MfdAllowSealing)
+       AssertTrue(memfdCreateEvent.FlagHugetlb == binOutput.Flags.MfdHugetlb)
+       AssertTrue(memfdCreateEvent.FlagNoexecSeal == binOutput.Flags.MfdNoexecSeal)
+       AssertTrue(memfdCreateEvent.FlagExec == binOutput.Flags.MfdExec)
+       AssertStringsEqual(memfdCreateEvent.FileName, binOutput.FileName)
+       AssertTrue(execEvent.IsMemfd)
+       AssertTrue(!execEvent.IsSetUid)
+       AssertTrue(!execEvent.IsSetGid)
+       AssertTrue(execEvent.InodeNlink == 0)
+}
+
+func TestPtrace(et *EventsTraceInstance) {
+       outputStr := runTestBin("poc_ptrace")
+       var binOutput struct {
+               PtracePid    int64 `json:"ptrace_pid"`
+               ChildPid    int64 `json:"child_pid"`
+               Request    int64 `json:"request"`
+       }
+
+       if err := json.Unmarshal(outputStr, &binOutput); err != nil {
+               TestFail("failed to unmarshal json", err)
+       }
+
+       var ptraceEvent *ProcessPtraceEvent
+       for {
+               line := et.GetNextEventJson("PROCESS_PTRACE")
+               if err := json.Unmarshal([]byte(line), &ptraceEvent); err != nil {
+                       TestFail("failed to unmarshal JSON: ", err)
+               }
+               if ptraceEvent.Pids.Tgid == binOutput.PtracePid {
+                    break
+               }
+       }
+
+       AssertInt64Equal(ptraceEvent.Pids.Tgid, binOutput.PtracePid)
+       AssertInt64Equal(ptraceEvent.Request, binOutput.Request)
+       AssertInt64Equal(ptraceEvent.ChildPid, binOutput.ChildPid)
 }
 
 func TestFileCreate(et *EventsTraceInstance) {

@@ -30,7 +30,7 @@ const char argp_program_doc[] =
     "\n"
     "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename] [--file-memfd-open] [--file-shmem-open]\n"
     "[--process-fork] [--process-exec] [--process-exit] [--process-setsid] [--process-setuid] "
-    "[--process-setgid] [--process-tty-write] [--process-memfd_create] [--process-shmget] [--process-ptrace] [--process-load_module]\n"
+    "[--process-setgid] [--process-tty-write] [--process-memfd-create] [--process-shmget] [--process-ptrace] [--process-load-module]\n"
     "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n"
     "[--print-features-on-init] [--unbuffer-stdout] [--libbpf-verbose]\n";
 
@@ -694,14 +694,15 @@ static void out_process_exec(struct ebpf_process_exec_event *evt)
 
     out_tty_dev("ctty", &evt->ctty);
 
+    out_comma();
     out_bool("is_setuid", evt->is_setuid);
     out_comma();
     out_bool("is_setgid", evt->is_setgid);
     out_comma();
     out_bool("is_memfd", evt->is_memfd);
     out_comma();
-    unsigned int nlinks = evt->inode_nlink;
-    out_uint("inode_nlinks", nlinks);
+    unsigned int nlink = evt->inode_nlink;
+    out_uint("inode_nlink", nlink);
 
     struct ebpf_varlen_field *field;
     FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
