@@ -18,6 +18,13 @@ func main() {
 	RunEventsTest(TestForkExit, "--process-fork")
 	RunEventsTest(TestForkExec, "--process-fork", "--process-exec")
 	RunEventsTest(TestSetuid, "--process-setuid")
+	RunEventsTest(TestSetuid, "--process-setuid")
+
+	RunEventsTest(TestMemfdCreate, "--process-memfd-create", "--process-exec")
+	RunEventsTest(TestShmget, "--process-shmget")
+	RunEventsTest(TestPtrace, "--process-ptrace")
+//	RunEventsTest(TestLoadKernelModule, "--process-load-module")
+
 	RunEventsTest(TestSetgid, "--process-setgid")
 	RunEventsTest(TestTtyWrite, "--process-tty-write")
 
