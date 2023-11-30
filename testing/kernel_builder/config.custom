@@ -53,3 +53,8 @@ CONFIG_IPV6=y
 # Enable taskstats (not on by default in aarch64 pre-5.18). This
 # will create a taskstats_exit function (which we hook)
 CONFIG_TASKSTATS=y
+
+
+# Modules support
+CONFIG_MODULES=y
+CONFIG_MODULE_UNLOAD=y

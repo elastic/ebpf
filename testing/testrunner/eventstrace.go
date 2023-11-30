@@ -104,7 +104,7 @@ loop:
 			eventType, err := getJsonEventType(line)
 			if err != nil {
 				et.DumpStderr()
-				TestFail(fmt.Sprintf("Failed to unmarshal the following JSON: \"%s\": %s", line, err))
+				TestFail(fmt.Sprintf("EventsTrace: Failed to unmarshal the following JSON: \"%s\": %s", line, err))
 			}
 
 			for _, a := range types {
