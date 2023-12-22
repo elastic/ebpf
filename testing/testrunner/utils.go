@@ -117,6 +117,13 @@ type FileDeleteEvent struct {
 	Finfo FileInfo `json:"file_info"`
 }
 
+type FileModifyEvent struct {
+	Pids       PidInfo  `json:"pids"`
+	Path       string   `json:"path"`
+	ChangeType string   `json:"change_type"`
+	Finfo      FileInfo `json:"file_info"`
+}
+
 type FileRenameEvent struct {
 	Pids    PidInfo  `json:"pids"`
 	OldPath string   `json:"old_path"`

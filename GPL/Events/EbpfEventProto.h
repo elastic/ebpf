@@ -29,9 +29,10 @@ enum ebpf_event_type {
     EBPF_EVENT_FILE_DELETE                  = (1 << 8),
     EBPF_EVENT_FILE_CREATE                  = (1 << 9),
     EBPF_EVENT_FILE_RENAME                  = (1 << 10),
-    EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED  = (1 << 11),
-    EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED = (1 << 12),
-    EBPF_EVENT_NETWORK_CONNECTION_CLOSED    = (1 << 13),
+    EBPF_EVENT_FILE_MODIFY                  = (1 << 11),
+    EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED  = (1 << 12),
+    EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED = (1 << 13),
+    EBPF_EVENT_NETWORK_CONNECTION_CLOSED    = (1 << 14),
 };
 
 struct ebpf_event_header {
@@ -172,6 +173,25 @@ struct ebpf_file_rename_event {
     char comm[TASK_COMM_LEN];
 
     // Variable length fields: old_path, new_path, symlink_target_path
+    struct ebpf_varlen_fields_start vl_fields;
+} __attribute__((packed));
+
+enum ebpf_file_change_type {
+    EBPF_FILE_CHANGE_TYPE_UNKNOWN     = 0,
+    EBPF_FILE_CHANGE_TYPE_CONTENT     = 1,
+    EBPF_FILE_CHANGE_TYPE_PERMISSIONS = 2,
+    EBPF_FILE_CHANGE_TYPE_XATTRS      = 3,
+};
+
+struct ebpf_file_modify_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
+    struct ebpf_file_info finfo;
+    enum ebpf_file_change_type change_type;
+    uint32_t mntns;
+    char comm[TASK_COMM_LEN];
+
+    // Variable length fields: path, symlink_target_path
     struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 

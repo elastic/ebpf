@@ -28,7 +28,8 @@ const char argp_program_doc[] =
     "\n"
     "Prints process, network and file events sourced from the Elastic ebpf events library\n"
     "\n"
-    "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename]\n"
+    "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename] "
+    "[--file-modify]\n"
     "[--process-fork] [--process-exec] [--process-exit] [--process-setsid] [--process-setuid] "
     "[--process-setgid] [--process-tty-write]\n"
     "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n"
@@ -43,6 +44,7 @@ enum cmdline_opts {
     FILE_DELETE = 0x80,
     FILE_CREATE,
     FILE_RENAME,
+    FILE_MODIFY,
     PROCESS_FORK,
     PROCESS_EXEC,
     PROCESS_EXIT,
@@ -62,6 +64,7 @@ static uint64_t cmdline_to_lib[CMDLINE_MAX] = {
     x(FILE_DELETE)
     x(FILE_CREATE)
     x(FILE_RENAME)
+    x(FILE_MODIFY)
     x(PROCESS_FORK)
     x(PROCESS_EXEC)
     x(PROCESS_EXIT)
@@ -81,6 +84,7 @@ static const struct argp_option opts[] = {
     {"file-delete", FILE_DELETE, NULL, false, "Print file delete events", 0},
     {"file-create", FILE_CREATE, NULL, false, "Print file create events", 0},
     {"file-rename", FILE_RENAME, NULL, false, "Print file rename events", 0},
+    {"file-modify", FILE_MODIFY, NULL, false, "Print file modification events", 0},
     {"process-fork", PROCESS_FORK, NULL, false, "Print process fork events", 0},
     {"process-exec", PROCESS_EXEC, NULL, false, "Print process exec events", 0},
     {"process-exit", PROCESS_EXIT, NULL, false, "Print process exit events", 0},
@@ -126,6 +130,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case FILE_DELETE:
     case FILE_CREATE:
     case FILE_RENAME:
+    case FILE_MODIFY:
     case PROCESS_FORK:
     case PROCESS_EXEC:
     case PROCESS_EXIT:
@@ -504,6 +509,60 @@ static void out_file_rename(struct ebpf_file_rename_event *evt)
     out_newline();
 }
 
+static void out_file_modify(struct ebpf_file_modify_event *evt)
+{
+    out_object_start();
+    out_event_type("FILE_MODIFY");
+    out_comma();
+
+    out_pid_info("pids", &evt->pids);
+    out_comma();
+
+    out_int("mount_namespace", evt->mntns);
+    out_comma();
+
+    out_string("comm", (const char *)&evt->comm);
+    out_comma();
+
+    switch (evt->change_type) {
+    case EBPF_FILE_CHANGE_TYPE_CONTENT:
+        out_string("change_type", "CONTENT");
+        break;
+    case EBPF_FILE_CHANGE_TYPE_PERMISSIONS:
+        out_string("change_type", "PERMISSIONS");
+        break;
+    case EBPF_FILE_CHANGE_TYPE_XATTRS:
+        out_string("change_type", "XATTRS");
+        break;
+    default:
+        fprintf(stderr, "Invalid change type: %d\n", evt->change_type);
+        break;
+    }
+    out_comma();
+
+    out_file_info("file_info", &evt->finfo);
+
+    struct ebpf_varlen_field *field;
+    FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
+    {
+        out_comma();
+        switch (field->type) {
+        case EBPF_VL_FIELD_PATH:
+            out_string("path", field->data);
+            break;
+        case EBPF_VL_FIELD_SYMLINK_TARGET_PATH:
+            out_string("symlink_target_path", field->data);
+            break;
+        default:
+            fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
+            break;
+        }
+    }
+
+    out_object_end();
+    out_newline();
+}
+
 static void out_process_fork(struct ebpf_process_fork_event *evt)
 {
     out_object_start();
@@ -827,6 +886,9 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         break;
     case EBPF_EVENT_FILE_RENAME:
         out_file_rename((struct ebpf_file_rename_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_FILE_MODIFY:
+        out_file_modify((struct ebpf_file_modify_event *)evt_hdr);
         break;
     case EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED:
         out_network_connection_accepted_event((struct ebpf_net_event *)evt_hdr);

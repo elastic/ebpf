@@ -16,6 +16,7 @@ enum ebpf_events_state_op {
     EBPF_EVENTS_STATE_RENAME         = 2,
     EBPF_EVENTS_STATE_TCP_V4_CONNECT = 3,
     EBPF_EVENTS_STATE_TCP_V6_CONNECT = 4,
+    EBPF_EVENTS_STATE_CHMOD          = 5,
 };
 
 struct ebpf_events_key {
@@ -54,12 +55,18 @@ struct ebpf_events_tcp_connect_state {
     struct sock *sk;
 };
 
+struct ebpf_events_chmod_state {
+    struct path *path;
+    umode_t mode;
+};
+
 struct ebpf_events_state {
     union {
         struct ebpf_events_unlink_state unlink;
         struct ebpf_events_rename_state rename;
         struct ebpf_events_tcp_connect_state tcp_v4_connect;
         struct ebpf_events_tcp_connect_state tcp_v6_connect;
+        struct ebpf_events_chmod_state chmod;
     };
 };
 
