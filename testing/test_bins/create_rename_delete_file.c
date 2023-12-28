@@ -8,6 +8,7 @@
  */
 
 #include <stdio.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -28,6 +29,7 @@ int main()
 
     CHECK(fclose(f), EOF);
     CHECK(rename(filename_orig, filename_new), -1);
+    CHECK(chmod(filename_new, S_IRWXU | S_IRWXG | S_IRWXO), -1);
     CHECK(unlink(filename_new), -1);
 
     return 0;

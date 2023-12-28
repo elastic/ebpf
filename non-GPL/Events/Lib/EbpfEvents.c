@@ -356,6 +356,8 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tcp_v4_connect, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__tcp_v4_connect, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tcp_close, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__chmod_common, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__chmod_common, false);
     } else {
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_unlinkat, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__mnt_want_write, false);
@@ -369,6 +371,7 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__inet_csk_accept, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__tcp_v4_connect, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__tcp_close, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.fexit__chmod_common, false);
     }
 
     return err;

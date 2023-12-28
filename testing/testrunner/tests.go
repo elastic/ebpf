@@ -214,7 +214,7 @@ func TestFileDelete(et *EventsTraceInstance) {
 	// File Info
 	AssertStringsEqual(fileDeleteEvent.Finfo.Type, "FILE")
 	AssertUint64NotEqual(fileDeleteEvent.Finfo.Inode, 0)
-	AssertUint64Equal(fileDeleteEvent.Finfo.Mode, 100644)
+	AssertUint64Equal(fileDeleteEvent.Finfo.Mode, 100777)
 	AssertUint64Equal(fileDeleteEvent.Finfo.Size, 0)
 	AssertUint64Equal(fileDeleteEvent.Finfo.Uid, 0)
 	AssertUint64Equal(fileDeleteEvent.Finfo.Gid, 0)
@@ -388,6 +388,34 @@ func TestFileDeleteContainer(et *EventsTraceInstance) {
 	}
 
 	AssertStringsEqual(fileDeleteEvent.Path, binOutput.FileNameNew)
+}
+
+func TestFileChmod(et *EventsTraceInstance) {
+	outputStr := runTestBin("create_rename_delete_file")
+	var binOutput struct {
+		ChildPid     int64  `json:"child_pid"`
+		FileNameOrig string `json:"filename_orig"`
+		FileNameNew  string `json:"filename_new"`
+	}
+	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
+		TestFail("failed to unmarshal json", err)
+	}
+
+	var fileModifyEvent FileModifyEvent
+	for {
+		line := et.GetNextEventJson("FILE_MODIFY")
+		if err := json.Unmarshal([]byte(line), &fileModifyEvent); err != nil {
+			TestFail("failed to unmarshal JSON: ", err)
+		}
+
+		if fileModifyEvent.Pids.Tgid == binOutput.ChildPid {
+			break
+		}
+	}
+
+	AssertStringsEqual(fileModifyEvent.Path, binOutput.FileNameNew)
+	AssertStringsEqual(fileModifyEvent.ChangeType, "PERMISSIONS")
+	AssertUint64Equal(fileModifyEvent.Finfo.Mode, 100777)
 }
 
 func TestTtyWrite(et *EventsTraceInstance) {

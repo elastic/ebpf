@@ -461,3 +461,79 @@ int BPF_KRETPROBE(kretprobe__vfs_rename, int ret)
 {
     return vfs_rename__exit(ret);
 }
+
+SEC("kprobe/chmod_common")
+int BPF_KPROBE(kprobe__chmod_common, const struct path *path, umode_t mode)
+{
+    struct ebpf_events_state state = {};
+    state.chmod.path               = (struct path *)path;
+    state.chmod.mode               = mode;
+    ebpf_events_state__set(EBPF_EVENTS_STATE_CHMOD, &state);
+    return 0;
+}
+
+static int chmod_common__exit(struct path *path, umode_t mode, int ret)
+{
+    if (ret)
+        goto out;
+
+    if (ebpf_events_is_trusted_pid())
+        goto out;
+
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+
+    struct ebpf_file_modify_event *event = get_event_buffer();
+    if (!event) {
+        bpf_printk("chmod_common__exit: failed to reserve event\n");
+        goto out;
+    }
+
+    event->hdr.type    = EBPF_EVENT_FILE_MODIFY;
+    event->hdr.ts      = bpf_ktime_get_ns();
+    event->change_type = EBPF_FILE_CHANGE_TYPE_PERMISSIONS;
+    ebpf_pid_info__fill(&event->pids, task);
+    event->mntns = mntns(task);
+    bpf_get_current_comm(event->comm, TASK_COMM_LEN);
+    struct dentry *d = BPF_CORE_READ(path, dentry);
+    ebpf_file_info__fill(&event->finfo, d);
+
+    // Variable length fields
+    ebpf_vl_fields__init(&event->vl_fields);
+    struct ebpf_varlen_field *field;
+    long size;
+
+    // path
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PATH);
+    size  = ebpf_resolve_path_to_string(field->data, path, task);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    // symlink_target_path
+    field      = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_SYMLINK_TARGET_PATH);
+    char *link = BPF_CORE_READ(path, dentry, d_inode, i_link);
+    size       = read_kernel_str_or_empty_str(field->data, PATH_MAX, link);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+
+out:
+    return 0;
+}
+
+SEC("fexit/chmod_common")
+int BPF_PROG(fexit__chmod_common, const struct path *path, umode_t mode, int ret)
+{
+    return chmod_common__exit((struct path *)path, mode, ret);
+}
+
+SEC("kretprobe/chmod_common")
+int BPF_KRETPROBE(kretprobe__chmod_common, int ret)
+{
+    struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_CHMOD);
+    if (!state)
+        goto out;
+
+    chmod_common__exit(state->chmod.path, state->chmod.mode, ret);
+
+out:
+    return 0;
+}
