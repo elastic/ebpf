@@ -27,9 +27,11 @@ int main()
     FILE *f;
     CHECK(f = fopen(filename_orig, "w"), NULL);
 
-    CHECK(fclose(f), EOF);
     CHECK(rename(filename_orig, filename_new), -1);
     CHECK(chmod(filename_new, S_IRWXU | S_IRWXG | S_IRWXO), -1);
+    CHECK(fprintf(f, "test"), -1);
+    CHECK(ftruncate(fileno(f), 0), -1);
+    CHECK(fclose(f), EOF);
     CHECK(unlink(filename_new), -1);
 
     return 0;

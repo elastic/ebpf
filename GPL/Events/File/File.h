@@ -10,6 +10,10 @@
 #ifndef EBPF_EVENTPROBE_FILE_H
 #define EBPF_EVENTPROBE_FILE_H
 
+#include "vmlinux.h"
+
+#include <bpf/bpf_core_read.h>
+
 #include "EbpfEventProto.h"
 
 #define PATH_MAX 4096
@@ -36,6 +40,12 @@
 #define S_ISSOCK(m) (((m)&S_IFMT) == S_IFSOCK)
 
 #define NANOSECONDS_IN_SECOND 1000000000
+
+static struct path *path_from_file(struct file *f)
+{
+    size_t off = bpf_core_field_offset(struct file, f_path);
+    return (struct path *)((char *)f + off);
+}
 
 static void ebpf_file_info__fill(struct ebpf_file_info *finfo, struct dentry *de)
 {

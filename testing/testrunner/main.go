@@ -24,6 +24,7 @@ func main() {
 	RunEventsTest(TestFileCreate, "--file-create")
 	RunEventsTest(TestFileDelete, "--file-delete")
 	RunEventsTest(TestFileRename, "--file-rename")
+	RunEventsTest(TestFileModify, "--file-modify")
 
 	RunEventsTest(TestTcpv4ConnectionAttempt, "--net-conn-attempt")
 	RunEventsTest(TestTcpv4ConnectionAccept, "--net-conn-accept")

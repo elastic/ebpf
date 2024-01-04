@@ -180,7 +180,8 @@ enum ebpf_file_change_type {
     EBPF_FILE_CHANGE_TYPE_UNKNOWN     = 0,
     EBPF_FILE_CHANGE_TYPE_CONTENT     = 1,
     EBPF_FILE_CHANGE_TYPE_PERMISSIONS = 2,
-    EBPF_FILE_CHANGE_TYPE_XATTRS      = 3,
+    EBPF_FILE_CHANGE_TYPE_OWNER       = 3,
+    EBPF_FILE_CHANGE_TYPE_XATTRS      = 4,
 };
 
 struct ebpf_file_modify_event {

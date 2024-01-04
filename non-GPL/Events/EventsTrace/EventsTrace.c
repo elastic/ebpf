@@ -531,6 +531,9 @@ static void out_file_modify(struct ebpf_file_modify_event *evt)
     case EBPF_FILE_CHANGE_TYPE_PERMISSIONS:
         out_string("change_type", "PERMISSIONS");
         break;
+    case EBPF_FILE_CHANGE_TYPE_OWNER:
+        out_string("change_type", "OWNER");
+        break;
     case EBPF_FILE_CHANGE_TYPE_XATTRS:
         out_string("change_type", "XATTRS");
         break;
