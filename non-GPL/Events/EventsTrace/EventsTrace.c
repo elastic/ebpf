@@ -16,6 +16,7 @@
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -109,6 +110,7 @@ uint64_t g_events_env   = 0;
 uint64_t g_features_env = 0;
 
 bool g_print_features_init = 0;
+bool g_features_printed    = 0;
 bool g_unbuffer_stdout     = 0;
 bool g_libbpf_verbose      = 0;
 
@@ -859,6 +861,10 @@ static void out_network_connection_closed_event(struct ebpf_net_event *evt)
 
 static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
 {
+    if (g_print_features_init)
+        while (!g_features_printed)
+            usleep(100000);
+
     switch (evt_hdr->type) {
     case EBPF_EVENT_PROCESS_FORK:
         out_process_fork((struct ebpf_process_fork_event *)evt_hdr);
@@ -945,8 +951,10 @@ int main(int argc, char **argv)
         goto out;
     }
 
-    if (g_print_features_init)
+    if (g_print_features_init) {
         print_init_msg(ebpf_event_ctx__get_features(ctx));
+        g_features_printed = 1;
+    }
 
     while (!exiting) {
         err = ebpf_event_ctx__next(ctx, 10);

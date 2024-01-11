@@ -215,7 +215,7 @@ func TestFileDelete(et *EventsTraceInstance) {
 	AssertStringsEqual(fileDeleteEvent.Finfo.Type, "FILE")
 	AssertUint64NotEqual(fileDeleteEvent.Finfo.Inode, 0)
 	AssertUint64Equal(fileDeleteEvent.Finfo.Mode, 100777)
-	AssertUint64Equal(fileDeleteEvent.Finfo.Size, 4)
+	AssertUint64Equal(fileDeleteEvent.Finfo.Size, 0)
 	AssertUint64Equal(fileDeleteEvent.Finfo.Uid, 0)
 	AssertUint64Equal(fileDeleteEvent.Finfo.Gid, 0)
 }
@@ -401,7 +401,7 @@ func TestFileModify(et *EventsTraceInstance) {
 		TestFail("failed to unmarshal json", err)
 	}
 
-	eventsCount := 3 // chmod, write, truncate
+	eventsCount := 4 // chmod, write, writev, truncate
 	events := make([]FileModifyEvent, 0, eventsCount)
 	for {
 		var event FileModifyEvent
@@ -427,12 +427,17 @@ func TestFileModify(et *EventsTraceInstance) {
 	// write
 	AssertStringsEqual(events[1].Path, binOutput.FileNameNew)
 	AssertStringsEqual(events[1].ChangeType, "CONTENT")
+	AssertUint64Equal(events[1].Finfo.Size, 4)
 
-	// truncate
+	// writev
 	AssertStringsEqual(events[2].Path, binOutput.FileNameNew)
 	AssertStringsEqual(events[2].ChangeType, "CONTENT")
+	AssertUint64Equal(events[2].Finfo.Size, 4+5+5)
 
-	AssertTrue(events[1].Finfo.Size != events[2].Finfo.Size)
+	// truncate
+	AssertStringsEqual(events[3].Path, binOutput.FileNameNew)
+	AssertStringsEqual(events[3].ChangeType, "CONTENT")
+	AssertUint64Equal(events[3].Finfo.Size, 0)
 }
 
 func TestTtyWrite(et *EventsTraceInstance) {

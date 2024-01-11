@@ -100,6 +100,7 @@ main() {
 
     qemu-system-${arch} \
         -nographic -m 1G \
+        -smp 8 \
         -kernel $kernel \
         -initrd $initramfs \
         -append "$bootparams" \

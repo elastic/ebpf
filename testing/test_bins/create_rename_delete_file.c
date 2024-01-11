@@ -7,9 +7,11 @@
  * License 2.0.
  */
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 #include <unistd.h>
 
 #include "common.h"
@@ -24,14 +26,40 @@ int main()
     printf("{ \"pid_info\": %s, \"filename_orig\": \"%s\", \"filename_new\": \"%s\"}\n", pid_info,
            filename_orig, filename_new);
 
-    FILE *f;
-    CHECK(f = fopen(filename_orig, "w"), NULL);
+    int fd;
 
+    // create
+    CHECK(fd = open(filename_orig, O_WRONLY | O_CREAT | O_TRUNC, 0644), -1);
+
+    // rename
     CHECK(rename(filename_orig, filename_new), -1);
+
+    // modify(permissions)
     CHECK(chmod(filename_new, S_IRWXU | S_IRWXG | S_IRWXO), -1);
-    CHECK(fprintf(f, "test"), -1);
-    CHECK(ftruncate(fileno(f), 0), -1);
-    CHECK(fclose(f), EOF);
+
+    // modify(content)
+    if (write(fd, "test", 4) != 4) {
+        perror("write failed");
+        return -1;
+    }
+
+    // modify(content)
+    struct iovec iov[2];
+    iov[0].iov_base = "test2";
+    iov[0].iov_len  = 5;
+    iov[1].iov_base = "test3";
+    iov[1].iov_len  = 5;
+    if (writev(fd, iov, 2) != 10) {
+        perror("writev failed");
+        return -1;
+    }
+
+    // modify(content)
+    CHECK(ftruncate(fd, 0), -1);
+
+    close(fd);
+
+    // delete
     CHECK(unlink(filename_new), -1);
 
     return 0;

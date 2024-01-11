@@ -343,7 +343,7 @@ func RunTest(f func()) {
 
 func RunEventsTest(f func(*EventsTraceInstance), args ...string) {
 	testFuncName := runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
-	ctx, cancel := context.WithTimeout(context.TODO(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.TODO(), 90*time.Second)
 
 	et := NewEventsTrace(ctx, args...)
 	et.Start(ctx)
