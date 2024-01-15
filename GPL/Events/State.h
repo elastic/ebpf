@@ -17,6 +17,10 @@ enum ebpf_events_state_op {
     EBPF_EVENTS_STATE_TCP_V4_CONNECT = 3,
     EBPF_EVENTS_STATE_TCP_V6_CONNECT = 4,
     EBPF_EVENTS_STATE_CHMOD          = 5,
+    EBPF_EVENTS_STATE_TRUNCATE       = 6,
+    EBPF_EVENTS_STATE_WRITE          = 7,
+    EBPF_EVENTS_STATE_WRITEV         = 8,
+    EBPF_EVENTS_STATE_CHOWN          = 9,
 };
 
 struct ebpf_events_key {
@@ -60,6 +64,22 @@ struct ebpf_events_chmod_state {
     umode_t mode;
 };
 
+struct ebpf_events_truncate_state {
+    struct path *path;
+};
+
+struct ebpf_events_write_state {
+    struct path *path;
+};
+
+struct ebpf_events_writev_state {
+    struct path *path;
+};
+
+struct ebpf_events_chown_state {
+    struct path *path;
+};
+
 struct ebpf_events_state {
     union {
         struct ebpf_events_unlink_state unlink;
@@ -67,6 +87,10 @@ struct ebpf_events_state {
         struct ebpf_events_tcp_connect_state tcp_v4_connect;
         struct ebpf_events_tcp_connect_state tcp_v6_connect;
         struct ebpf_events_chmod_state chmod;
+        struct ebpf_events_truncate_state truncate;
+        struct ebpf_events_write_state write;
+        struct ebpf_events_writev_state writev;
+        struct ebpf_events_chown_state chown;
     };
 };
 

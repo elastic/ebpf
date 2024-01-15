@@ -27,6 +27,9 @@ DECL_FUNC_ARG(vfs_rename, old_dentry);
 DECL_FUNC_ARG(vfs_rename, new_dentry);
 DECL_FUNC_RET(vfs_rename);
 DECL_FUNC_ARG_EXISTS(vfs_rename, rd);
+/* do_truncate */
+DECL_FUNC_ARG(do_truncate, filp);
+DECL_FUNC_RET(do_truncate);
 
 static int mntns(const struct task_struct *task)
 {
@@ -462,40 +465,31 @@ int BPF_KRETPROBE(kretprobe__vfs_rename, int ret)
     return vfs_rename__exit(ret);
 }
 
-SEC("kprobe/chmod_common")
-int BPF_KPROBE(kprobe__chmod_common, const struct path *path, umode_t mode)
+static void file_modify_event__emit(enum ebpf_file_change_type typ, struct path *path)
 {
-    struct ebpf_events_state state = {};
-    state.chmod.path               = (struct path *)path;
-    state.chmod.mode               = mode;
-    ebpf_events_state__set(EBPF_EVENTS_STATE_CHMOD, &state);
-    return 0;
-}
-
-static int chmod_common__exit(struct path *path, umode_t mode, int ret)
-{
-    if (ret)
-        goto out;
-
-    if (ebpf_events_is_trusted_pid())
-        goto out;
-
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
     struct ebpf_file_modify_event *event = get_event_buffer();
     if (!event) {
-        bpf_printk("chmod_common__exit: failed to reserve event\n");
+        bpf_printk("file_modify_event__emit: failed to reserve event\n");
         goto out;
     }
 
     event->hdr.type    = EBPF_EVENT_FILE_MODIFY;
     event->hdr.ts      = bpf_ktime_get_ns();
-    event->change_type = EBPF_FILE_CHANGE_TYPE_PERMISSIONS;
+    event->change_type = typ;
     ebpf_pid_info__fill(&event->pids, task);
     event->mntns = mntns(task);
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
     struct dentry *d = BPF_CORE_READ(path, dentry);
     ebpf_file_info__fill(&event->finfo, d);
+
+    switch (event->finfo.type) {
+    case EBPF_FILE_TYPE_FILE:
+        break;
+    default:
+        goto out;
+    }
 
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);
@@ -516,13 +510,38 @@ static int chmod_common__exit(struct path *path, umode_t mode, int ret)
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 
 out:
+    return;
+}
+
+SEC("kprobe/chmod_common")
+int BPF_KPROBE(kprobe__chmod_common, const struct path *path, umode_t mode)
+{
+    struct ebpf_events_state state = {};
+    state.chmod.path               = (struct path *)path;
+    state.chmod.mode               = mode;
+    ebpf_events_state__set(EBPF_EVENTS_STATE_CHMOD, &state);
     return 0;
+}
+
+static void chmod_common__exit(struct path *path, int ret)
+{
+    if (ret)
+        goto out;
+
+    if (ebpf_events_is_trusted_pid())
+        goto out;
+
+    file_modify_event__emit(EBPF_FILE_CHANGE_TYPE_PERMISSIONS, path);
+
+out:
+    return;
 }
 
 SEC("fexit/chmod_common")
 int BPF_PROG(fexit__chmod_common, const struct path *path, umode_t mode, int ret)
 {
-    return chmod_common__exit((struct path *)path, mode, ret);
+    chmod_common__exit((struct path *)path, ret);
+    return 0;
 }
 
 SEC("kretprobe/chmod_common")
@@ -532,7 +551,187 @@ int BPF_KRETPROBE(kretprobe__chmod_common, int ret)
     if (!state)
         goto out;
 
-    chmod_common__exit(state->chmod.path, state->chmod.mode, ret);
+    chmod_common__exit(state->chmod.path, ret);
+
+out:
+    return 0;
+}
+
+SEC("kprobe/do_truncate")
+int BPF_KPROBE(kprobe__do_truncate)
+{
+    struct ebpf_events_state state = {};
+
+    struct file *filp;
+    if (FUNC_ARG_READ_PTREGS(filp, do_truncate, filp)) {
+        bpf_printk("kprobe__do_truncate: error reading filp\n");
+        return 0;
+    }
+
+    state.truncate.path = path_from_file(filp);
+    ebpf_events_state__set(EBPF_EVENTS_STATE_TRUNCATE, &state);
+
+out:
+    return 0;
+}
+
+static void do_truncate__exit(struct path *path, int ret)
+{
+    if (ret)
+        goto out;
+
+    if (ebpf_events_is_trusted_pid())
+        goto out;
+
+    file_modify_event__emit(EBPF_FILE_CHANGE_TYPE_CONTENT, path);
+
+out:
+    return;
+}
+
+SEC("fexit/do_truncate")
+int BPF_PROG(fexit__do_truncate)
+{
+    struct file *filp = FUNC_ARG_READ(___type(filp), do_truncate, filp);
+    int ret           = FUNC_RET_READ(___type(ret), do_truncate);
+    do_truncate__exit(path_from_file(filp), ret);
+    return 0;
+}
+
+SEC("kretprobe/do_truncate")
+int BPF_KRETPROBE(kretprobe__do_truncate, int ret)
+{
+    struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_TRUNCATE);
+    if (!state)
+        goto out;
+
+    do_truncate__exit(state->truncate.path, ret);
+
+out:
+    return 0;
+}
+
+SEC("kprobe/vfs_write")
+int BPF_KPROBE(kprobe__vfs_write, struct file *file)
+{
+    struct ebpf_events_state state = {};
+
+    state.write.path = path_from_file(file);
+    ebpf_events_state__set(EBPF_EVENTS_STATE_WRITE, &state);
+
+    return 0;
+}
+
+SEC("kprobe/vfs_writev")
+int BPF_KPROBE(kprobe__vfs_writev, struct file *file)
+{
+    struct ebpf_events_state state = {};
+
+    state.writev.path = path_from_file(file);
+    ebpf_events_state__set(EBPF_EVENTS_STATE_WRITEV, &state);
+
+    return 0;
+}
+
+static void vfs_write__exit(struct path *path, ssize_t ret)
+{
+    if (ret <= 0)
+        goto out;
+
+    if (ebpf_events_is_trusted_pid())
+        goto out;
+
+    file_modify_event__emit(EBPF_FILE_CHANGE_TYPE_CONTENT, path);
+
+out:
+    return;
+}
+
+SEC("fexit/vfs_write")
+int BPF_PROG(
+    fexit__vfs_write, struct file *file, const char *buf, size_t count, loff_t *pos, ssize_t ret)
+{
+    vfs_write__exit(path_from_file(file), ret);
+    return 0;
+}
+
+SEC("fexit/vfs_writev")
+int BPF_PROG(fexit__vfs_writev,
+             struct file *file,
+             const struct iovec *vec,
+             unsigned long vlen,
+             loff_t *pos,
+             rwf_t flags,
+             ssize_t ret)
+{
+    vfs_write__exit(path_from_file(file), ret);
+    return 0;
+}
+
+SEC("kretprobe/vfs_write")
+int BPF_KRETPROBE(kretprobe__vfs_write, ssize_t ret)
+{
+    struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_WRITE);
+    if (!state)
+        goto out;
+
+    vfs_write__exit(state->write.path, ret);
+
+out:
+    return 0;
+}
+
+SEC("kretprobe/vfs_writev")
+int BPF_KRETPROBE(kretprobe__vfs_writev, ssize_t ret)
+{
+    struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_WRITEV);
+    if (!state)
+        goto out;
+
+    vfs_write__exit(state->writev.path, ret);
+
+out:
+    return 0;
+}
+
+SEC("kprobe/chown_common")
+int BPF_KPROBE(kprobe__chown_common, struct path *path, uid_t user, gid_t group)
+{
+    struct ebpf_events_state state = {};
+    state.chown.path               = path;
+    ebpf_events_state__set(EBPF_EVENTS_STATE_CHOWN, &state);
+    return 0;
+}
+
+static void chown_common__exit(struct path *path, int ret)
+{
+    if (ret)
+        goto out;
+
+    if (ebpf_events_is_trusted_pid())
+        goto out;
+
+    file_modify_event__emit(EBPF_FILE_CHANGE_TYPE_OWNER, path);
+
+out:
+    return;
+}
+
+SEC("fexit/chown_common")
+int BPF_PROG(fexit__chown_common, struct path *path, uid_t user, gid_t group, int ret)
+{
+    chown_common__exit(path, ret);
+    return 0;
+}
+
+SEC("kretprobe/chown_common")
+int BPF_KRETPROBE(kretprobe__chown_common, int ret)
+{
+    struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_CHOWN);
+    if (!state)
+        goto out;
+
+    chown_common__exit(state->chown.path, ret);
 
 out:
     return 0;

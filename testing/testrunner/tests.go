@@ -390,32 +390,54 @@ func TestFileDeleteContainer(et *EventsTraceInstance) {
 	AssertStringsEqual(fileDeleteEvent.Path, binOutput.FileNameNew)
 }
 
-func TestFileChmod(et *EventsTraceInstance) {
+func TestFileModify(et *EventsTraceInstance) {
 	outputStr := runTestBin("create_rename_delete_file")
 	var binOutput struct {
-		ChildPid     int64  `json:"child_pid"`
-		FileNameOrig string `json:"filename_orig"`
-		FileNameNew  string `json:"filename_new"`
+		PidInfo      TestPidInfo `json:"pid_info"`
+		FileNameOrig string      `json:"filename_orig"`
+		FileNameNew  string      `json:"filename_new"`
 	}
 	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
 		TestFail("failed to unmarshal json", err)
 	}
 
-	var fileModifyEvent FileModifyEvent
+	eventsCount := 4 // chmod, write, writev, truncate
+	events := make([]FileModifyEvent, 0, eventsCount)
 	for {
+		var event FileModifyEvent
 		line := et.GetNextEventJson("FILE_MODIFY")
-		if err := json.Unmarshal([]byte(line), &fileModifyEvent); err != nil {
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			TestFail("failed to unmarshal JSON: ", err)
 		}
 
-		if fileModifyEvent.Pids.Tgid == binOutput.ChildPid {
-			break
+		if event.Pids.Tid == binOutput.PidInfo.Tid {
+			events = append(events, event)
+			eventsCount--
+			if eventsCount == 0 {
+				break
+			}
 		}
 	}
 
-	AssertStringsEqual(fileModifyEvent.Path, binOutput.FileNameNew)
-	AssertStringsEqual(fileModifyEvent.ChangeType, "PERMISSIONS")
-	AssertUint64Equal(fileModifyEvent.Finfo.Mode, 100777)
+	// chmod
+	AssertStringsEqual(events[0].Path, binOutput.FileNameNew)
+	AssertStringsEqual(events[0].ChangeType, "PERMISSIONS")
+	AssertUint64Equal(events[0].Finfo.Mode, 100777)
+
+	// write
+	AssertStringsEqual(events[1].Path, binOutput.FileNameNew)
+	AssertStringsEqual(events[1].ChangeType, "CONTENT")
+	AssertUint64Equal(events[1].Finfo.Size, 4)
+
+	// writev
+	AssertStringsEqual(events[2].Path, binOutput.FileNameNew)
+	AssertStringsEqual(events[2].ChangeType, "CONTENT")
+	AssertUint64Equal(events[2].Finfo.Size, 4+5+5)
+
+	// truncate
+	AssertStringsEqual(events[3].Path, binOutput.FileNameNew)
+	AssertStringsEqual(events[3].ChangeType, "CONTENT")
+	AssertUint64Equal(events[3].Finfo.Size, 0)
 }
 
 func TestTtyWrite(et *EventsTraceInstance) {

@@ -281,6 +281,9 @@ static int probe_fill_relos(struct btf *btf, struct EventProbe_bpf *obj)
     if (BTF_FIELD_EXISTS(btf, iov_iter, __iov))
         err = err ?: FILL_FIELD_OFFSET(obj, btf, iov_iter, __iov);
 
+    err = err ?: FILL_FUNC_ARG_IDX(obj, btf, do_truncate, filp);
+    err = err ?: FILL_FUNC_RET_IDX(obj, btf, do_truncate);
+
     return err;
 }
 
@@ -339,6 +342,16 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__tty_write, false);
     }
 
+    // vfs_writev BTF information is not available on all supported kernels.
+    // If BTF is not present we can't attach a fentry/ program to it, so
+    // fallback to a kprobe.
+    if (has_bpf_tramp && BTF_FUNC_EXISTS(btf, vfs_writev)) {
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__vfs_writev, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__vfs_writev, false);
+    } else {
+        err = err ?: bpf_program__set_autoload(obj->progs.fexit__vfs_writev, false);
+    }
+
     // bpf trampolines are only implemented for x86. disable auto-loading of all
     // fentry/fexit progs if EBPF_FEATURE_BPF_TRAMP is not in `features` and
     // enable the k[ret]probe counterpart.
@@ -358,6 +371,12 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tcp_close, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__chmod_common, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__chmod_common, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__do_truncate, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__do_truncate, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__vfs_write, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__vfs_write, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__chown_common, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__chown_common, false);
     } else {
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_unlinkat, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__mnt_want_write, false);
@@ -372,6 +391,9 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__tcp_v4_connect, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__tcp_close, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__chmod_common, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.fexit__do_truncate, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.fexit__vfs_write, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.fexit__chown_common, false);
     }
 
     return err;
