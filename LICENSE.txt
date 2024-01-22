@@ -1,9 +1,9 @@
 The https://github.com/elastic/ebpf repository contains source code under
 various licenses:
 
-- Source code in the 'GPL' directory, is dual-licensed under the GNU General
-  Public License version 2 (licenses/GPL-LICENSE.txt) and BSD 2-Clause license
-  (licenses/BSD-2-CLAUSE-LICENSE.txt)
+- Source code in the 'GPL' directory, is dual-licensed under the terms of your
+  choice: either the GNU General Public License version 2 (licenses/GPL-LICENSE.txt)
+  or BSD 2-Clause license (licenses/BSD-2-CLAUSE-LICENSE.txt).
 
 - Source code in the 'non-GPL' and 'testing' directories is licensed under the
   Elastic License 2.0 (licenses/ELASTIC-LICENSE-2.0.txt).
