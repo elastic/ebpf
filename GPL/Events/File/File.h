@@ -15,6 +15,12 @@
 #include <bpf/bpf_core_read.h>
 
 #include "EbpfEventProto.h"
+#include "Helpers.h"
+
+/* struct inode */
+DECL_FIELD_OFFSET(inode, __i_atime);
+DECL_FIELD_OFFSET(inode, __i_mtime);
+DECL_FIELD_OFFSET(inode, __i_ctime);
 
 #define PATH_MAX 4096
 
@@ -49,6 +55,8 @@ static struct path *path_from_file(struct file *f)
 
 static void ebpf_file_info__fill(struct ebpf_file_info *finfo, struct dentry *de)
 {
+    struct timespec64 ts;
+
     struct inode *ino = BPF_CORE_READ(de, d_inode);
 
     finfo->inode = BPF_CORE_READ(ino, i_ino);
@@ -56,12 +64,30 @@ static void ebpf_file_info__fill(struct ebpf_file_info *finfo, struct dentry *de
     finfo->size  = BPF_CORE_READ(ino, i_size);
     finfo->uid   = BPF_CORE_READ(ino, i_uid.val);
     finfo->gid   = BPF_CORE_READ(ino, i_gid.val);
-    finfo->atime = BPF_CORE_READ(ino, i_atime.tv_sec) * NANOSECONDS_IN_SECOND +
-                   BPF_CORE_READ(ino, i_atime.tv_nsec);
-    finfo->mtime = BPF_CORE_READ(ino, i_mtime.tv_sec) * NANOSECONDS_IN_SECOND +
-                   BPF_CORE_READ(ino, i_mtime.tv_nsec);
-    finfo->ctime = BPF_CORE_READ(ino, i_ctime.tv_sec) * NANOSECONDS_IN_SECOND +
-                   BPF_CORE_READ(ino, i_ctime.tv_nsec);
+
+    if (FIELD_OFFSET(inode, __i_atime)) {
+        bpf_core_read(&ts, sizeof(ts), (char *)ino + FIELD_OFFSET(inode, __i_atime));
+        finfo->atime = ts.tv_sec * NANOSECONDS_IN_SECOND + ts.tv_nsec;
+    } else if (bpf_core_field_exists(ino->i_atime)) {
+        finfo->atime = BPF_CORE_READ(ino, i_atime.tv_sec) * NANOSECONDS_IN_SECOND +
+                       BPF_CORE_READ(ino, i_atime.tv_nsec);
+    }
+
+    if (FIELD_OFFSET(inode, __i_mtime)) {
+        bpf_core_read(&ts, sizeof(ts), (char *)ino + FIELD_OFFSET(inode, __i_mtime));
+        finfo->mtime = ts.tv_sec * NANOSECONDS_IN_SECOND + ts.tv_nsec;
+    } else if (bpf_core_field_exists(ino->i_mtime)) {
+        finfo->mtime = BPF_CORE_READ(ino, i_mtime.tv_sec) * NANOSECONDS_IN_SECOND +
+                       BPF_CORE_READ(ino, i_mtime.tv_nsec);
+    }
+
+    if (FIELD_OFFSET(inode, __i_ctime)) {
+        bpf_core_read(&ts, sizeof(ts), (char *)ino + FIELD_OFFSET(inode, __i_ctime));
+        finfo->ctime = ts.tv_sec * NANOSECONDS_IN_SECOND + ts.tv_nsec;
+    } else if (bpf_core_field_exists(ino->i_ctime)) {
+        finfo->ctime = BPF_CORE_READ(ino, i_ctime.tv_sec) * NANOSECONDS_IN_SECOND +
+                       BPF_CORE_READ(ino, i_ctime.tv_nsec);
+    }
 
     if (S_ISREG(finfo->mode)) {
         finfo->type = EBPF_FILE_TYPE_FILE;
