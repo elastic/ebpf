@@ -284,6 +284,13 @@ static int probe_fill_relos(struct btf *btf, struct EventProbe_bpf *obj)
     err = err ?: FILL_FUNC_ARG_IDX(obj, btf, do_truncate, filp);
     err = err ?: FILL_FUNC_RET_IDX(obj, btf, do_truncate);
 
+    if (BTF_FIELD_EXISTS(btf, inode, __i_atime))
+        err = err ?: FILL_FIELD_OFFSET(obj, btf, inode, __i_atime);
+    if (BTF_FIELD_EXISTS(btf, inode, __i_mtime))
+        err = err ?: FILL_FIELD_OFFSET(obj, btf, inode, __i_mtime);
+    if (BTF_FIELD_EXISTS(btf, inode, __i_ctime))
+        err = err ?: FILL_FIELD_OFFSET(obj, btf, inode, __i_ctime);
+
     return err;
 }
 
