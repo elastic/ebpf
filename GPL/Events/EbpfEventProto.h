@@ -146,6 +146,7 @@ struct ebpf_file_info {
 struct ebpf_file_delete_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
+    struct ebpf_cred_info creds;
     struct ebpf_file_info finfo;
     uint32_t mntns;
     char comm[TASK_COMM_LEN];
@@ -157,6 +158,7 @@ struct ebpf_file_delete_event {
 struct ebpf_file_create_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
+    struct ebpf_cred_info creds;
     struct ebpf_file_info finfo;
     uint32_t mntns;
     char comm[TASK_COMM_LEN];
@@ -168,6 +170,7 @@ struct ebpf_file_create_event {
 struct ebpf_file_rename_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
+    struct ebpf_cred_info creds;
     struct ebpf_file_info finfo;
     uint32_t mntns;
     char comm[TASK_COMM_LEN];
@@ -187,6 +190,7 @@ enum ebpf_file_change_type {
 struct ebpf_file_modify_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
+    struct ebpf_cred_info creds;
     struct ebpf_file_info finfo;
     enum ebpf_file_change_type change_type;
     uint32_t mntns;

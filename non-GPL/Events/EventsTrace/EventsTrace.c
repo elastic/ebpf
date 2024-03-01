@@ -403,6 +403,9 @@ static void out_file_delete(struct ebpf_file_delete_event *evt)
     out_pid_info("pids", &evt->pids);
     out_comma();
 
+    out_cred_info("creds", &evt->creds);
+    out_comma();
+
     out_int("mount_namespace", evt->mntns);
     out_comma();
 
@@ -441,6 +444,9 @@ static void out_file_create(struct ebpf_file_create_event *evt)
     out_pid_info("pids", &evt->pids);
     out_comma();
 
+    out_cred_info("creds", &evt->creds);
+    out_comma();
+
     out_int("mount_namespace", evt->mntns);
     out_comma();
 
@@ -477,6 +483,9 @@ static void out_file_rename(struct ebpf_file_rename_event *evt)
     out_comma();
 
     out_pid_info("pids", &evt->pids);
+    out_comma();
+
+    out_cred_info("creds", &evt->creds);
     out_comma();
 
     out_int("mount_namespace", evt->mntns);
@@ -518,6 +527,9 @@ static void out_file_modify(struct ebpf_file_modify_event *evt)
     out_comma();
 
     out_pid_info("pids", &evt->pids);
+    out_comma();
+
+    out_cred_info("creds", &evt->creds);
     out_comma();
 
     out_int("mount_namespace", evt->mntns);
