@@ -5,7 +5,6 @@
 #define _GNU_SOURCE
 
 
-#include <curl/curl.h>
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <stdio.h>
