@@ -12,8 +12,8 @@
 readonly KERNEL_OUTPUT_DIR="kernels"
 
 readonly BUILD_ARCHES=(
-#    "aarch64"
     "x86_64"
+    "aarch64"
 )
 
 # We hit every minor release here, and grab a number of different patch
@@ -37,11 +37,11 @@ readonly BUILD_VERSIONS_PAHOLE_120=(
 )
 
 readonly BUILD_VERSIONS_PAHOLE_SOURCE=(
-#    "6.2"
+    "6.2"
     "6.3"
-#    "6.4"
-#j    "6.4.16"
-#    "6.5"
+    "6.4"
+    "6.4.16"
+    "6.5"
 )
 
 exit_error() {
@@ -99,9 +99,9 @@ fetch_and_build() {
 
     mkdir -p ${KERNEL_OUTPUT_DIR}/src/
 
-#    curl -L "https://cdn.kernel.org/pub/linux/kernel/v${version%%.*}.x/linux-${version}.tar.xz" -o "${archive}"
-#    tar -C $(dirname ${archive}) -axvf ${archive}
-#    rm ${archive}
+    curl -L "https://cdn.kernel.org/pub/linux/kernel/v${version%%.*}.x/linux-${version}.tar.xz" -o "${archive}"
+    tar -C $(dirname ${archive}) -axvf ${archive}
+    rm ${archive}
 
     for arch in ${BUILD_ARCHES[@]}; do
         echo "BUILD ${arch}/${version}"
