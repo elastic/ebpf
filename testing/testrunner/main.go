@@ -15,28 +15,29 @@ import (
 
 func main() {
 	RunEventsTest(TestFeaturesCorrect)
-//	RunEventsTest(TestForkExit, "--process-fork")
-//    RunEventsTest(TestForkExec, "--process-fork", "--process-exec")
-//	RunEventsTest(TestSetuid, "--process-setuid")
-//	RunEventsTest(TestSetuid, "--process-setuid")
+	RunEventsTest(TestForkExit, "--process-fork")
+    RunEventsTest(TestForkExec, "--process-fork", "--process-exec")
+	RunEventsTest(TestSetuid, "--process-setuid")
+	RunEventsTest(TestSetuid, "--process-setuid")
+
     RunEventsTest(TestMemfdCreate, "--process-memfd-create", "--process-exec")
-//    RunEventsTest(TestShmget, "--process-shmget")
-//    RunEventsTest(TestPtrace, "--process-ptrace")
+    RunEventsTest(TestShmget, "--process-shmget")
+    RunEventsTest(TestPtrace, "--process-ptrace")
 //    RunEventsTest(TestLoadKernelModule, "--process-load-module")
 
-//	RunEventsTest(TestSetgid, "--process-setgid")
-//	RunEventsTest(TestTtyWrite, "--process-tty-write")
-//
-//	RunEventsTest(TestFileCreate, "--file-create")
-//	RunEventsTest(TestFileDelete, "--file-delete")
-//	RunEventsTest(TestFileRename, "--file-rename")
-//
-//	RunEventsTest(TestTcpv4ConnectionAttempt, "--net-conn-attempt")
-//	RunEventsTest(TestTcpv4ConnectionAccept, "--net-conn-accept")
-//	RunEventsTest(TestTcpv4ConnectionClose, "--net-conn-close")
-//	RunEventsTest(TestTcpv6ConnectionAttempt, "--net-conn-attempt")
-//	RunEventsTest(TestTcpv6ConnectionAccept, "--net-conn-accept")
-//	RunEventsTest(TestTcpv6ConnectionClose, "--net-conn-close")
+	RunEventsTest(TestSetgid, "--process-setgid")
+	RunEventsTest(TestTtyWrite, "--process-tty-write")
+
+	RunEventsTest(TestFileCreate, "--file-create")
+	RunEventsTest(TestFileDelete, "--file-delete")
+	RunEventsTest(TestFileRename, "--file-rename")
+
+	RunEventsTest(TestTcpv4ConnectionAttempt, "--net-conn-attempt")
+	RunEventsTest(TestTcpv4ConnectionAccept, "--net-conn-accept")
+	RunEventsTest(TestTcpv4ConnectionClose, "--net-conn-close")
+	RunEventsTest(TestTcpv6ConnectionAttempt, "--net-conn-attempt")
+	RunEventsTest(TestTcpv6ConnectionAccept, "--net-conn-accept")
+	RunEventsTest(TestTcpv6ConnectionClose, "--net-conn-close")
 
 	RunTest(TestTcFilter)
 
