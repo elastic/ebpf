@@ -151,7 +151,7 @@ struct ebpf_file_delete_event {
     uint32_t mntns;
     char comm[TASK_COMM_LEN];
 
-    // Variable length fields: path, symlink_target_path
+    // Variable length fields: path, symlink_target_path, pids_ss_cgroup_path
     struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
@@ -163,7 +163,7 @@ struct ebpf_file_create_event {
     uint32_t mntns;
     char comm[TASK_COMM_LEN];
 
-    // Variable length fields: path, symlink_target_path
+    // Variable length fields: path, symlink_target_path, pids_ss_cgroup_path
     struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
@@ -175,7 +175,7 @@ struct ebpf_file_rename_event {
     uint32_t mntns;
     char comm[TASK_COMM_LEN];
 
-    // Variable length fields: old_path, new_path, symlink_target_path
+    // Variable length fields: old_path, new_path, symlink_target_path, pids_ss_cgroup_path
     struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
@@ -196,7 +196,7 @@ struct ebpf_file_modify_event {
     uint32_t mntns;
     char comm[TASK_COMM_LEN];
 
-    // Variable length fields: path, symlink_target_path
+    // Variable length fields: path, symlink_target_path, pids_ss_cgroup_path
     struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 

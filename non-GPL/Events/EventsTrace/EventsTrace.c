@@ -425,6 +425,9 @@ static void out_file_delete(struct ebpf_file_delete_event *evt)
         case EBPF_VL_FIELD_SYMLINK_TARGET_PATH:
             out_string("symlink_target_path", field->data);
             break;
+        case EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH:
+            out_string("pids_ss_cgroup_path", field->data);
+            break;
         default:
             fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
             break;
@@ -465,6 +468,9 @@ static void out_file_create(struct ebpf_file_create_event *evt)
             break;
         case EBPF_VL_FIELD_SYMLINK_TARGET_PATH:
             out_string("symlink_target_path", field->data);
+            break;
+        case EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH:
+            out_string("pids_ss_cgroup_path", field->data);
             break;
         default:
             fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
@@ -509,6 +515,9 @@ static void out_file_rename(struct ebpf_file_rename_event *evt)
             break;
         case EBPF_VL_FIELD_SYMLINK_TARGET_PATH:
             out_string("symlink_target_path", field->data);
+            break;
+        case EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH:
+            out_string("pids_ss_cgroup_path", field->data);
             break;
         default:
             fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
@@ -569,6 +578,9 @@ static void out_file_modify(struct ebpf_file_modify_event *evt)
             break;
         case EBPF_VL_FIELD_SYMLINK_TARGET_PATH:
             out_string("symlink_target_path", field->data);
+            break;
+        case EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH:
+            out_string("pids_ss_cgroup_path", field->data);
             break;
         default:
             fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
