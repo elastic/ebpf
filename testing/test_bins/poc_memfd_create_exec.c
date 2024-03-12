@@ -16,7 +16,12 @@
 #include <sys/utsname.h>
 #include <unistd.h>
 
+#ifdef __aarch64__
+#include "malware/malware_elf_binary_arm64.h"
+#else
 #include "malware/malware_elf_binary.h"
+#endif
+
 #include "common.h"
 
 
