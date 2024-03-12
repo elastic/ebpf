@@ -150,6 +150,11 @@ static int vfs_unlink__exit(int ret)
     size       = read_kernel_str_or_empty_str(field->data, PATH_MAX, link);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
+    // pids ss cgroup path
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
+    size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 
     // Certain filesystems (eg. overlayfs) call vfs_unlink twice during the same
@@ -256,6 +261,11 @@ static int do_filp_open__exit(struct file *f)
         field      = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_SYMLINK_TARGET_PATH);
         char *link = BPF_CORE_READ(p.dentry, d_inode, i_link);
         size       = read_kernel_str_or_empty_str(field->data, PATH_MAX, link);
+        ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+        // pids ss cgroup path
+        field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
+        size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
         ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
         bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
@@ -444,6 +454,11 @@ static int vfs_rename__exit(int ret)
     size       = read_kernel_str_or_empty_str(field->data, PATH_MAX, link);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
+    // pids ss cgroup path
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
+    size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 
     // Certain filesystems (eg. overlayfs) call vfs_rename twice during the same
@@ -509,6 +524,11 @@ static void file_modify_event__emit(enum ebpf_file_change_type typ, struct path 
     field      = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_SYMLINK_TARGET_PATH);
     char *link = BPF_CORE_READ(path, dentry, d_inode, i_link);
     size       = read_kernel_str_or_empty_str(field->data, PATH_MAX, link);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    // pids ss cgroup path
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
+    size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
