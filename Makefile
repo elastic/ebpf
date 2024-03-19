@@ -52,7 +52,7 @@ ifdef DEBUG
 endif
 
 # Directories to search recursively for c/cpp source files to clang-format
-FORMAT_DIRS = GPL/ non-GPL/ testing/test_bins
+FORMAT_DIRS = GPL/ non-GPL/
 
 .PHONY = build package clean container format test-format release-container update-kims kip
 
