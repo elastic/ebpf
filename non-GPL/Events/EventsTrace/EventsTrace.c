@@ -29,9 +29,11 @@ const char argp_program_doc[] =
     "\n"
     "Prints process, network and file events sourced from the Elastic ebpf events library\n"
     "\n"
-    "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename] [--file-memfd-open] [--file-shmem-open] [--file-modify]\n"
+    "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename] "
+    "[--file-memfd-open] [--file-shmem-open] [--file-modify]\n"
     "[--process-fork] [--process-exec] [--process-exit] [--process-setsid] [--process-setuid] "
-    "[--process-setgid] [--process-tty-write] [--process-memfd_create] [--process-shmget] [--process-ptrace] [--process-load_module]\n"
+    "[--process-setgid] [--process-tty-write] [--process-memfd_create] [--process-shmget] "
+    "[--process-ptrace] [--process-load_module]\n"
     "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n"
     "[--print-features-on-init] [--unbuffer-stdout] [--libbpf-verbose]\n";
 

@@ -14,8 +14,8 @@
 
 const volatile int consumer_pid = 0;
 
-#define MEMFD_STRING  "memfd:"
-#define TMPFS_STRING  "tmpfs"
+#define MEMFD_STRING "memfd:"
+#define TMPFS_STRING "tmpfs"
 #define DEVSHM_STRING "/dev/shm"
 
 #if BPF_DEBUG_TRACE == 0

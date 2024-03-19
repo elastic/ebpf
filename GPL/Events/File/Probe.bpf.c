@@ -218,7 +218,10 @@ int BPF_KPROBE(kprobe__vfs_unlink)
 
 // prepare a file event and send it to ringbuf.
 // if path_prefix is non-NULL then event will only be sent to ringbuf if file path has that prefix
-static void prepare_and_send_file_event(struct file *f, enum ebpf_event_type type, const char *path_prefix, int path_prefix_len)
+static void prepare_and_send_file_event(struct file *f,
+                                        enum ebpf_event_type type,
+                                        const char *path_prefix,
+                                        int path_prefix_len)
 {
     struct ebpf_file_create_event *event = get_event_buffer();
     if (!event)
@@ -287,13 +290,12 @@ static int do_filp_open__exit(struct file *f)
         prepare_and_send_file_event(f, EBPF_EVENT_FILE_CREATE, NULL, 0);
     } else {
         // check if memfd file is being opened
-        struct path p            = BPF_CORE_READ(f, f_path);
-        struct dentry *curr_dentry =  BPF_CORE_READ(&p, dentry);
-        struct qstr component = BPF_CORE_READ(curr_dentry, d_name);
-        char buf_filename[8] = {0};
-        int ret = bpf_probe_read_kernel_str(buf_filename,
-                                            sizeof(MEMFD_STRING),
-                                            (void *)component.name);
+        struct path p              = BPF_CORE_READ(f, f_path);
+        struct dentry *curr_dentry = BPF_CORE_READ(&p, dentry);
+        struct qstr component      = BPF_CORE_READ(curr_dentry, d_name);
+        char buf_filename[8]       = {0};
+        int ret =
+            bpf_probe_read_kernel_str(buf_filename, sizeof(MEMFD_STRING), (void *)component.name);
         if (ret <= 0) {
             bpf_printk("could not read d_name at %p\n", component.name);
             goto out;
@@ -307,24 +309,22 @@ static int do_filp_open__exit(struct file *f)
         }
 
         struct vfsmount *curr_vfsmount = BPF_CORE_READ(&p, mnt);
-        const char *fs_type_name = BPF_CORE_READ(curr_vfsmount, mnt_sb, s_type, name);
+        const char *fs_type_name       = BPF_CORE_READ(curr_vfsmount, mnt_sb, s_type, name);
 
         // check if /dev/shm shared memory file is being opened
         // first check if fs is tmpfs
         char buf_fsname[8] = {0};
-        ret = bpf_probe_read_kernel_str(buf_fsname,
-                                        sizeof(TMPFS_STRING),
-                                        (void *)fs_type_name);
+        ret = bpf_probe_read_kernel_str(buf_fsname, sizeof(TMPFS_STRING), (void *)fs_type_name);
         if (ret <= 0) {
             bpf_printk("could not read fsname at %p\n", fs_type_name);
             goto out;
         }
 
         int is_tmpfs = is_equal_prefix(buf_fsname, TMPFS_STRING, sizeof(TMPFS_STRING) - 1);
-        if (is_tmpfs)
-        {
+        if (is_tmpfs) {
             // now filter for /dev/shm prefix, if there is match - send an SHMEM file open event
-            prepare_and_send_file_event(f, EBPF_EVENT_FILE_SHMEM_OPEN, DEVSHM_STRING, sizeof(DEVSHM_STRING) - 1);
+            prepare_and_send_file_event(f, EBPF_EVENT_FILE_SHMEM_OPEN, DEVSHM_STRING,
+                                        sizeof(DEVSHM_STRING) - 1);
         }
     }
 
