@@ -56,7 +56,7 @@ class BPFTcFilterTests : public ::testing::Test
         char *object_path_env    = getenv(OBJECT_PATH_ENV_VAR);
         int err                  = 0;
         m_obj                    = object_path_env == NULL ? bpf_object__open(DEFAULT_OBJECT_PATH)
-                                        : bpf_object__open(object_path_env);
+                                                           : bpf_object__open(object_path_env);
 
         if (libbpf_get_error(m_obj)) {
             FAIL() << "Cannot open ELF object to test, you can pass a custom one with the "
