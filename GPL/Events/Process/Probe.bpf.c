@@ -79,6 +79,9 @@ int BPF_PROG(sched_process_exec,
              pid_t old_pid,
              const struct linux_binprm *binprm)
 {
+    if (!binprm)
+        goto out;
+
     // Note that we don't ignore the !is_thread_group_leader(task) case here.
     // if a non-thread-group-leader thread performs an execve, it assumes the
     // pid info of the thread group leader, all other threads are terminated,
@@ -97,9 +100,6 @@ int BPF_PROG(sched_process_exec,
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_cred_info__fill(&event->creds, task);
     ebpf_ctty__fill(&event->ctty, task);
-
-    if (!binprm)
-        return 0;
 
     // set setuid and setgid flags
     struct file *f        = BPF_CORE_READ(binprm, file);
@@ -445,8 +445,8 @@ int tracepoint_syscalls_sys_enter_memfd_create(struct trace_event_raw_sys_enter 
     // memfd filename
     field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_FILENAME);
     size  = bpf_probe_read_user_str(field->data, PATH_MAX, ex_args->uname);
-    if (size < 0)
-        return 1;
+    if (size <= 0)
+        goto out;
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);

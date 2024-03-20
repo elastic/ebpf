@@ -279,6 +279,7 @@ static bool is_consumer()
 }
 
 // compares first 'len' characters of str1 and str2, returns 1 if equal
+// NOTE: no bounds check, assumes use under eBPF verifier
 static int is_equal_prefix(const char *str1, const char *str2, int len)
 {
     for (int i = 0; i < len; i++) {
