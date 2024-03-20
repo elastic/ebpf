@@ -243,11 +243,6 @@ static void prepare_and_send_file_event(struct file *f,
     struct ebpf_varlen_field *field;
     long size;
 
-    // path
-    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PATH);
-    size  = ebpf_resolve_path_to_string(field->data, &p, task);
-    ebpf_vl_field__set_size(&event->vl_fields, field, size);
-
     // symlink_target_path
     field      = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_SYMLINK_TARGET_PATH);
     char *link = BPF_CORE_READ(p.dentry, d_inode, i_link);
@@ -257,6 +252,11 @@ static void prepare_and_send_file_event(struct file *f,
     // pids ss cgroup path
     field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH);
     size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
+    // path
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_PATH);
+    size  = ebpf_resolve_path_to_string(field->data, &p, task);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
     // skip event if prefix is specified and file path does not start with it
