@@ -65,6 +65,8 @@ function(ebpf_static_binary target)
 
     add_executable(${target} ${EBPF_BIN_SOURCES})
 
+    target_compile_options(${target} PUBLIC -g -Wall -Wextra)
+
     if (EBPF_BIN_LINK)
         target_link_libraries(${target} ${EBPF_BIN_LINK})
     endif()
