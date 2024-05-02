@@ -25,7 +25,7 @@ struct ebpf_event_ctx;
 typedef int (*ebpf_event_handler_fn)(struct ebpf_event_header *);
 
 /* Turn on logging of all libbpf debug logs to stderr */
-int ebpf_set_verbose_logging();
+int ebpf_set_verbose_logging(void);
 
 /* Allocates a new context based on requested events and capabilities.
  *
