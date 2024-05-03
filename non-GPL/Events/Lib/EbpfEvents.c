@@ -111,13 +111,13 @@ out:
     return ret;
 }
 
-const struct btf_type *resolve_btf_type_by_func(struct btf *btf, const char *func)
+static const struct btf_type *resolve_btf_type_by_func(struct btf *btf, const char *func)
 {
     if (func == NULL) {
         goto out;
     }
 
-    for (int i = 0; i < btf__type_cnt(btf); i++) {
+    for (u_int i = 0; i < btf__type_cnt(btf); i++) {
         int btf_type = btf__resolve_type(btf, i);
         if (btf_type < 0)
             continue;
