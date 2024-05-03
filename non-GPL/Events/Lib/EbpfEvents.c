@@ -406,7 +406,7 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
     return err;
 }
 
-static bool system_has_bpf_tramp()
+static bool system_has_bpf_tramp(void)
 {
     /*
      * This is somewhat-fragile but as far as I can see, is the most robust
@@ -498,7 +498,7 @@ out:
     return ret;
 }
 
-static uint64_t detect_system_features()
+static uint64_t detect_system_features(void)
 {
     uint64_t features = 0;
 
