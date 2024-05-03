@@ -496,7 +496,8 @@ int netlink_filter_add_end(int fd, struct netlink_ctx *ctx, const char *ebpf_obj
     attr_put_32(nl, MAX_MSG, TCA_BPF_FD, fd);
     attr_put_str(nl, MAX_MSG, TCA_BPF_NAME, buf);
     attr_put_32(nl, MAX_MSG, TCA_BPF_FLAGS, TCA_BPF_FLAG_ACT_DIRECT);
-    ctx->tail->rta_len = (((void *)nl) + nl->nlmsg_len) - (void *)ctx->tail;
+    /* XXX MISSING NLMSG_ALIGN */
+    ctx->tail->rta_len = (((char *)nl) + nl->nlmsg_len) - (char *)ctx->tail;
 
     /* talk to netlink */
     if (rtnetlink_send(&ctx->filter_rth, &ctx->msg.n) < 0) {
