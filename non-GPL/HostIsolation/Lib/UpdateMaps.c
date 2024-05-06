@@ -86,17 +86,17 @@ int ebpf_map_allowed_pids_delete(uint32_t pid)
     return ebpf_map_delete_key(EBPF_ALLOWED_PIDS_MAP_PATH, &key);
 }
 
-int ebpf_map_allowed_IPs_clear()
+int ebpf_map_allowed_IPs_clear(void)
 {
     return ebpf_clear_map(EBPF_ALLOWED_IPS_MAP_PATH, EBPF_MAP_ALLOWED_IPS);
 }
 
-int ebpf_map_allowed_subnets_clear()
+int ebpf_map_allowed_subnets_clear(void)
 {
     return ebpf_clear_map(EBPF_ALLOWED_SUBNETS_MAP_PATH, EBPF_MAP_ALLOWED_SUBNETS);
 }
 
-int ebpf_map_allowed_pids_clear()
+int ebpf_map_allowed_pids_clear(void)
 {
     return ebpf_clear_map(EBPF_ALLOWED_PIDS_MAP_PATH, EBPF_MAP_ALLOWED_PIDS);
 }

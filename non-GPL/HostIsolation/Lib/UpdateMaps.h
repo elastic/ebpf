@@ -71,19 +71,19 @@ int ebpf_map_allowed_pids_delete(uint32_t pid);
  *
  * @return Error value (0 for success)
  */
-int ebpf_map_allowed_IPs_clear();
+int ebpf_map_allowed_IPs_clear(void);
 
 /**
  * @brief Clear IP subnet allowlist
  *
  * @return Error value (0 for success)
  */
-int ebpf_map_allowed_subnets_clear();
+int ebpf_map_allowed_subnets_clear(void);
 
 /**
  * @brief Clear pid allowlist
  *
  * @return Error value (0 for success)
  */
-int ebpf_map_allowed_pids_clear();
+int ebpf_map_allowed_pids_clear(void);
 #endif
