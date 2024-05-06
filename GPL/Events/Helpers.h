@@ -257,7 +257,7 @@ static void ebpf_cred_info__fill(struct ebpf_cred_info *ci, const struct task_st
 
 static void ebpf_comm__fill(char *comm, size_t len, const struct task_struct *task)
 {
-	read_kernel_str_or_empty_str(comm, len, BPF_CORE_READ(task, comm));
+    read_kernel_str_or_empty_str(comm, len, BPF_CORE_READ(task, comm));
 }
 
 static bool is_kernel_thread(const struct task_struct *task)
