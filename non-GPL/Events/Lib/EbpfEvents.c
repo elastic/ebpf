@@ -111,13 +111,13 @@ out:
     return ret;
 }
 
-const struct btf_type *resolve_btf_type_by_func(struct btf *btf, const char *func)
+static const struct btf_type *resolve_btf_type_by_func(struct btf *btf, const char *func)
 {
     if (func == NULL) {
         goto out;
     }
 
-    for (int i = 0; i < btf__type_cnt(btf); i++) {
+    for (u_int i = 0; i < btf__type_cnt(btf); i++) {
         int btf_type = btf__resolve_type(btf, i);
         if (btf_type < 0)
             continue;
@@ -406,7 +406,7 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
     return err;
 }
 
-static bool system_has_bpf_tramp()
+static bool system_has_bpf_tramp(void)
 {
     /*
      * This is somewhat-fragile but as far as I can see, is the most robust
@@ -498,7 +498,7 @@ out:
     return ret;
 }
 
-static uint64_t detect_system_features()
+static uint64_t detect_system_features(void)
 {
     uint64_t features = 0;
 

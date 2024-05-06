@@ -79,7 +79,7 @@ out:
     return version_code;
 }
 
-static unsigned long get_auxiliary_vector_base(int at_key)
+static unsigned long get_auxiliary_vector_base(unsigned long at_key)
 {
     unsigned long base = 0;
 
@@ -88,19 +88,17 @@ static unsigned long get_auxiliary_vector_base(int at_key)
     return base;
 #else
     FILE *f = NULL;
-    int err = 0;
 
     f = fopen("/proc/self/auxv", "r");
     if (!f) {
-        err = -errno;
-        ebpf_log("failed to open /proc/self/auxv: %d\n", err);
+        ebpf_log("failed to open /proc/self/auxv: %d\n", -errno);
         return 0;
     }
 
     while (true) {
         unsigned long key   = 0;
         unsigned long value = 0;
-        int ret             = -1;
+        size_t ret          = 0;
         ret                 = fread(&key, sizeof(key), 1, f);
         if (ret != 1)
             break;
@@ -111,9 +109,10 @@ static unsigned long get_auxiliary_vector_base(int at_key)
             break;
         if (key == at_key) {
             base = value;
-            return base;
+            break;
         }
     }
+    fclose(f);
     return base;
 #endif
 }

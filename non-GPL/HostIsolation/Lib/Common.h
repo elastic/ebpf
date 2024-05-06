@@ -63,7 +63,7 @@ void ebpf_log(const char *format, ...);
  * @brief Returns the default log function used by the library
  * @return
  */
-libbpf_print_fn_t ebpf_default_log_func();
+libbpf_print_fn_t ebpf_default_log_func(void);
 
 /**
  * @brief Set a custom log function to be used by the eBPF library and libbpf

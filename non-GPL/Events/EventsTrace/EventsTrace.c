@@ -171,32 +171,32 @@ static void sig_int(int signo)
     fprintf(stdout, "Received SIGINT, exiting...\n");
 }
 
-static void out_comma()
+static void out_comma(void)
 {
     printf(",");
 }
 
-static void out_newline()
+static void out_newline(void)
 {
     printf("\n");
 }
 
-static void out_array_start()
+static void out_array_start(void)
 {
     printf("[");
 }
 
-static void out_array_end()
+static void out_array_end(void)
 {
     printf("]");
 }
 
-static void out_object_start()
+static void out_object_start(void)
 {
     printf("{");
 }
 
-static void out_object_end()
+static void out_object_end(void)
 {
     printf("}");
 }
