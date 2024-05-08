@@ -224,6 +224,7 @@ struct ebpf_process_exec_event {
 struct ebpf_process_exit_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
+    struct ebpf_cred_info creds;
     int32_t exit_code;
     char comm[TASK_COMM_LEN];
 

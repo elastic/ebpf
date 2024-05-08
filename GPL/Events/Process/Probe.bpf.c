@@ -167,6 +167,7 @@ static int taskstats_exit__enter(const struct task_struct *task, int group_dead)
     int exit_code    = BPF_CORE_READ(task, exit_code);
     event->exit_code = (exit_code >> 8) & 0xFF;
     ebpf_pid_info__fill(&event->pids, task);
+    ebpf_cred_info__fill(&event->creds, task);
     ebpf_comm__fill(event->comm, sizeof(event->comm), task);
 
     // Variable length fields
