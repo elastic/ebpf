@@ -1097,6 +1097,7 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         break;
     case EBPF_EVENT_FILE_MODIFY:
         out_file_modify((struct ebpf_file_modify_event *)evt_hdr);
+        break;
     case EBPF_EVENT_FILE_MEMFD_OPEN:
         // reuses struct ebpf_file_create_event
         out_file_memfd_open((struct ebpf_file_create_event *)evt_hdr);
