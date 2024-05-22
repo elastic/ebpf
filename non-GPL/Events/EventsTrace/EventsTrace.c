@@ -790,11 +790,11 @@ static void out_process_exec(struct ebpf_process_exec_event *evt)
     out_string("comm", evt->comm);
     out_comma();
 
-    out_bool("is_setuid", evt->is_setuid);
+    out_bool("is_setuid", evt->flags & EXEC_F_SETUID);
     out_comma();
-    out_bool("is_setgid", evt->is_setgid);
+    out_bool("is_setgid", evt->flags & EXEC_F_SETGID);
     out_comma();
-    out_bool("is_memfd", evt->is_memfd);
+    out_bool("is_memfd", evt->flags & EXEC_F_MEMFD);
     out_comma();
     unsigned int nlinks = evt->inode_nlink;
     out_uint("inode_nlinks", nlinks);
