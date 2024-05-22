@@ -753,6 +753,7 @@ static void out_process_fork(struct ebpf_process_fork_event *evt)
     out_comma();
 
     out_string("comm", evt->comm);
+    out_comma();
 
     struct ebpf_varlen_field *field;
     FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
@@ -788,6 +789,7 @@ static void out_process_exec(struct ebpf_process_exec_event *evt)
     out_comma();
 
     out_string("comm", evt->comm);
+    out_comma();
 
     out_bool("is_setuid", evt->is_setuid);
     out_comma();
@@ -885,6 +887,7 @@ static void out_process_tty_write(struct ebpf_process_tty_write_event *evt)
     out_tty_dev("tty", &evt->tty);
     out_comma();
     out_string("comm", (const char *)&evt->comm);
+    out_comma();
 
     struct ebpf_varlen_field *field;
     FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
@@ -1026,6 +1029,7 @@ static void out_network_event(const char *name, struct ebpf_net_event *evt)
     out_comma();
 
     out_string("comm", (const char *)&evt->comm);
+    out_comma();
 
     out_object_end();
     out_newline();
