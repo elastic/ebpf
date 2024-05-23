@@ -226,6 +226,10 @@ struct ebpf_process_fork_event {
     struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
+#define EXEC_F_SETUID	(1 << 0)
+#define EXEC_F_SETGID	(1 << 1)
+#define EXEC_F_MEMFD	(1 << 2)
+
 struct ebpf_process_exec_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
@@ -233,9 +237,7 @@ struct ebpf_process_exec_event {
     struct ebpf_tty_dev ctty;
     char comm[TASK_COMM_LEN];
     unsigned int inode_nlink;
-    bool is_setuid;
-    bool is_setgid;
-    bool is_memfd;
+    uint32_t flags;
 
     // Variable length fields: cwd, argv, env, filename, pids_ss_cgroup_path
     struct ebpf_varlen_fields_start vl_fields;
