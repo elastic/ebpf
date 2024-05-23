@@ -600,15 +600,15 @@ static void out_process_memfd_create(struct ebpf_process_memfd_create_event *evt
 
     out_uint("flags", evt->flags);
     out_comma();
-    out_bool("flag_cloexec", evt->flag_cloexec);
+    out_bool("flag_cloexec", evt->flags & MFD_CLOEXEC);
     out_comma();
-    out_bool("flag_allow_seal", evt->flag_allow_seal);
+    out_bool("flag_allow_seal", evt->flags & MFD_ALLOW_SEALING);
     out_comma();
-    out_bool("flag_hugetlb", evt->flag_hugetlb);
+    out_bool("flag_hugetlb", evt->flags & MFD_HUGETLB);
     out_comma();
-    out_bool("flag_noexec_seal", evt->flag_noexec_seal);
+    out_bool("flag_noexec_seal", evt->flags & MFD_NOEXEC_SEAL);
     out_comma();
-    out_bool("flag_exec", evt->flag_exec);
+    out_bool("flag_exec", evt->flags & MFD_EXEC);
 
     struct ebpf_varlen_field *field;
     FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)

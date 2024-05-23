@@ -283,16 +283,25 @@ static bool is_consumer()
     return consumer_pid == pid;
 }
 
+static int strncmp(const char *s1, const char *s2, size_t n)
+{
+
+    if (n == 0)
+        return (0);
+    do {
+        if (*s1 != *s2++)
+            return (*(unsigned char *)s1 - *(unsigned char *)--s2);
+        if (*s1++ == 0)
+            break;
+    } while (--n != 0);
+    return (0);
+}
+
 // compares first 'len' characters of str1 and str2, returns 1 if equal
 // NOTE: no bounds check, assumes use under eBPF verifier
 static int is_equal_prefix(const char *str1, const char *str2, int len)
 {
-    for (int i = 0; i < len; i++) {
-        if (str1[i] != str2[i]) {
-            return 0;
-        }
-    }
-    return 1;
+    return !strncmp(str1, str2, len);
 }
 
 #endif // EBPF_EVENTPROBE_HELPERS_H

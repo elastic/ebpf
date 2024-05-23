@@ -293,16 +293,30 @@ struct ebpf_process_setgid_event {
     uint32_t new_euid;
 } __attribute__((packed));
 
+// from linux/memfd.h:
+//
+/* flags for memfd_create(2) (unsigned int) */
+#ifndef MFD_CLOEXEC
+#define MFD_CLOEXEC 0x0001U
+#endif
+#ifndef MFD_ALLOW_SEALING
+#define MFD_ALLOW_SEALING 0x0002U
+#endif
+#ifndef MFD_HUGETLB
+#define MFD_HUGETLB 0x0004U
+#endif
+/* not executable and sealed to prevent changing to executable. */
+#ifndef MFD_NOEXEC_SEAL
+#define MFD_NOEXEC_SEAL 0x0008U
+#endif
+/* executable */
+#ifndef MFD_EXEC
+#define MFD_EXEC 0x0010U
+#endif
 struct ebpf_process_memfd_create_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
-    unsigned int flags; // memfd_create flags
-    bool flag_cloexec;
-    bool flag_allow_seal;
-    bool flag_hugetlb;
-    bool flag_noexec_seal;
-    bool flag_exec;
-
+    uint32_t flags; // memfd_create flags
     // Variable length fields: memfd name
     struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));

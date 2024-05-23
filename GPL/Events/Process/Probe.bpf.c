@@ -281,7 +281,7 @@ int BPF_PROG(module_load, struct module *mod)
     pid_t curr_tgid = BPF_CORE_READ(task, tgid);
 
     // ignore if process is child of init/systemd/whatever
-    if ((1 == curr_tgid) || (2 == curr_tgid) || (1 == ppid) || (2 == ppid))
+    if ((curr_tgid == 1) || (curr_tgid == 2) || (ppid == 1) || (ppid == 2))
         goto out;
 
     // Variable length fields
@@ -373,7 +373,6 @@ int tracepoint_syscalls_sys_enter_shmget(struct trace_event_raw_sys_enter *ctx)
         long shmflg;
     };
     struct shmget_args *ex_args = (struct shmget_args *)ctx;
-
     const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
     if (is_kernel_thread(task))
@@ -425,23 +424,7 @@ int tracepoint_syscalls_sys_enter_memfd_create(struct trace_event_raw_sys_enter 
 
     event->hdr.type = EBPF_EVENT_PROCESS_MEMFD_CREATE;
     event->hdr.ts   = bpf_ktime_get_ns();
-
-// from linux/memfd.h:
-//
-/* flags for memfd_create(2) (unsigned int) */
-#define MFD_CLOEXEC 0x0001U
-#define MFD_ALLOW_SEALING 0x0002U
-#define MFD_HUGETLB 0x0004U
-/* not executable and sealed to prevent changing to executable. */
-#define MFD_NOEXEC_SEAL 0x0008U
-/* executable */
-#define MFD_EXEC 0x0010U
-    event->flags            = ex_args->flags;
-    event->flag_cloexec     = (event->flags & MFD_CLOEXEC) ? true : false;
-    event->flag_allow_seal  = (event->flags & MFD_ALLOW_SEALING) ? true : false;
-    event->flag_hugetlb     = (event->flags & MFD_HUGETLB) ? true : false;
-    event->flag_noexec_seal = (event->flags & MFD_NOEXEC_SEAL) ? true : false;
-    event->flag_exec        = (event->flags & MFD_EXEC) ? true : false;
+    event->flags    = ex_args->flags;
 
     ebpf_pid_info__fill(&event->pids, task);
 
