@@ -792,8 +792,6 @@ static void out_process_exec(struct ebpf_process_exec_event *evt)
 
     out_string("comm", evt->comm);
     out_comma();
-    out_bool("is_setuid", evt->is_setuid);
-    out_comma();
 
     out_bool("is_setuid", evt->flags & EXEC_F_SETUID);
     out_comma();
