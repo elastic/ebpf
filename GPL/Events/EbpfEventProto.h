@@ -18,13 +18,6 @@
 #include "vmlinux.h"
 #endif
 
-// from include/uapi/linux/posix_types.h
-/* Type of a SYSV IPC key. */
-typedef int key_t;
-
-// from include/uapi/asm-generic/posix_types.h
-typedef int pid_t;
-
 enum ebpf_event_type {
     EBPF_EVENT_PROCESS_FORK                 = (1 << 1),
     EBPF_EVENT_PROCESS_EXEC                 = (1 << 2),
@@ -236,7 +229,7 @@ struct ebpf_process_exec_event {
     struct ebpf_cred_info creds;
     struct ebpf_tty_dev ctty;
     char comm[TASK_COMM_LEN];
-    unsigned int inode_nlink;
+    uint32_t inode_nlink;
     uint32_t flags;
 
     // Variable length fields: cwd, argv, env, filename, pids_ss_cgroup_path
@@ -324,16 +317,16 @@ struct ebpf_process_memfd_create_event {
 struct ebpf_process_shmget_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
-    key_t key;
-    size_t size;
-    long shmflg; // shmget() flags
+    int32_t key;
+    uint64_t size;
+    int64_t shmflg; // shmget() flags
 } __attribute__((packed));
 
 struct ebpf_process_ptrace_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
-    pid_t child_pid;
-    long request;
+    int32_t child_pid;
+    int64_t request;
 } __attribute__((packed));
 
 struct ebpf_process_load_module_event {
