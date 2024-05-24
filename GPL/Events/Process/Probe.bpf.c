@@ -372,7 +372,7 @@ int tracepoint_syscalls_sys_enter_shmget(struct trace_event_raw_sys_enter *ctx)
         size_t size;
         long shmflg;
     };
-    struct shmget_args *ex_args = (struct shmget_args *)ctx;
+    struct shmget_args *ex_args    = (struct shmget_args *)ctx;
     const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
     if (is_kernel_thread(task))
