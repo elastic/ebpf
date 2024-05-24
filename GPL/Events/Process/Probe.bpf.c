@@ -108,9 +108,9 @@ int BPF_PROG(sched_process_exec,
     struct inode *f_inode = BPF_CORE_READ(f, f_inode);
     event->flags          = 0;
     if (BPF_CORE_READ(f_inode, i_mode) & S_ISUID)
-	    event->flags |= EXEC_F_SETUID;
+        event->flags |= EXEC_F_SETUID;
     if (BPF_CORE_READ(f_inode, i_mode) & S_ISGID)
-	    event->flags |= EXEC_F_SETGID;
+        event->flags |= EXEC_F_SETGID;
 
     // set inode link count (0 means anonymous or deleted file)
     event->inode_nlink = BPF_CORE_READ(f_inode, i_nlink);
@@ -126,7 +126,7 @@ int BPF_PROG(sched_process_exec,
         goto out;
     }
     if (is_equal_prefix(MEMFD_STRING, buf_filename, sizeof(MEMFD_STRING) - 1))
-	    event->flags |= EXEC_F_MEMFD;
+        event->flags |= EXEC_F_MEMFD;
 
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);
