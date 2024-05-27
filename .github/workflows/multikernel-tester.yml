@@ -13,6 +13,20 @@ on:
         required: true
         type: string
         description: Stringified JSON string of kernels, for example '[ "debian", "fedora" ]'
+  workflow_dispatch:
+    inputs:
+      architecture:
+        required: true
+        type: string
+        description: Architecture string, for example aarch64
+      runner:
+        required: true
+        type: string
+        description: The runner to execute the build on, for example ubuntu-latest
+      kernels:
+        required: true
+        type: string
+        description: Stringified JSON string of kernels, for example '[ "debian", "fedora" ]'
 
 jobs:
   test-kernel:
