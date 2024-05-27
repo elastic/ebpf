@@ -53,6 +53,7 @@ int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct 
     ebpf_pid_info__fill(&event->parent_pids, parent);
     ebpf_pid_info__fill(&event->child_pids, child);
     ebpf_cred_info__fill(&event->creds, parent);
+    ebpf_comm__fill(event->comm, sizeof(event->comm), child);
 
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);
@@ -94,6 +95,7 @@ int BPF_PROG(sched_process_exec,
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_cred_info__fill(&event->creds, task);
     ebpf_ctty__fill(&event->ctty, task);
+    ebpf_comm__fill(event->comm, sizeof(event->comm), task);
 
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);
@@ -165,6 +167,8 @@ static int taskstats_exit__enter(const struct task_struct *task, int group_dead)
     int exit_code    = BPF_CORE_READ(task, exit_code);
     event->exit_code = (exit_code >> 8) & 0xFF;
     ebpf_pid_info__fill(&event->pids, task);
+    ebpf_cred_info__fill(&event->creds, task);
+    ebpf_comm__fill(event->comm, sizeof(event->comm), task);
 
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);

@@ -171,32 +171,32 @@ static void sig_int(int signo)
     fprintf(stdout, "Received SIGINT, exiting...\n");
 }
 
-static void out_comma()
+static void out_comma(void)
 {
     printf(",");
 }
 
-static void out_newline()
+static void out_newline(void)
 {
     printf("\n");
 }
 
-static void out_array_start()
+static void out_array_start(void)
 {
     printf("[");
 }
 
-static void out_array_end()
+static void out_array_end(void)
 {
     printf("]");
 }
 
-static void out_object_start()
+static void out_object_start(void)
 {
     printf("{");
 }
 
-static void out_object_end()
+static void out_object_end(void)
 {
     printf("}");
 }
@@ -605,6 +605,9 @@ static void out_process_fork(struct ebpf_process_fork_event *evt)
     out_comma();
 
     out_cred_info("creds", &evt->creds);
+    out_comma();
+
+    out_string("comm", evt->comm);
 
     struct ebpf_varlen_field *field;
     FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
@@ -637,6 +640,9 @@ static void out_process_exec(struct ebpf_process_exec_event *evt)
     out_comma();
 
     out_tty_dev("ctty", &evt->ctty);
+    out_comma();
+
+    out_string("comm", evt->comm);
 
     struct ebpf_varlen_field *field;
     FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
@@ -751,6 +757,9 @@ static void out_process_exit(struct ebpf_process_exit_event *evt)
     out_comma();
 
     out_pid_info("pids", &evt->pids);
+    out_comma();
+
+    out_string("comm", evt->comm);
     out_comma();
 
     out_int("exit_code", evt->exit_code);

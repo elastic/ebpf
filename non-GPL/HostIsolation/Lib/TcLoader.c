@@ -55,11 +55,11 @@ enum {
     __TCA_BPF_MAX,
 };
 
-#define NLMSG_TAIL(nmsg) ((struct rtattr *)(((void *)(nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
+#define NLMSG_TAIL(nmsg) ((struct rtattr *)(((char *)(nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
 
-static int attr_put(struct nlmsghdr *n, int max, int type, const void *buf, int attr_len)
+static int attr_put(struct nlmsghdr *n, size_t max, int type, const void *buf, size_t attr_len)
 {
-    int len            = RTA_LENGTH(attr_len);
+    size_t len         = RTA_LENGTH(attr_len);
     struct rtattr *rta = NULL;
     int rv             = -1;
 
@@ -83,12 +83,12 @@ out:
     return rv;
 }
 
-static int attr_put_32(struct nlmsghdr *n, int max, int type, __u32 data)
+static int attr_put_32(struct nlmsghdr *n, size_t max, int type, __u32 data)
 {
     return attr_put(n, max, type, &data, sizeof(__u32));
 }
 
-static int attr_put_str(struct nlmsghdr *n, int max, int type, const char *s)
+static int attr_put_str(struct nlmsghdr *n, size_t max, int type, const char *s)
 {
     return attr_put(n, max, type, s, strlen(s) + 1);
 }
@@ -185,7 +185,7 @@ static int rtnetlink_recv(int fd, struct msghdr *msg, char **answer)
 {
     struct iovec *iov = NULL;
     char *buf         = NULL;
-    int len           = 0;
+    ssize_t len       = 0;
     int rv            = 0;
 
     if (!msg) {
@@ -260,7 +260,7 @@ static int rtnetlink_send(struct rtnetlink_handle *rtnl, struct nlmsghdr *nlmsg)
 
     unsigned int seq   = 0;
     struct nlmsghdr *h = NULL;
-    int recv_len       = 0;
+    ssize_t recv_len   = 0;
     char *buf          = NULL;
     int rv             = -1;
 
@@ -299,9 +299,9 @@ static int rtnetlink_send(struct rtnetlink_handle *rtnl, struct nlmsghdr *nlmsg)
         goto out;
     }
 
-    for (h = (struct nlmsghdr *)buf; recv_len >= sizeof(*h);) {
-        int len = h->nlmsg_len;
-        int l   = len - sizeof(*h);
+    for (h = (struct nlmsghdr *)buf; recv_len >= (ssize_t)sizeof(*h);) {
+        ssize_t len = h->nlmsg_len;
+        ssize_t l   = len - sizeof(*h);
 
         if (l < 0 || len > recv_len) {
             if (msg.msg_flags & MSG_TRUNC) {
@@ -327,7 +327,7 @@ static int rtnetlink_send(struct rtnetlink_handle *rtnl, struct nlmsghdr *nlmsg)
             struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(h);
             int error            = err->error;
 
-            if (l < sizeof(struct nlmsgerr)) {
+            if (l < (ssize_t)sizeof(struct nlmsgerr)) {
                 ebpf_log("error truncated\n");
                 rv = -1;
                 goto out;
@@ -462,7 +462,7 @@ int netlink_filter_add_begin(struct netlink_ctx *ctx, const char *ifname)
     }
 
     n         = &ctx->msg.n;
-    ctx->tail = (struct rtattr *)(((void *)n) + NLMSG_ALIGN(n->nlmsg_len));
+    ctx->tail = NLMSG_TAIL(n);
     attr_put(n, MAX_MSG, TCA_OPTIONS, NULL, 0);
 
     rv = 0;
@@ -487,7 +487,7 @@ int netlink_filter_add_end(int fd, struct netlink_ctx *ctx, const char *ebpf_obj
     memset(buf, 0, sizeof(buf));
 
     len = snprintf(buf, sizeof(buf), "%s:[.text]", ebpf_obj_filename);
-    if (len < 0 || len >= sizeof(buf)) {
+    if (len < 0 || len >= (int)sizeof(buf)) {
         ebpf_log("netlink_filter_add_end error: filename too long\n");
         rv = -1;
         goto out;
@@ -496,7 +496,8 @@ int netlink_filter_add_end(int fd, struct netlink_ctx *ctx, const char *ebpf_obj
     attr_put_32(nl, MAX_MSG, TCA_BPF_FD, fd);
     attr_put_str(nl, MAX_MSG, TCA_BPF_NAME, buf);
     attr_put_32(nl, MAX_MSG, TCA_BPF_FLAGS, TCA_BPF_FLAG_ACT_DIRECT);
-    ctx->tail->rta_len = (((void *)nl) + nl->nlmsg_len) - (void *)ctx->tail;
+    /* XXX MISSING NLMSG_ALIGN */
+    ctx->tail->rta_len = (((char *)nl) + nl->nlmsg_len) - (char *)ctx->tail;
 
     /* talk to netlink */
     if (rtnetlink_send(&ctx->filter_rth, &ctx->msg.n) < 0) {

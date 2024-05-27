@@ -61,12 +61,11 @@ enum ebpf_varlen_field_type {
 
 // Convenience macro to iterate all the variable length fields in an event
 #define FOR_EACH_VARLEN_FIELD(vl_fields_start, cursor)                                             \
-    uint32_t __i = 0;                                                                              \
-    cursor       = (struct ebpf_varlen_field *)vl_fields_start.data;                               \
-    for (; __i < vl_fields_start.nfields;                                                          \
-         cursor = (struct ebpf_varlen_field *)((char *)cursor + cursor->size +                     \
-                                               sizeof(struct ebpf_varlen_field)),                  \
-         __i++)
+    cursor = (struct ebpf_varlen_field *)vl_fields_start.data;                                     \
+    for (uint32_t __i = 0; __i < vl_fields_start.nfields;                                          \
+         cursor       = (struct ebpf_varlen_field *)((char *)cursor + cursor->size +               \
+                                               sizeof(struct ebpf_varlen_field)),            \
+                  __i++)
 
 struct ebpf_varlen_fields_start {
     uint32_t nfields;
@@ -205,6 +204,7 @@ struct ebpf_process_fork_event {
     struct ebpf_pid_info parent_pids;
     struct ebpf_pid_info child_pids;
     struct ebpf_cred_info creds;
+    char comm[TASK_COMM_LEN];
 
     // Variable length fields: pids_ss_cgroup_path
     struct ebpf_varlen_fields_start vl_fields;
@@ -215,6 +215,7 @@ struct ebpf_process_exec_event {
     struct ebpf_pid_info pids;
     struct ebpf_cred_info creds;
     struct ebpf_tty_dev ctty;
+    char comm[TASK_COMM_LEN];
 
     // Variable length fields: cwd, argv, env, filename, pids_ss_cgroup_path
     struct ebpf_varlen_fields_start vl_fields;
@@ -223,7 +224,9 @@ struct ebpf_process_exec_event {
 struct ebpf_process_exit_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
+    struct ebpf_cred_info creds;
     int32_t exit_code;
+    char comm[TASK_COMM_LEN];
 
     // Variable length fields: pids_ss_cgroup_path
     struct ebpf_varlen_fields_start vl_fields;
