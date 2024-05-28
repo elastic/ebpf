@@ -317,7 +317,7 @@ struct ebpf_process_memfd_create_event {
 struct ebpf_process_shmget_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
-    int32_t key;
+    int64_t key;
     uint64_t size;
     int64_t shmflg; // shmget() flags
 } __attribute__((packed));
@@ -325,7 +325,7 @@ struct ebpf_process_shmget_event {
 struct ebpf_process_ptrace_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
-    int32_t child_pid;
+    uint32_t child_pid;
     int64_t request;
 } __attribute__((packed));
 

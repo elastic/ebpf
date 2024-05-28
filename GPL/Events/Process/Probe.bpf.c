@@ -119,7 +119,7 @@ int BPF_PROG(sched_process_exec,
     struct path p              = BPF_CORE_READ(binprm, file, f_path);
     struct dentry *curr_dentry = BPF_CORE_READ(&p, dentry);
     struct qstr component      = BPF_CORE_READ(curr_dentry, d_name);
-    char buf_filename[8]       = {0};
+    char buf_filename[sizeof(MEMFD_STRING)]       = {0};
     int ret = bpf_probe_read_kernel_str(buf_filename, sizeof(MEMFD_STRING), (void *)component.name);
     if (ret <= 0) {
         bpf_printk("could not read d_name at %p\n", component.name);
@@ -263,17 +263,17 @@ int BPF_PROG(module_load, struct module *mod)
     if (ebpf_events_is_trusted_pid())
         goto out;
 
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+
+    if (is_kernel_thread(task))
+        goto out;
+
     struct ebpf_process_load_module_event *event = get_event_buffer();
     if (!event)
         goto out;
 
     event->hdr.type = EBPF_EVENT_PROCESS_LOAD_MODULE;
     event->hdr.ts   = bpf_ktime_get_ns();
-
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
-
-    if (is_kernel_thread(task))
-        goto out;
 
     ebpf_pid_info__fill(&event->pids, task);
 
@@ -324,12 +324,12 @@ int BPF_KPROBE(kprobe__ptrace_attach,
         goto out;
 
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    if (is_kernel_thread(task))
+        goto out;
+
     pid_t curr_tgid          = BPF_CORE_READ(task, tgid);
     pid_t child_ppid         = BPF_CORE_READ(child, group_leader, real_parent, tgid);
     pid_t child_tgid         = BPF_CORE_READ(child, tgid);
-
-    if (is_kernel_thread(task))
-        goto out;
 
     // ignore if child is a child of current process (parents ptrace'ing their children is fine)
     if (child_ppid == curr_tgid)
