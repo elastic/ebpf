@@ -30,9 +30,15 @@ enum ebpf_event_type {
     EBPF_EVENT_FILE_CREATE                  = (1 << 9),
     EBPF_EVENT_FILE_RENAME                  = (1 << 10),
     EBPF_EVENT_FILE_MODIFY                  = (1 << 11),
-    EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED  = (1 << 12),
-    EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED = (1 << 13),
-    EBPF_EVENT_NETWORK_CONNECTION_CLOSED    = (1 << 14),
+    EBPF_EVENT_FILE_MEMFD_OPEN              = (1 << 12),
+    EBPF_EVENT_FILE_SHMEM_OPEN              = (1 << 13),
+    EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED  = (1 << 14),
+    EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED = (1 << 15),
+    EBPF_EVENT_NETWORK_CONNECTION_CLOSED    = (1 << 16),
+    EBPF_EVENT_PROCESS_MEMFD_CREATE         = (1 << 17),
+    EBPF_EVENT_PROCESS_SHMGET               = (1 << 18),
+    EBPF_EVENT_PROCESS_PTRACE               = (1 << 19),
+    EBPF_EVENT_PROCESS_LOAD_MODULE          = (1 << 20),
 };
 
 struct ebpf_event_header {
@@ -57,6 +63,8 @@ enum ebpf_varlen_field_type {
     EBPF_VL_FIELD_TTY_OUT,
     EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH,
     EBPF_VL_FIELD_SYMLINK_TARGET_PATH,
+    EBPF_VL_FIELD_MOD_VERSION,
+    EBPF_VL_FIELD_MOD_SRCVERSION,
 };
 
 // Convenience macro to iterate all the variable length fields in an event
@@ -154,6 +162,7 @@ struct ebpf_file_delete_event {
     struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
+// reused by memfd_open and shmem_open events
 struct ebpf_file_create_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
@@ -210,12 +219,18 @@ struct ebpf_process_fork_event {
     struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
+#define EXEC_F_SETUID (1 << 0)
+#define EXEC_F_SETGID (1 << 1)
+#define EXEC_F_MEMFD (1 << 2)
+
 struct ebpf_process_exec_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
     struct ebpf_cred_info creds;
     struct ebpf_tty_dev ctty;
     char comm[TASK_COMM_LEN];
+    uint32_t inode_nlink;
+    uint32_t flags;
 
     // Variable length fields: cwd, argv, env, filename, pids_ss_cgroup_path
     struct ebpf_varlen_fields_start vl_fields;
@@ -269,6 +284,56 @@ struct ebpf_process_setgid_event {
     uint32_t new_egid;
     uint32_t new_ruid;
     uint32_t new_euid;
+} __attribute__((packed));
+
+// from linux/memfd.h:
+//
+/* flags for memfd_create(2) (unsigned int) */
+#ifndef MFD_CLOEXEC
+#define MFD_CLOEXEC 0x0001U
+#endif
+#ifndef MFD_ALLOW_SEALING
+#define MFD_ALLOW_SEALING 0x0002U
+#endif
+#ifndef MFD_HUGETLB
+#define MFD_HUGETLB 0x0004U
+#endif
+/* not executable and sealed to prevent changing to executable. */
+#ifndef MFD_NOEXEC_SEAL
+#define MFD_NOEXEC_SEAL 0x0008U
+#endif
+/* executable */
+#ifndef MFD_EXEC
+#define MFD_EXEC 0x0010U
+#endif
+struct ebpf_process_memfd_create_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
+    uint32_t flags; // memfd_create flags
+    // Variable length fields: memfd name
+    struct ebpf_varlen_fields_start vl_fields;
+} __attribute__((packed));
+
+struct ebpf_process_shmget_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
+    int64_t key;
+    uint64_t size;
+    int64_t shmflg; // shmget() flags
+} __attribute__((packed));
+
+struct ebpf_process_ptrace_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
+    uint32_t child_pid;
+    int64_t request;
+} __attribute__((packed));
+
+struct ebpf_process_load_module_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
+    // Variable length fields: filename, mod version, mod srcversion
+    struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
 enum ebpf_net_info_transport {

@@ -7,12 +7,47 @@
  * You may choose either one of them if you use this software.
  */
 
+/*      $OpenBSD: strncmp.c,v 1.11 2014/06/10 04:16:57 deraadt Exp $    */
+
+/*
+ * Copyright (c) 1989 The Regents of the University of California.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
 #ifndef EBPF_EVENTPROBE_HELPERS_H
 #define EBPF_EVENTPROBE_HELPERS_H
 
 #include "EbpfEventProto.h"
 
 const volatile int consumer_pid = 0;
+
+#define MEMFD_STRING "memfd:"
+#define TMPFS_STRING "tmpfs"
+#define DEVSHM_STRING "/dev/shm"
 
 #if BPF_DEBUG_TRACE == 0
 #undef bpf_printk
@@ -277,6 +312,27 @@ static bool is_consumer()
 {
     int pid = bpf_get_current_pid_tgid() >> 32;
     return consumer_pid == pid;
+}
+
+static int strncmp(const char *s1, const char *s2, size_t n)
+{
+
+    if (n == 0)
+        return (0);
+    do {
+        if (*s1 != *s2++)
+            return (*(unsigned char *)s1 - *(unsigned char *)--s2);
+        if (*s1++ == 0)
+            break;
+    } while (--n != 0);
+    return (0);
+}
+
+// compares first 'len' characters of str1 and str2, returns 1 if equal
+// NOTE: no bounds check, assumes use under eBPF verifier
+static int is_equal_prefix(const char *str1, const char *str2, int len)
+{
+    return !strncmp(str1, str2, len);
 }
 
 #endif // EBPF_EVENTPROBE_HELPERS_H
