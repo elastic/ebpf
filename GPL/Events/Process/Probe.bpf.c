@@ -16,6 +16,7 @@
 #include "Helpers.h"
 #include "PathResolver.h"
 #include "Varlen.h"
+#include "State.h"
 
 /* tty_write */
 DECL_FIELD_OFFSET(iov_iter, __iov);
@@ -56,6 +57,7 @@ int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct 
     ebpf_pid_info__fill(&event->parent_pids, parent);
     ebpf_pid_info__fill(&event->child_pids, child);
     ebpf_cred_info__fill(&event->creds, parent);
+    ebpf_ctty__fill(&event->ctty, child);
     ebpf_comm__fill(event->comm, sizeof(event->comm), child);
 
     // Variable length fields

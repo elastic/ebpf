@@ -752,6 +752,9 @@ static void out_process_fork(struct ebpf_process_fork_event *evt)
     out_cred_info("creds", &evt->creds);
     out_comma();
 
+    out_tty_dev("ctty", &evt->ctty);
+    out_comma();
+
     out_string("comm", evt->comm);
 
     struct ebpf_varlen_field *field;
