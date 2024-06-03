@@ -15,8 +15,8 @@
 
 #include "Helpers.h"
 #include "PathResolver.h"
-#include "Varlen.h"
 #include "State.h"
+#include "Varlen.h"
 
 /* tty_write */
 DECL_FIELD_OFFSET(iov_iter, __iov);
