@@ -15,6 +15,7 @@
 #include <sys/syscall.h>
 #include <sys/utsname.h>
 #include <unistd.h>
+#include <linux/memfd.h>
 
 #ifdef __aarch64__
 #include "malware/malware_elf_binary_arm64.h"
@@ -100,9 +101,18 @@ void flags_to_json(unsigned long flags, char *json, size_t json_size) {
         flags,
         (flags & MFD_CLOEXEC) ? "true" : "false",
         (flags & MFD_ALLOW_SEALING) ? "true" : "false",
-        (flags & MFD_HUGETLB) ? "true" : "false",
-        (flags & MFD_NOEXEC_SEAL) ? "true" : "false",
-        (flags & MFD_EXEC) ? "true" : "false");
+        (flags & MFD_HUGETLB) ? "true" : "false"
+#if defined(MFD_NOEXEC_SEAL)
+        ,(flags & MFD_NOEXEC_SEAL) ? "true" : "false"
+#else
+	,"false"
+#endif
+#if defined(MFD_EXEC)
+        ,(flags & MFD_EXEC) ? "true" : "false"
+#else
+	,"false"
+#endif
+	);
 }
 
 int main (int argc, char **argv) {
