@@ -132,3 +132,34 @@ gelf_update_shdr(Elf_Scn *scn, GElf_Shdr *s)
 
 	return (1);
 }
+
+#ifdef QUARK
+#define UD __attribute__((unused))
+
+size_t
+gelf_getnote(UD Elf_Data *_data, UD size_t _offset, UD GElf_Nhdr *_result,
+    UD size_t *_name_offset, UD size_t *_desc_offset)
+{
+	return (0);
+}
+
+GElf_Verdef *
+gelf_getverdef(UD Elf_Data *_data, UD int _offset, UD GElf_Verdef *_dst)
+{
+	return (NULL);
+}
+
+GElf_Verdaux *
+gelf_getverdaux(UD Elf_Data *_data, UD int _offset, UD GElf_Verdaux *_dst)
+{
+	return (NULL);
+}
+
+GElf_Versym *
+gelf_getversym(UD Elf_Data *_data, UD int _ndx, UD GElf_Versym *_dst)
+{
+	return (NULL);
+}
+
+#undef UD
+#endif	/* QUARK */

@@ -1,0 +1,28 @@
+Elftoolchain@Quark
+~~~~~~~~~~~~~~~~~~
+  Elftoolchain has been imported in quark to get rid of the GPLed libelf present
+  on most linux systems.
+
+  In order to make Elftoolchain fit the project and also work with a recent
+  libbpf we had to make a few changes. This file documents those changes.
+
+
+Changes to the build system
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  o All Makefiles were removed.
+  o Dependency on bmake(1) is removed in favor of GNUmake.
+  o Only libelf/ and common/ are imported.
+  o The sole Makefile now is libelf/GNUMakefile, running make there will generate
+    libelf_pic.a. Other artifacts like shared objects were also removed.
+  o Documentation, manpages, tools, tests also removed.
+
+
+Changes to please libbpf
+~~~~~~~~~~~~~~~~~~~~~~~~
+  o All the following changes are guarded under ifdef QUARK.
+  o Define empty stubs for a bunch of gelf_* functions. They return NULL/zero,
+    and since it's not used by quark@libbpf, this is fine.
+  o Declared missing types in gelf.h.
+  o Renamed elf_{openmemory, open} to elftoolchain_{openmemory, open}, these
+    names clash with an exported symbol from libbpf.
+  o Created a missing elf.h in sys/.

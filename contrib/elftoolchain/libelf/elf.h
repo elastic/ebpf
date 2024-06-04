@@ -1,5 +1,8 @@
+#ifndef	_ELF_H_
+#define	_ELF_H_
+
 /*-
- * Copyright (c) 2011 Joseph Koshy
+ * Copyright (c) 2024 Christiano Haesbaert
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,53 +25,12 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $Id$
  */
-
-#include <sys/cdefs.h>
-
-#include <libelf.h>
-
-#include "_libelf.h"
-
-ELFTC_VCSID("$Id$");
-
-/*@ELFTC-DOWNSTREAM-VCSID@*/
 
 #ifdef QUARK
-/*
- * Extension API: open a file for reading, ignoring parse errors.
- */
-
-Elf *
-elftoolchain_elf_open(int fd)
-{
-	if (LIBELF_PRIVATE(version) == EV_NONE) {
-		LIBELF_SET_ERROR(SEQUENCE, 0);
-		return (NULL);
-	}
-
-	return (_libelf_open_object(fd, ELF_C_READ, 0));
-}
-
-/*
- * Extension API: create an ELF descriptor for an in-memory object,
- * ignoring parse errors.
- */
-
-Elf *
-elftoolchain_elf_openmemory(char *image, size_t sz)
-{
-	if (LIBELF_PRIVATE(version) == EV_NONE) {
-		LIBELF_SET_ERROR(SEQUENCE, 0);
-		return (NULL);
-	}
-
-	if (image == NULL || sz == 0) {
-		LIBELF_SET_ERROR(ARGUMENT, 0);
-		return (NULL);
-	}
-
-	return (_libelf_memory((unsigned char *) image, sz, 0));
-}
-
+#include <sys/elfdefinitions.h>
 #endif	/* QUARK */
+
+#endif /* _ELF_H */
