@@ -213,6 +213,7 @@ struct ebpf_process_fork_event {
     struct ebpf_pid_info parent_pids;
     struct ebpf_pid_info child_pids;
     struct ebpf_cred_info creds;
+    struct ebpf_tty_dev ctty;
     char comm[TASK_COMM_LEN];
 
     // Variable length fields: pids_ss_cgroup_path

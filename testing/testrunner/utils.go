@@ -93,6 +93,7 @@ type ProcessForkEvent struct {
 	ParentPids PidInfo  `json:"parent_pids"`
 	ChildPids  PidInfo  `json:"child_pids"`
 	Creds      CredInfo `json:"creds"`
+	Ctty       TtyInfo  `json:"ctty"`
 }
 
 type ProcessExecEvent struct {
