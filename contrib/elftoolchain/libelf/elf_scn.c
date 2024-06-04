@@ -24,6 +24,7 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #include <sys/queue.h>
 
 #include <assert.h>
@@ -37,6 +38,8 @@
 #include "_libelf.h"
 
 ELFTC_VCSID("$Id$");
+
+/*@ELFTC-DOWNSTREAM-VCSID@*/
 
 /*
  * Load an ELF section table and create a list of Elf_Scn structures.
@@ -66,7 +69,7 @@ _libelf_load_section_headers(Elf *e, void *ehdr)
 			LIBELF_SET_ERROR(HEADER, 0);		\
 			return (0);				\
 		}						\
-	} while (0)
+	} while (/* CONSTCOND */ 0)
 
 	ec = e->e_class;
 	fsz = _libelf_fsize(ELF_T_SHDR, ec, e->e_version, (size_t) 1);
