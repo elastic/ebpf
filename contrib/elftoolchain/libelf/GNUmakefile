@@ -8,7 +8,7 @@ endif
 
 CFLAGS?=	-g -O2 -fPIC
 
-CPPFLAGS?=	-D_GNU_SOURCE -DQUARK -I. -I../common
+CPPFLAGS?=	-D_GNU_SOURCE -DELASTIC -I. -I../common -I$(MAKEOBJDIR)/common
 
 # Keep original flags
 CDIAGFLAGS+=	-Wa,--fatal-warnings
@@ -44,9 +44,10 @@ CDIAGFLAGS+=	-Wwrite-strings
 
 CC?=		cc
 M4?=		m4
+OBJDIR=		$(MAKEOBJDIR)/libelf
 
-GENSRCS:=	libelf_fsize.c libelf_msize.c libelf_convert.c
-GENDEPS:=	elf_types.m4 $(patsubst %.c,%.m4,$(GENSRCS))
+GENSRCS:=	$(OBJDIR)/libelf_fsize.c $(OBJDIR)/libelf_msize.c $(OBJDIR)/libelf_convert.c
+GENDEPS:=	$(wildcard *.m4)
 
 SRCS=		elf.c							\
 		elf_begin.c						\
@@ -105,35 +106,36 @@ SRCS=		elf.c							\
 		libelf_xlate.c						\
 		$(GENSRCS)
 
-ELFDEFS:=	../common/sys/elfdefinitions.h
+ELFDEFS:=	$(MAKEOBJDIR)/common/sys/elfdefinitions.h
 ELFDEPS:=	../common/sys/elfdefinitions.m4
 
 DEPS:=		$(wildcard *.h) $(ELFDEPS)
 OBJS:=		$(patsubst %.c,%.o,$(SRCS))
+
 LIBELF_STATIC:=	libelf_pic.a
 
-all: $(LIBELF_STATIC)
+all: mkdir-objdir $(LIBELF_STATIC)
 
 $(LIBELF_STATIC): $(OBJS)
 	$(call msg,AR,$@)
-	$(Q)ar rcs $@ $^
+	$(Q)cd $(OBJDIR) && ar rcs $(OBJDIR)/$@ $^
 
-%.o: %.c GNUmakefile $(ELFDEFS)
+$(OBJS): %.o: %.c GNUmakefile $(ELFDEFS) $(GENSRCS)
 	$(call msg,CC,$@)
-	$(Q)$(CC) -c $(CFLAGS) $(CPPFLAGS) $(CDIAGFLAGS) $<
+	$(Q)$(CC) -c $(CFLAGS) $(CPPFLAGS) $(CDIAGFLAGS) $< -o $(OBJDIR)/$(notdir $@)
 
 $(GENSRCS): $(GENDEPS)
 	$(call msg,M4,$@)
-	$(Q)$(M4) -D SRCDIR=/d/e/quark/elftoolchain/libelf $(@:.c=.m4) > $@
+	$(Q)$(M4) -D SRCDIR=. $(notdir $(@:.c=.m4)) > $@
 
 $(ELFDEFS): $(ELFDEPS)
 	$(call msg,M4,$@)
 	$(Q)$(M4) -I../common/sys -D SRCDIR=../common/sys elfdefinitions.m4 > $@
 
-clean:
-	$(call msg,CLEAN)
-	$(Q)rm -f $(OBJS) $(LIBELF_STATIC) $(ELFDEFS)
+mkdir-objdir:
+	mkdir -p $(OBJDIR)
+	mkdir -p $(MAKEOBJDIR)/common/sys
 
-.PHONY: all clean
+.PHONY: all mkdir-objdir
 
 .SUFFIXES:

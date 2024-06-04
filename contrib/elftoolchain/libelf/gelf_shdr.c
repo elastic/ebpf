@@ -133,7 +133,7 @@ gelf_update_shdr(Elf_Scn *scn, GElf_Shdr *s)
 	return (1);
 }
 
-#ifdef QUARK
+#ifdef ELASTIC
 #define UD __attribute__((unused))
 
 size_t
@@ -162,4 +162,4 @@ gelf_getversym(UD Elf_Data *_data, UD int _ndx, UD GElf_Versym *_dst)
 }
 
 #undef UD
-#endif	/* QUARK */
+#endif	/* ELASTIC */

@@ -1,7 +1,7 @@
-Elftoolchain@Quark
+Elftoolchain@Elastic
 ~~~~~~~~~~~~~~~~~~
-  Elftoolchain has been imported in quark to get rid of the GPLed libelf present
-  on most linux systems.
+  Elftoolchain has been imported in elastic/ebpf to get rid of the GPLed libelf
+  present on most linux systems.
 
   In order to make Elftoolchain fit the project and also work with a recent
   libbpf we had to make a few changes. This file documents those changes.
@@ -19,9 +19,9 @@ Changes to the build system
 
 Changes to please libbpf
 ~~~~~~~~~~~~~~~~~~~~~~~~
-  o All the following changes are guarded under ifdef QUARK.
+  o All the following changes are guarded under ifdef ELASTIC.
   o Define empty stubs for a bunch of gelf_* functions. They return NULL/zero,
-    and since it's not used by quark@libbpf, this is fine.
+    and since it's not used by elastic/ebpf, this is fine.
   o Declared missing types in gelf.h.
   o Renamed elf_{openmemory, open} to elftoolchain_{openmemory, open}, these
     names clash with an exported symbol from libbpf.

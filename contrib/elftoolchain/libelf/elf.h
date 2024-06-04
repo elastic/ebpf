@@ -29,8 +29,8 @@
  * $Id$
  */
 
-#ifdef QUARK
+#ifdef ELASTIC
 #include <sys/elfdefinitions.h>
-#endif	/* QUARK */
+#endif	/* ELASTIC */
 
 #endif /* _ELF_H */

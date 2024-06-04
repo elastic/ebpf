@@ -51,12 +51,12 @@ typedef	Elf64_Cap	GElf_Cap;	/* SW/HW capabilities */
 typedef Elf64_Move	GElf_Move;	/* Move entries */
 typedef Elf64_Syminfo	GElf_Syminfo;	/* Symbol information */
 
-#ifdef QUARK
+#ifdef ELASTIC
 typedef Elf64_Nhdr	GElf_Nhdr;	/* Note section */
 typedef Elf64_Verdef	GElf_Verdef;	/* Version definition sections.  */
 typedef Elf64_Verdaux	GElf_Verdaux;	/* Auxiliary version information */
 typedef Elf64_Versym	GElf_Versym;	/* Version symbol information */
-#endif	/* QUARK */
+#endif	/* ELASTIC */
 
 #define	GELF_M_INFO			ELF64_M_INFO
 #define	GELF_M_SIZE			ELF64_M_SIZE
@@ -111,7 +111,7 @@ int		gelf_update_cap(Elf_Data *_dst, int _index, GElf_Cap *_src);
 int		gelf_update_move(Elf_Data *_dst, int _index, GElf_Move *_src);
 int		gelf_update_syminfo(Elf_Data *_dst, int _index, GElf_Syminfo *_src);
 
-#ifdef QUARK
+#ifdef ELASTIC
 size_t		gelf_getnote(Elf_Data *_data, size_t _offset, GElf_Nhdr *_result, size_t
 			*_name_offset, size_t *_desc_offset);
 GElf_Verdef	*gelf_getverdef(Elf_Data *_data, int _offset, GElf_Verdef *_dst);

@@ -34,7 +34,7 @@ ELFTC_VCSID("$Id$");
 
 /*@ELFTC-DOWNSTREAM-VCSID@*/
 
-#ifdef QUARK
+#ifdef ELASTIC
 /*
  * Extension API: open a file for reading, ignoring parse errors.
  */
@@ -71,4 +71,4 @@ elftoolchain_elf_openmemory(char *image, size_t sz)
 	return (_libelf_memory((unsigned char *) image, sz, 0));
 }
 
-#endif	/* QUARK */
+#endif	/* ELASTIC */

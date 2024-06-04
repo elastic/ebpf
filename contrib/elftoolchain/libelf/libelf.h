@@ -214,10 +214,10 @@ Elf_Data	*elf_newdata(Elf_Scn *_scn);
 Elf_Scn		*elf_newscn(Elf *_elf);
 Elf_Scn		*elf_nextscn(Elf *_elf, Elf_Scn *_scn);
 Elf_Cmd		elf_next(Elf *_elf);
-#ifdef QUARK
+#ifdef ELASTIC
 Elf		*elftoolchain_elf_open(int _fd);
 Elf		*elftoolchain_elf_openmemory(char *_image, size_t _size);
-#endif	/* QUARK */
+#endif	/* ELASTIC */
 off_t		elf_rand(Elf *_elf, off_t _off);
 Elf_Data	*elf_rawdata(Elf_Scn *_scn, Elf_Data *_data);
 char		*elf_rawfile(Elf *_elf, size_t *_size);
