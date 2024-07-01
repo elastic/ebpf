@@ -155,7 +155,7 @@ static int vfs_unlink__exit(int ret)
     size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+    ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
 
     // Certain filesystems (eg. overlayfs) call vfs_unlink twice during the same
     // execution context.
@@ -263,10 +263,10 @@ static void prepare_and_send_file_event(struct file *f,
     if (path_prefix) {
         if ((path_prefix_len > 0) && (size >= path_prefix_len)) {
             if (is_equal_prefix(field->data, path_prefix, path_prefix_len))
-                bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+                ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
         }
     } else {
-        bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+        ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
     }
 }
 
@@ -516,7 +516,7 @@ static int vfs_rename__exit(int ret)
     size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+    ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
 
     // Certain filesystems (eg. overlayfs) call vfs_rename twice during the same
     // execution context.
@@ -588,7 +588,7 @@ static void file_modify_event__emit(enum ebpf_file_change_type typ, struct path 
     size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+    ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
 
 out:
     return;
