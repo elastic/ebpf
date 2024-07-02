@@ -806,8 +806,9 @@ int ebpf_event_ctx__read_stats(struct ebpf_event_ctx *ctx, struct ebpf_event_sta
     if (!ctx || !ees)
         return -1;
     if (bpf_map__lookup_elem(ctx->probe->maps.ringbuf_stats, &zero, sizeof(zero), pcpu_ees,
-                             sizeof(pcpu_ees), 0) != 0)
+                             sizeof(pcpu_ees), 0) != 0) {
         return -1;
+    }
 
     memset(ees, 0, sizeof(*ees));
     for (i = 0; i < libbpf_num_possible_cpus(); i++) {
