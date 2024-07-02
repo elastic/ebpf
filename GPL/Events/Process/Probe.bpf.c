@@ -75,7 +75,7 @@ int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct 
     size  = ebpf_resolve_path_to_string(field->data, &child->fs->pwd, child);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+    ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
 
 out:
     return 0;
@@ -165,7 +165,7 @@ int BPF_PROG(sched_process_exec,
     size  = read_kernel_str_or_empty_str(field->data, PATH_MAX, binprm->filename);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+    ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
 
 out:
     return 0;
@@ -219,7 +219,7 @@ static int taskstats_exit__enter(const struct task_struct *task, int group_dead)
     size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+    ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
 
 out:
     return 0;
@@ -315,7 +315,7 @@ int BPF_PROG(module_load, struct module *mod)
     size  = read_kernel_str_or_empty_str(field->data, PATH_MAX, mod->srcversion);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+    ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
 
 out:
     return 0;
@@ -448,7 +448,7 @@ int tracepoint_syscalls_sys_enter_memfd_create(struct trace_event_raw_sys_enter 
         goto out;
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+    ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
 
 out:
     return 0;
@@ -562,7 +562,7 @@ static int output_tty_event(struct ebpf_tty_dev *slave, const void *base, size_t
     }
 
     ebpf_vl_field__set_size(&event->vl_fields, field, len_cap);
-    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+    ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
 out:
     return ret;
 }

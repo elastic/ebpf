@@ -295,6 +295,27 @@ static void ebpf_comm__fill(char *comm, size_t len, const struct task_struct *ta
     read_kernel_str_or_empty_str(comm, len, BPF_CORE_READ(task, comm));
 }
 
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, u32);
+    __type(value, struct ebpf_event_stats);
+    __uint(max_entries, 1);
+} ringbuf_stats SEC(".maps");
+
+static long ebpf_ringbuf_write(void *ringbuf, void *data, u64 size, u64 flags)
+{
+    long r;
+    struct ebpf_event_stats *ees;
+    u32 zero = 0;
+
+    r   = bpf_ringbuf_output(ringbuf, data, size, flags);
+    ees = bpf_map_lookup_elem(&ringbuf_stats, &zero);
+    if (ees != NULL)
+        r == 0 ? ees->sent++ : ees->lost++;
+
+    return (r);
+}
+
 static bool is_kernel_thread(const struct task_struct *task)
 {
     // All kernel threads are children of kthreadd, which always has pid 2

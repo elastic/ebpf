@@ -35,7 +35,7 @@ const char argp_program_doc[] =
     "[--process-setgid] [--process-tty-write] [--process-memfd_create] [--process-shmget] "
     "[--process-ptrace] [--process-load_module]\n"
     "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n"
-    "[--print-features-on-init] [--unbuffer-stdout] [--libbpf-verbose]\n";
+    "[--print-features-on-init] [--stats|-s] [--unbuffer-stdout] [--libbpf-verbose]\n";
 
 // Somewhat kludgy way of ensuring argp doesn't print the EBPF_* constants that
 // happen to be valid ASCII values as short options. We pass these enum values
@@ -120,6 +120,7 @@ static const struct argp_option opts[] = {
      "Print network connection closed events", 0},
     {"print-features-on-init", 'i', NULL, false,
      "Print a message with feature information when probes have been successfully loaded", 1},
+    {"stats", 's', NULL, false, "Print event statistics", 0},
     {"unbuffer-stdout", 'u', NULL, false, "Disable userspace stdout buffering", 2},
     {"libbpf-verbose", 'v', NULL, false, "Log verbose libbpf logs to stderr", 2},
     {},
@@ -132,6 +133,7 @@ bool g_print_features_init = 0;
 bool g_features_printed    = 0;
 bool g_unbuffer_stdout     = 0;
 bool g_libbpf_verbose      = 0;
+bool g_stats               = 0;
 
 static error_t parse_arg(int key, char *arg, struct argp_state *state)
 {
@@ -147,6 +149,9 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
         break;
     case 'a':
         g_events_env = UINT64_MAX;
+        break;
+    case 's':
+        g_stats = 1;
         break;
     case FILE_DELETE:
     case FILE_CREATE:
@@ -1178,6 +1183,14 @@ int main(int argc, char **argv)
         if (err < 0 && err != -EINTR) {
             fprintf(stderr, "Failed to poll event context %d: %s\n", err, strerror(-err));
             break;
+        }
+        if (g_stats) {
+            struct ebpf_event_stats ees;
+
+            if (ebpf_event_ctx__read_stats(ctx, &ees) == 0)
+                printf("sent %lu lost %lu\n", ees.sent, ees.lost);
+            else
+                fprintf(stderr, "Failed to read stats: %s\n", strerror(errno));
         }
     }
 

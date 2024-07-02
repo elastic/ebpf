@@ -17,7 +17,7 @@
 // We can't use the ringbuf reserve/commit API if we want to output an event
 // with variable length fields as we won't know the event size in advance, so
 // we create events on the event_buffer_map if this is the case and output them
-// with bpf_ringbuf_output.
+// with ebpf_ringbuf_write.
 //
 // If the event has no variable length parameters (i.e. is always a fixed
 // size). bpf_ringbuf_reserve/bpf_ringbuf_submit should be used instead to

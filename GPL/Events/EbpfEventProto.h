@@ -19,26 +19,27 @@
 #endif
 
 enum ebpf_event_type {
-    EBPF_EVENT_PROCESS_FORK                 = (1 << 1),
-    EBPF_EVENT_PROCESS_EXEC                 = (1 << 2),
-    EBPF_EVENT_PROCESS_EXIT                 = (1 << 3),
-    EBPF_EVENT_PROCESS_SETSID               = (1 << 4),
-    EBPF_EVENT_PROCESS_SETUID               = (1 << 5),
-    EBPF_EVENT_PROCESS_SETGID               = (1 << 6),
-    EBPF_EVENT_PROCESS_TTY_WRITE            = (1 << 7),
-    EBPF_EVENT_FILE_DELETE                  = (1 << 8),
-    EBPF_EVENT_FILE_CREATE                  = (1 << 9),
-    EBPF_EVENT_FILE_RENAME                  = (1 << 10),
-    EBPF_EVENT_FILE_MODIFY                  = (1 << 11),
-    EBPF_EVENT_FILE_MEMFD_OPEN              = (1 << 12),
-    EBPF_EVENT_FILE_SHMEM_OPEN              = (1 << 13),
-    EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED  = (1 << 14),
-    EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED = (1 << 15),
-    EBPF_EVENT_NETWORK_CONNECTION_CLOSED    = (1 << 16),
-    EBPF_EVENT_PROCESS_MEMFD_CREATE         = (1 << 17),
-    EBPF_EVENT_PROCESS_SHMGET               = (1 << 18),
-    EBPF_EVENT_PROCESS_PTRACE               = (1 << 19),
-    EBPF_EVENT_PROCESS_LOAD_MODULE          = (1 << 20),
+    EBPF_EVENT_PROCESS_INVALID              = 0,
+    EBPF_EVENT_PROCESS_FORK                 = (1 << 0),
+    EBPF_EVENT_PROCESS_EXEC                 = (1 << 1),
+    EBPF_EVENT_PROCESS_EXIT                 = (1 << 2),
+    EBPF_EVENT_PROCESS_SETSID               = (1 << 3),
+    EBPF_EVENT_PROCESS_SETUID               = (1 << 4),
+    EBPF_EVENT_PROCESS_SETGID               = (1 << 5),
+    EBPF_EVENT_PROCESS_TTY_WRITE            = (1 << 6),
+    EBPF_EVENT_FILE_DELETE                  = (1 << 7),
+    EBPF_EVENT_FILE_CREATE                  = (1 << 8),
+    EBPF_EVENT_FILE_RENAME                  = (1 << 9),
+    EBPF_EVENT_FILE_MODIFY                  = (1 << 10),
+    EBPF_EVENT_FILE_MEMFD_OPEN              = (1 << 11),
+    EBPF_EVENT_FILE_SHMEM_OPEN              = (1 << 12),
+    EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED  = (1 << 13),
+    EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED = (1 << 14),
+    EBPF_EVENT_NETWORK_CONNECTION_CLOSED    = (1 << 15),
+    EBPF_EVENT_PROCESS_MEMFD_CREATE         = (1 << 16),
+    EBPF_EVENT_PROCESS_SHMGET               = (1 << 17),
+    EBPF_EVENT_PROCESS_PTRACE               = (1 << 18),
+    EBPF_EVENT_PROCESS_LOAD_MODULE          = (1 << 19),
 };
 
 struct ebpf_event_header {
@@ -377,5 +378,11 @@ struct ebpf_net_event {
     struct ebpf_net_info net;
     char comm[TASK_COMM_LEN];
 } __attribute__((packed));
+
+// Basic event statistics
+struct ebpf_event_stats {
+    uint64_t lost; // lost events due to a full ringbuffer
+    uint64_t sent; // events sent through the ringbuffer
+};
 
 #endif // EBPF_EVENTPROBE_EBPFEVENTPROTO_H

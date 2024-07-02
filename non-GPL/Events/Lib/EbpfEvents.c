@@ -797,6 +797,28 @@ int ebpf_event_ctx__poll(struct ebpf_event_ctx *ctx, int timeout)
     return ring_buffer__poll(ctx->ringbuf, timeout);
 }
 
+int ebpf_event_ctx__read_stats(struct ebpf_event_ctx *ctx, struct ebpf_event_stats *ees)
+{
+    struct ebpf_event_stats pcpu_ees[libbpf_num_possible_cpus()];
+    uint32_t zero = 0;
+    int i;
+
+    if (!ctx || !ees)
+        return -1;
+    if (bpf_map__lookup_elem(ctx->probe->maps.ringbuf_stats, &zero, sizeof(zero), pcpu_ees,
+                             sizeof(pcpu_ees), 0) != 0) {
+        return -1;
+    }
+
+    memset(ees, 0, sizeof(*ees));
+    for (i = 0; i < libbpf_num_possible_cpus(); i++) {
+        ees->lost += pcpu_ees[i].lost;
+        ees->sent += pcpu_ees[i].sent;
+    }
+
+    return 0;
+}
+
 int ebpf_event_ctx__consume(struct ebpf_event_ctx *ctx)
 {
     if (!ctx)
