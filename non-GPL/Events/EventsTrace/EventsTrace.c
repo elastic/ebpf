@@ -765,6 +765,9 @@ static void out_process_fork(struct ebpf_process_fork_event *evt)
         case EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH:
             out_string("pids_ss_cgroup_path", field->data);
             break;
+        case EBPF_VL_FIELD_CWD:
+            out_string("cwd", field->data);
+            break;
         default:
             fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
             break;
@@ -915,6 +918,9 @@ static void out_process_exit(struct ebpf_process_exit_event *evt)
     out_comma();
 
     out_pid_info("pids", &evt->pids);
+    out_comma();
+
+    out_tty_dev("ctty", &evt->ctty);
     out_comma();
 
     out_string("comm", evt->comm);

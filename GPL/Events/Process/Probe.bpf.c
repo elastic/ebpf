@@ -70,6 +70,11 @@ int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct 
     size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, child);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
+    // cwd
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_CWD);
+    size  = ebpf_resolve_path_to_string(field->data, &child->fs->pwd, child);
+    ebpf_vl_field__set_size(&event->vl_fields, field, size);
+
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 
 out:
@@ -201,6 +206,7 @@ static int taskstats_exit__enter(const struct task_struct *task, int group_dead)
     event->exit_code = (exit_code >> 8) & 0xFF;
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_cred_info__fill(&event->creds, task);
+    ebpf_ctty__fill(&event->ctty, task);
     ebpf_comm__fill(event->comm, sizeof(event->comm), task);
 
     // Variable length fields
