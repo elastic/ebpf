@@ -54,6 +54,12 @@ int ebpf_event_ctx__next(struct ebpf_event_ctx *ctx, int timeout);
  */
 int ebpf_event_ctx__poll(struct ebpf_event_ctx *ctx, int timeout);
 
+/* Read event statistics into ees.
+ *
+ * returns 0 on success or less than 0 on failure.
+ */
+int ebpf_event_ctx__read_stats(struct ebpf_event_ctx *ctx, struct ebpf_event_stats *ees);
+
 /* Consumes as many events as possible from the event context and returns the
  * number consumed. Does not poll. This is good if you are polling outside
  * this library.
