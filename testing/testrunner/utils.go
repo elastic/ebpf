@@ -97,13 +97,48 @@ type ProcessForkEvent struct {
 }
 
 type ProcessExecEvent struct {
-	Pids     PidInfo  `json:"pids"`
-	Creds    CredInfo `json:"creds"`
-	Ctty     TtyInfo  `json:"ctty"`
-	FileName string   `json:"filename"`
-	Cwd      string   `json:"cwd"`
-	Argv     []string `json:"argv"`
-	Env      []string `json:"env"`
+	Pids        PidInfo  `json:"pids"`
+	Creds       CredInfo `json:"creds"`
+	Ctty        TtyInfo  `json:"ctty"`
+	IsSetUid    bool     `json:"is_setuid"`
+	IsSetGid    bool     `json:"is_setgid"`
+	IsMemfd     bool     `json:"is_memfd"`
+	InodeNlink  uint64   `json:"inode_nlink"`
+	FileName    string   `json:"filename"`
+	Cwd         string   `json:"cwd"`
+	Argv        []string `json:"argv"`
+	Env         []string `json:"env"`
+}
+
+type ProcessKernelLoadModuleEvent struct {
+	Pids          PidInfo `json:"pids"`
+	FileName      string  `json:"filename"`
+	ModVersion    string  `json:"mod_version"`
+	ModSrcVersion string  `json:"mod_srcversion"`
+}
+
+type ProcessShmgetEvent struct {
+	Pids          PidInfo `json:"pids"`
+	Key           uint32  `json:"key"`
+	Size          uint32  `json:"size"`
+	ShmFlg        int64   `json:"shmflg"`
+}
+
+type MemfdCreateEvent struct {
+	Pids           PidInfo `json:"pids"`
+	Flags          uint32  `json:"flags"`
+	FlagCloexec    bool    `json:"flag_cloexec"`
+	FlagAllowSeal  bool    `json:"flag_allow_seal"`
+	FlagHugetlb    bool    `json:"flag_hugetlb"`
+	FlagNoexecSeal bool    `json:"flag_noexec_seal"`
+	FlagExec       bool    `json:"flag_exec"`
+	FileName       string  `json:"filename"`
+}
+
+type ProcessPtraceEvent struct {
+	Pids           PidInfo `json:"pids"`
+	ChildPid       int64   `json:"child_pid"`
+	Request        int64   `json:"request"`
 }
 
 type FileCreateEvent struct {
@@ -259,6 +294,18 @@ func AssertUint64Equal(a, b uint64) {
 func AssertUint64NotEqual(a, b uint64) {
 	if a == b {
 		TestFail(fmt.Sprintf("Test assertion failed 0x%016x == 0x%016x", a, b))
+	}
+}
+
+func AssertUint32Equal(a, b uint32) {
+	if a != b {
+		TestFail(fmt.Sprintf("Test assertion failed 0x%08x != 0x%08x", a, b))
+	}
+}
+
+func AssertUint32NotEqual(a, b uint32) {
+	if a == b {
+		TestFail(fmt.Sprintf("Test assertion failed 0x%08x == 0x%08x", a, b))
 	}
 }
 
