@@ -113,6 +113,7 @@ const volatile int consumer_pid = 0;
         ret;                                                                                       \
     })
 
+// value is replaced later by `probe_fill_relos()`
 #define DECL_FUNC_RET(func) const volatile int ret__##func##__ = 0;
 #define FUNC_RET_READ(type, func)                                                                  \
     ({                                                                                             \
