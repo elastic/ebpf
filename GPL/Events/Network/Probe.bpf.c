@@ -18,6 +18,8 @@
 #include "Network.h"
 #include "State.h"
 
+DECL_FUNC_RET(inet_csk_accept);
+
 static int inet_csk_accept__exit(struct sock *sk)
 {
     if (!sk)
@@ -42,9 +44,9 @@ out:
 }
 
 SEC("fexit/inet_csk_accept")
-int BPF_PROG(
-    fexit__inet_csk_accept, struct sock *sk, int flags, int *err, bool kern, struct sock *ret)
+int BPF_PROG(fexit__inet_csk_accept)
 {
+    struct sock *ret = FUNC_RET_READ(___type(ret), inet_csk_accept);
     return inet_csk_accept__exit(ret);
 }
 
