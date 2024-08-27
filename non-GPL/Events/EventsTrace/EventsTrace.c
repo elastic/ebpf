@@ -29,7 +29,7 @@ const char argp_program_doc[] =
     "\n"
     "Prints process, network and file events sourced from the Elastic ebpf events library\n"
     "\n"
-    "USAGE: ./EventsTrace [--all|-a] [--file-delete] [--file-create] [--file-rename] "
+    "USAGE: ./EventsTrace [--file-delete] [--file-create] [--file-rename] "
     "[--file-memfd-open] [--file-shmem-open] [--file-modify]\n"
     "[--process-fork] [--process-exec] [--process-exit] [--process-setsid] [--process-setuid] "
     "[--process-setgid] [--process-tty-write] [--process-memfd_create] [--process-shmget] "
@@ -94,7 +94,6 @@ static uint64_t cmdline_to_lib[CMDLINE_MAX] = {
 };
 
 static const struct argp_option opts[] = {
-    {"all", 'a', NULL, false, "Print all events", 0},
     {"file-delete", FILE_DELETE, NULL, false, "Print file delete events", 0},
     {"file-create", FILE_CREATE, NULL, false, "Print file create events", 0},
     {"file-rename", FILE_RENAME, NULL, false, "Print file rename events", 0},
