@@ -268,6 +268,8 @@ static int probe_fill_relos(struct btf *btf, struct EventProbe_bpf *obj)
 {
     int err = 0;
 
+    err = err ?: FILL_FUNC_RET_IDX(obj, btf, inet_csk_accept);
+
     err = err ?: FILL_FUNC_ARG_IDX(obj, btf, vfs_unlink, dentry);
     err = err ?: FILL_FUNC_RET_IDX(obj, btf, vfs_unlink);
 
