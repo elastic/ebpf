@@ -40,8 +40,8 @@ enum ebpf_event_type {
     EBPF_EVENT_PROCESS_SHMGET               = (1 << 17),
     EBPF_EVENT_PROCESS_PTRACE               = (1 << 18),
     EBPF_EVENT_PROCESS_LOAD_MODULE          = (1 << 19),
-    EBPF_EVENT_NETWORK_UDP_SENDMSG = (1 << 20),
-    EBPF_EVENT_NETWORK_UDP_RECVMSG = (1 << 21),
+    EBPF_EVENT_NETWORK_UDP_SENDMSG          = (1 << 20),
+    EBPF_EVENT_NETWORK_UDP_RECVMSG          = (1 << 21),
 };
 
 struct ebpf_event_header {

@@ -1153,7 +1153,7 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         out_network_connection_closed_event((struct ebpf_net_event *)evt_hdr);
         break;
     case EBPF_EVENT_NETWORK_UDP_SENDMSG:
-        out_network_udp_sendmsg((struct ebpf_net_event* )evt_hdr);
+        out_network_udp_sendmsg((struct ebpf_net_event *)evt_hdr);
         break;
     case EBPF_EVENT_NETWORK_UDP_RECVMSG:
         out_network_udp_recvmsg((struct ebpf_net_event *)evt_hdr);

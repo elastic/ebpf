@@ -24,13 +24,13 @@ static int sock_object_handle(struct sock *sk, enum ebpf_event_type evt_type)
 {
     if (!sk)
         goto out;
-    if (ebpf_events_is_trusted_pid()) 
+    if (ebpf_events_is_trusted_pid())
         goto out;
 
     struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;
-        
+
     if (ebpf_network_event__fill(event, sk)) {
         bpf_ringbuf_discard(event, 0);
         goto out;
