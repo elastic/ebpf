@@ -63,6 +63,8 @@ enum cmdline_opts {
     NETWORK_CONNECTION_ATTEMPTED,
     NETWORK_CONNECTION_ACCEPTED,
     NETWORK_CONNECTION_CLOSED,
+    NETWORK_UDP_SENDMSG,
+    NETWORK_UDP_RECVMSG,
     CMDLINE_MAX
 };
 
@@ -89,6 +91,8 @@ static uint64_t cmdline_to_lib[CMDLINE_MAX] = {
     x(NETWORK_CONNECTION_ATTEMPTED)
     x(NETWORK_CONNECTION_ACCEPTED)
     x(NETWORK_CONNECTION_CLOSED)
+    x(NETWORK_UDP_SENDMSG)
+    x(NETWORK_UDP_RECVMSG)
 #undef x
     // clang-format on
 };
@@ -114,6 +118,8 @@ static const struct argp_option opts[] = {
     {"process-load-module", PROCESS_LOAD_MODULE, NULL, false, "Print kernel module load events", 0},
     {"net-conn-accept", NETWORK_CONNECTION_ACCEPTED, NULL, false,
      "Print network connection accepted events", 0},
+    {"net-conn-udp-sendmsg", NETWORK_UDP_SENDMSG, NULL, false, "Print udp sendmsg events", 0},
+    {"net-conn-udp-recvmsg", NETWORK_UDP_RECVMSG, NULL, false, "Print udp recvmsg events", 0},
     {"net-conn-attempt", NETWORK_CONNECTION_ATTEMPTED, NULL, false,
      "Print network connection attempted events", 0},
     {"net-conn-closed", NETWORK_CONNECTION_CLOSED, NULL, false,
@@ -173,6 +179,8 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case NETWORK_CONNECTION_ACCEPTED:
     case NETWORK_CONNECTION_ATTEMPTED:
     case NETWORK_CONNECTION_CLOSED:
+    case NETWORK_UDP_SENDMSG:
+    case NETWORK_UDP_RECVMSG:
         g_events_env |= cmdline_to_lib[key];
         break;
     case ARGP_KEY_ARG:
@@ -977,6 +985,10 @@ static void out_net_info(const char *name, struct ebpf_net_event *evt)
         out_string("transport", "TCP");
         out_comma();
         break;
+    case EBPF_NETWORK_EVENT_TRANSPORT_UDP:
+        out_string("transport", "UDP");
+        out_comma();
+        break;
     }
 
     switch (net->family) {
@@ -1049,6 +1061,16 @@ static void out_network_event(const char *name, struct ebpf_net_event *evt)
 static void out_network_connection_accepted_event(struct ebpf_net_event *evt)
 {
     out_network_event("NETWORK_CONNECTION_ACCEPTED", evt);
+}
+
+static void out_network_udp_sendmsg(struct ebpf_net_event *evnt)
+{
+    out_network_event("NETWORK_UDP_SENDMSG", evnt);
+}
+
+static void out_network_udp_recvmsg(struct ebpf_net_event *evnt)
+{
+    out_network_event("NETWORK_UDP_RECVMSG", evnt);
 }
 
 static void out_network_connection_attempted_event(struct ebpf_net_event *evt)
@@ -1129,6 +1151,12 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         break;
     case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
         out_network_connection_closed_event((struct ebpf_net_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_NETWORK_UDP_SENDMSG:
+        out_network_udp_sendmsg((struct ebpf_net_event* )evt_hdr);
+        break;
+    case EBPF_EVENT_NETWORK_UDP_RECVMSG:
+        out_network_udp_recvmsg((struct ebpf_net_event *)evt_hdr);
         break;
     }
 

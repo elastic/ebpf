@@ -67,6 +67,9 @@ static int ebpf_sock_info__fill(struct ebpf_net_info *net, struct sock *sk)
     case IPPROTO_TCP:
         net->transport = EBPF_NETWORK_EVENT_TRANSPORT_TCP;
         break;
+    case IPPROTO_UDP:
+        net->transport = EBPF_NETWORK_EVENT_TRANSPORT_UDP;
+        break;
     default:
         err = -1;
         goto out;

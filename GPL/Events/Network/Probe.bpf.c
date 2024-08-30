@@ -20,40 +20,65 @@
 
 DECL_FUNC_RET(inet_csk_accept);
 
-static int inet_csk_accept__exit(struct sock *sk)
+static int sock_object_handle(struct sock *sk, enum ebpf_event_type evt_type)
 {
     if (!sk)
         goto out;
-    if (ebpf_events_is_trusted_pid())
+    if (ebpf_events_is_trusted_pid()) 
         goto out;
 
     struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;
-
+        
     if (ebpf_network_event__fill(event, sk)) {
         bpf_ringbuf_discard(event, 0);
         goto out;
     }
 
-    event->hdr.type = EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED;
+    event->hdr.type = evt_type;
     bpf_ringbuf_submit(event, 0);
 
 out:
     return 0;
 }
 
+SEC("fentry/udp_sendmsg")
+int BPF_PROG(fentry__udp_sendmsg, struct sock *sk)
+{
+    bpf_printk("got ip4_datagram event");
+    return sock_object_handle(sk, EBPF_EVENT_NETWORK_UDP_SENDMSG);
+}
+
+SEC("fexit/udp_recvmsg")
+int BPF_PROG(fexit__udp_recvmsg, struct sock *sk)
+{
+    return sock_object_handle(sk, EBPF_EVENT_NETWORK_UDP_RECVMSG);
+}
+
+SEC("kprobe/udp_sendmsg")
+int BPF_KPROBE(kprobe__udp_sendmsg, struct sock *sk)
+{
+    return sock_object_handle(sk, EBPF_EVENT_NETWORK_UDP_SENDMSG);
+}
+
+SEC("kprobe/udp_recvmsg")
+int BPF_KPROBE(kprobe__udp_recvmsg, struct sock *sk)
+{
+    return sock_object_handle(sk, EBPF_EVENT_NETWORK_UDP_RECVMSG);
+}
+
 SEC("fexit/inet_csk_accept")
 int BPF_PROG(fexit__inet_csk_accept)
 {
     struct sock *ret = FUNC_RET_READ(___type(ret), inet_csk_accept);
-    return inet_csk_accept__exit(ret);
+    return sock_object_handle(ret, EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED);
 }
 
 SEC("kretprobe/inet_csk_accept")
 int BPF_KRETPROBE(kretprobe__inet_csk_accept, struct sock *ret)
 {
-    return inet_csk_accept__exit(ret);
+    return sock_object_handle(ret, EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED);
 }
 
 static int tcp_connect(struct sock *sk, int ret)
