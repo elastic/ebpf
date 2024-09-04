@@ -55,7 +55,7 @@ jobs:
     - name: Get Env
       run: echo "ELASTIC_EBPF_VERSION=$(cat VERSION)" >> $GITHUB_ENV && echo "PWD=$(pwd)" >> $GITHUB_ENV
     - name: Download Build Artifacts
-      uses: actions/download-artifact@v4.1.7
+      uses: actions/download-artifact@v4
       with:
         name: elastic-ebpf-${{ inputs.architecture }}
         path: ${{ env.PWD }}/artifacts
@@ -74,13 +74,13 @@ jobs:
         mkdir -p logs && mv testing/results logs/${{ matrix.kernel_flavor }}-${{ inputs.architecture }}
     - name: Archive test summary
       if: always()
-      uses: actions/upload-artifact@v4.1.7
+      uses: actions/upload-artifact@v4
       with:
         name: result-summary
         path: results-${{ matrix.kernel_flavor }}-${{ inputs.architecture }}.txt
     - name: Archive individual test results
       if: always()
-      uses: actions/upload-artifact@v4.1.7
+      uses: actions/upload-artifact@v4
       with:
         name: logs
         path: logs
