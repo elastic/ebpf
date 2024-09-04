@@ -55,7 +55,7 @@ jobs:
     - name: Get Env
       run: echo "ELASTIC_EBPF_VERSION=$(cat VERSION)" >> $GITHUB_ENV && echo "PWD=$(pwd)" >> $GITHUB_ENV
     - name: Download Build Artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4.1.7
       with:
         name: elastic-ebpf-${{ inputs.architecture }}
         path: ${{ env.PWD }}/artifacts
