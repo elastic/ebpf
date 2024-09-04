@@ -47,7 +47,7 @@ jobs:
         id: path-generator
         run: echo "PWD=$(pwd)" >> "$GITHUB_OUTPUT"
       - name: Archive Build Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: elastic-ebpf-${{ inputs.architecture }}
           path: ${{ steps.path-generator.outputs.PWD }}/artifacts-${{ inputs.architecture }}/elastic-ebpf-${{ steps.version-generator.outputs.ELASTIC_EBPF_VERSION }}-SNAPSHOT.tar.gz
