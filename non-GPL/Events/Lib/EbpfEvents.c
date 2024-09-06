@@ -388,6 +388,7 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__chown_common, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__udp_sendmsg, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__udp_recvmsg, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__udp_recvmsg, false);
     } else {
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_unlinkat, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__mnt_want_write, false);

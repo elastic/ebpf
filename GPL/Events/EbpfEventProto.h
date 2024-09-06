@@ -11,6 +11,8 @@
 #define EBPF_EVENTPROBE_EBPFEVENTPROTO_H
 
 #define TASK_COMM_LEN 16
+#define MAX_DNS_PACKET 512
+#define MAX_NR_SEGS 8
 
 #ifndef __KERNEL__
 #include <stdint.h>
@@ -42,6 +44,7 @@ enum ebpf_event_type {
     EBPF_EVENT_PROCESS_LOAD_MODULE          = (1 << 19),
     EBPF_EVENT_NETWORK_UDP_SENDMSG          = (1 << 20),
     EBPF_EVENT_NETWORK_UDP_RECVMSG          = (1 << 21),
+    EBPF_EVENT_NETWORK_DNS_PKT              = (1 << 22),
 };
 
 struct ebpf_event_header {
@@ -380,6 +383,29 @@ struct ebpf_net_event {
     struct ebpf_pid_info pids;
     struct ebpf_net_info net;
     char comm[TASK_COMM_LEN];
+} __attribute__((packed));
+
+struct dns_pkt_header {
+    uint16_t transaction_id;
+    uint16_t flags;
+    uint16_t num_questions;
+    uint16_t num_answers;
+    uint16_t num_auth_rrs;
+    uint16_t num_additional_rrs;
+} __attribute__((packed));
+
+struct dns_body {
+    size_t len;
+    uint8_t pkt[MAX_DNS_PACKET];
+} __attribute((packed));
+
+struct ebpf_dns_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
+    struct ebpf_net_info net;
+    char comm[TASK_COMM_LEN];
+    enum ebpf_event_type udp_evt;
+    struct dns_body pkts[MAX_NR_SEGS];
 } __attribute__((packed));
 
 // Basic event statistics

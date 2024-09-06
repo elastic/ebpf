@@ -65,6 +65,7 @@ enum cmdline_opts {
     NETWORK_CONNECTION_CLOSED,
     NETWORK_UDP_SENDMSG,
     NETWORK_UDP_RECVMSG,
+    NETWORK_DNS_PKT,
     CMDLINE_MAX
 };
 
@@ -93,6 +94,7 @@ static uint64_t cmdline_to_lib[CMDLINE_MAX] = {
     x(NETWORK_CONNECTION_CLOSED)
     x(NETWORK_UDP_SENDMSG)
     x(NETWORK_UDP_RECVMSG)
+    x(NETWORK_DNS_PKT)
 #undef x
     // clang-format on
 };
@@ -120,6 +122,7 @@ static const struct argp_option opts[] = {
      "Print network connection accepted events", 0},
     {"net-conn-udp-sendmsg", NETWORK_UDP_SENDMSG, NULL, false, "Print udp sendmsg events", 0},
     {"net-conn-udp-recvmsg", NETWORK_UDP_RECVMSG, NULL, false, "Print udp recvmsg events", 0},
+    {"net-conn-dns-pkt", NETWORK_DNS_PKT, NULL, false, "Print DNS events", 0},
     {"net-conn-attempt", NETWORK_CONNECTION_ATTEMPTED, NULL, false,
      "Print network connection attempted events", 0},
     {"net-conn-closed", NETWORK_CONNECTION_CLOSED, NULL, false,
@@ -181,6 +184,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case NETWORK_CONNECTION_CLOSED:
     case NETWORK_UDP_SENDMSG:
     case NETWORK_UDP_RECVMSG:
+    case NETWORK_DNS_PKT:
         g_events_env |= cmdline_to_lib[key];
         break;
     case ARGP_KEY_ARG:
@@ -1073,6 +1077,16 @@ static void out_network_udp_recvmsg(struct ebpf_net_event *evnt)
     out_network_event("NETWORK_UDP_RECVMSG", evnt);
 }
 
+static void out_network_dns_event(struct ebpf_dns_event *event)
+{
+    // TODO: format as JSON, or just remove?
+    printf("packet %d: ", event->udp_evt);
+    for (size_t i = 0; i < 60; i++) {
+        printf("%02x ", event->pkts[0].pkt[i]);
+    }
+    printf("\n");
+}
+
 static void out_network_connection_attempted_event(struct ebpf_net_event *evt)
 {
     out_network_event("NETWORK_CONNECTION_ATTEMPTED", evt);
@@ -1157,6 +1171,9 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         break;
     case EBPF_EVENT_NETWORK_UDP_RECVMSG:
         out_network_udp_recvmsg((struct ebpf_net_event *)evt_hdr);
+        break;
+    case EBPF_EVENT_NETWORK_DNS_PKT:
+        out_network_dns_event((struct ebpf_dns_event *)evt_hdr);
         break;
     }
 
