@@ -367,18 +367,4 @@ static int get_iovec_nr_segs_or_max(struct iov_iter *from)
     return nr_segs;
 }
 
-struct udp_ctx {
-    struct sock *sk;
-    struct msghdr *hdr;
-    int flags;
-} __attribute__((packed));
-
-// scratchspace map for fetching the arguments from a kretprobe
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, u64);
-    __type(value, struct udp_ctx);
-    __uint(max_entries, 1024);
-} pkt_ctx SEC(".maps");
-
 #endif // EBPF_EVENTPROBE_HELPERS_H
