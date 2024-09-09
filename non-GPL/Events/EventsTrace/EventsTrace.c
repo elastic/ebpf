@@ -63,6 +63,8 @@ enum cmdline_opts {
     NETWORK_CONNECTION_ATTEMPTED,
     NETWORK_CONNECTION_ACCEPTED,
     NETWORK_CONNECTION_CLOSED,
+    NETWORK_UDP_SENDMSG,
+    NETWORK_UDP_RECVMSG,
     NETWORK_DNS_PKT,
     CMDLINE_MAX
 };
@@ -90,6 +92,8 @@ static uint64_t cmdline_to_lib[CMDLINE_MAX] = {
     x(NETWORK_CONNECTION_ATTEMPTED)
     x(NETWORK_CONNECTION_ACCEPTED)
     x(NETWORK_CONNECTION_CLOSED)
+    x(NETWORK_UDP_SENDMSG)
+    x(NETWORK_UDP_RECVMSG)
     x(NETWORK_DNS_PKT)
 #undef x
     // clang-format on
@@ -116,6 +120,8 @@ static const struct argp_option opts[] = {
     {"process-load-module", PROCESS_LOAD_MODULE, NULL, false, "Print kernel module load events", 0},
     {"net-conn-accept", NETWORK_CONNECTION_ACCEPTED, NULL, false,
      "Print network connection accepted events", 0},
+    {"net-conn-udp-sendmsg", NETWORK_UDP_SENDMSG, NULL, false, "Print udp sendmsg events", 0},
+    {"net-conn-udp-recvmsg", NETWORK_UDP_RECVMSG, NULL, false, "Print udp recvmsg events", 0},
     {"net-conn-dns-pkt", NETWORK_DNS_PKT, NULL, false, "Print DNS events", 0},
     {"net-conn-attempt", NETWORK_CONNECTION_ATTEMPTED, NULL, false,
      "Print network connection attempted events", 0},
@@ -176,6 +182,8 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case NETWORK_CONNECTION_ACCEPTED:
     case NETWORK_CONNECTION_ATTEMPTED:
     case NETWORK_CONNECTION_CLOSED:
+    case NETWORK_UDP_SENDMSG:
+    case NETWORK_UDP_RECVMSG:
     case NETWORK_DNS_PKT:
         g_events_env |= cmdline_to_lib[key];
         break;
@@ -1074,7 +1082,7 @@ static void out_network_dns_event(struct ebpf_dns_event *event)
     // TODO: format as JSON, or just remove?
     printf("packet %d: ", event->udp_evt);
     for (size_t i = 0; i < 60; i++) {
-        printf("%02x ", event->pkt[i]);
+        printf("%02x ", event->pkts[0].pkt[i]);
     }
     printf("\n");
 }
@@ -1158,10 +1166,10 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
     case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
         out_network_connection_closed_event((struct ebpf_net_event *)evt_hdr);
         break;
-    case EBPF_EVENT_NETWORK_SEND_SKB:
+    case EBPF_EVENT_NETWORK_UDP_SENDMSG:
         out_network_udp_sendmsg((struct ebpf_net_event *)evt_hdr);
         break;
-    case EBPF_EVENT_NETWORK_CONSUME_SKB:
+    case EBPF_EVENT_NETWORK_UDP_RECVMSG:
         out_network_udp_recvmsg((struct ebpf_net_event *)evt_hdr);
         break;
     case EBPF_EVENT_NETWORK_DNS_PKT:
