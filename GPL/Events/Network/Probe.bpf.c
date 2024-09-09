@@ -74,8 +74,8 @@ static int sock_dns_event_handle(struct sock *sk,
 
     if (nr_segs == 1) {
         // actually read in raw packet data
-        // use the retvalue of recvmsg/the count value of sendmsg instead of the the iovec count
-        // the count of the iovec in udp_recvmsg is the size of the buffer, not the size of the
+        // use the retvalue of recvmsg/the count value of sendmsg instead of the the iovec count.
+        // The count of the iovec in udp_recvmsg is the size of the buffer, not the size of the
         // bytes read.
         void *base         = BPF_CORE_READ(iov, iov_base);
         event->pkts[0].len = size;
@@ -155,18 +155,33 @@ int BPF_PROG(fentry__udp_sendmsg, struct sock *sk, struct msghdr *msg, size_t si
 }
 
 SEC("fexit/udp_recvmsg")
-int BPF_PROG(fexit__udp_recvmsg,
-             struct sock *sk,
-             struct msghdr *msg,
-             size_t len,
-             int flags,
-             int *addr_len,
-             int ret)
+int BPF_PROG(fexit__udp_recvmsg)
 {
+
+    // 5.18 changed the function args for udp_recvmsg,
+    // so we have to do this to fetch the value of the `flags` arg.
+    // obviously if the args change again this can fail.
+    u64 flags   = 0;
+    u64 nr_args = bpf_get_func_arg_cnt(ctx);
+    if (nr_args == 5) {
+        bpf_get_func_arg(ctx, 3, &flags);
+    } else if (nr_args == 6) {
+        bpf_get_func_arg(ctx, 4, &flags);
+    }
     // check the peeking flag; if set to peek, the msghdr won't contain any data
+    // Still trying to get this to work portably.
     if (flags & MSG_PEEK) {
         return 0;
     }
+    // bpf_get_func_arg_cnt()
+    struct sock *sk    = (void *)ctx[0];
+    struct msghdr *msg = (void *)ctx[1];
+    u64 ret            = 0;
+    bpf_get_func_ret(ctx, &ret);
+    u16 family = BPF_CORE_READ(sk, __sk_common.skc_family);
+    // struct msghdr* msg = (struct msghdr*)PT_REGS_PARM2(regs);
+    bpf_printk("retval: %d", regs_ret);
+    // return 0;
     return sock_dns_event_handle(sk, msg, EBPF_EVENT_NETWORK_UDP_RECVMSG, ret);
 }
 
@@ -180,11 +195,9 @@ int BPF_KPROBE(kprobe__udp_sendmsg, struct sock *sk, struct msghdr *msg, size_t 
 // in the kprobe, then fetch the pointer from a context map in the kretprobe
 
 SEC("kprobe/udp_recvmsg")
-int BPF_KPROBE(
-    kprobe__udp_recvmsg, struct sock *sk, struct msghdr *msg, size_t len, int flags, int *addr_len)
+int BPF_KPROBE(kprobe__udp_recvmsg, struct sock *sk, struct msghdr *msg)
 {
     struct udp_ctx kctx;
-    kctx.flags = flags;
 
     // I suspect that using the PID_TID isn't the most reliable way to map the sockets/iters
     // not sure what else we could use that's accessable from the kretprobe, though.
@@ -217,18 +230,12 @@ int BPF_KRETPROBE(kretprobe__udp_recvmsg, int ret)
     bpf_printk("in kretprobe udp_recvmsg....");
 
     u64 pid_tid = bpf_get_current_pid_tgid();
-
-    void *vctx = bpf_map_lookup_elem(&pkt_ctx, &pid_tid);
+    void *vctx  = bpf_map_lookup_elem(&pkt_ctx, &pid_tid);
 
     struct udp_ctx kctx;
     long read_err = bpf_probe_read(&kctx, sizeof(kctx), vctx);
     if (read_err != 0) {
         bpf_printk("error reading back context in udp_recvmsg: %d", read_err);
-    }
-
-    // check the peeking flag; if set to peek, the msghdr won't contain any data
-    if (kctx.flags & MSG_PEEK) {
-        return 0;
     }
 
     return sock_dns_event_handle(kctx.sk, kctx.hdr, EBPF_EVENT_NETWORK_UDP_RECVMSG, ret);
