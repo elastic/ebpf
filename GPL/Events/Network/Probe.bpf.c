@@ -85,6 +85,9 @@ static int sock_dns_event_handle(struct sock *sk,
                        MAX_DNS_PACKET);
             goto out;
         }
+        // TODO: This will fail on recvmsg calls where the peek flag has been set.
+        // Changes to the udp_recvmsg function call in 5.18 make it a bit annoying to get the
+        // flags argument portably. So let it fail instead of manually skipping peek calls.
         long readok = bpf_probe_read(event->pkts[0].pkt, size, base);
         if (readok != 0) {
             bpf_printk("invalid read from iovec structure: %d", readok);
@@ -147,43 +150,6 @@ out:
 /*
 =============================== DNS probes ===============================
 */
-
-SEC("fentry/udp_sendmsg")
-int BPF_PROG(fentry__udp_sendmsg, struct sock *sk, struct msghdr *msg, size_t size)
-{
-    return sock_dns_event_handle(sk, msg, EBPF_EVENT_NETWORK_UDP_SENDMSG, size);
-}
-
-SEC("fexit/udp_recvmsg")
-int BPF_PROG(fexit__udp_recvmsg)
-{
-
-    // 5.18 changed the function args for udp_recvmsg,
-    // so we have to do this to fetch the value of the `flags` arg.
-    // obviously if the args change again this can fail.
-    u64 flags   = 0;
-    u64 nr_args = bpf_get_func_arg_cnt(ctx);
-    if (nr_args == 5) {
-        bpf_get_func_arg(ctx, 3, &flags);
-    } else if (nr_args == 6) {
-        bpf_get_func_arg(ctx, 4, &flags);
-    }
-    // check the peeking flag; if set to peek, the msghdr won't contain any data
-    // Still trying to get this to work portably.
-    if (flags & MSG_PEEK) {
-        return 0;
-    }
-    // bpf_get_func_arg_cnt()
-    struct sock *sk    = (void *)ctx[0];
-    struct msghdr *msg = (void *)ctx[1];
-    u64 ret            = 0;
-    bpf_get_func_ret(ctx, &ret);
-    u16 family = BPF_CORE_READ(sk, __sk_common.skc_family);
-    // struct msghdr* msg = (struct msghdr*)PT_REGS_PARM2(regs);
-    bpf_printk("retval: %d", regs_ret);
-    // return 0;
-    return sock_dns_event_handle(sk, msg, EBPF_EVENT_NETWORK_UDP_RECVMSG, ret);
-}
 
 SEC("kprobe/udp_sendmsg")
 int BPF_KPROBE(kprobe__udp_sendmsg, struct sock *sk, struct msghdr *msg, size_t size)
