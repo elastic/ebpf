@@ -261,7 +261,7 @@ int BPF_KPROBE(kprobe__ip_send_skb, struct net *net, struct sk_buff *skb)
     return handle_consume(skb, len, EBPF_EVENT_NETWORK_UDP_SENDMSG);
 }
 
-SEC("kprobe/skb_consume_skb")
+SEC("kprobe/skb_consume_udp")
 int BPF_KPROBE(kprobe__skb_consume_skb, struct net *net, struct sk_buff *skb)
 {
     // return handle_consume(skb, len, EBPF_EVENT_NETWORK_UDP_SENDMSG);
@@ -284,7 +284,7 @@ int BPF_KPROBE(kprobe__skb_consume_skb, struct net *net, struct sk_buff *skb)
     }
 }
 
-SEC("kretprobe/skb_consume_skb")
+SEC("kretprobe/skb_consume_udp")
 int BPF_KRETPROBE(kretprobe__skb_consume_skb, int ret)
 {
     u64 pid_tid = bpf_get_current_pid_tgid();
