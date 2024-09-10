@@ -153,12 +153,8 @@ out:
 Testing alternate code. This section will not be merged, or will be cleaned up.
 */
 
-static int
-handle_consume(struct sock *sk, struct sk_buff *skb, int len, enum ebpf_event_type evt_type)
+static int handle_consume(struct sk_buff *skb, int len, enum ebpf_event_type evt_type)
 {
-    if (!sk) {
-        return 0;
-    }
 
     if (ebpf_events_is_trusted_pid())
         return 0;
@@ -169,15 +165,18 @@ handle_consume(struct sock *sk, struct sk_buff *skb, int len, enum ebpf_event_ty
 
     // read from skbuf
     unsigned char *data = BPF_CORE_READ(skb, head);
+    // get lengths
+    u16 net_header_offset       = BPF_CORE_READ(skb, network_header);
+    u16 transport_header_offset = BPF_CORE_READ(skb, transport_header);
 
     u8 iphdr_first_byte = 0;
-    bpf_core_read(&iphdr_first_byte, 1, data + skb->network_header);
+    bpf_core_read(&iphdr_first_byte, 1, data + net_header_offset);
     iphdr_first_byte = iphdr_first_byte >> 4;
 
     u8 proto = 0;
     if (iphdr_first_byte == 4) {
         struct iphdr ip_hdr;
-        bpf_core_read(&ip_hdr, sizeof(struct iphdr), data + skb->network_header);
+        bpf_core_read(&ip_hdr, sizeof(struct iphdr), data + net_header_offset);
 
         proto = ip_hdr.protocol;
         bpf_probe_read(event->net.saddr, 4, (void *)&ip_hdr.saddr);
@@ -185,7 +184,7 @@ handle_consume(struct sock *sk, struct sk_buff *skb, int len, enum ebpf_event_ty
 
     } else if (iphdr_first_byte == 6) {
         struct ipv6hdr ip6_hdr;
-        bpf_core_read(&ip6_hdr, sizeof(struct ipv6hdr), data + skb->network_header);
+        bpf_core_read(&ip6_hdr, sizeof(struct ipv6hdr), data + net_header_offset);
         proto = ip6_hdr.nexthdr;
 
         bpf_probe_read(event->net.saddr6, 16, ip6_hdr.saddr.in6_u.u6_addr8);
@@ -197,7 +196,7 @@ handle_consume(struct sock *sk, struct sk_buff *skb, int len, enum ebpf_event_ty
     }
 
     struct udphdr udp_hdr;
-    bpf_core_read(&udp_hdr, sizeof(struct udphdr), data + skb->transport_header);
+    bpf_core_read(&udp_hdr, sizeof(struct udphdr), data + transport_header_offset);
     event->net.dport = bpf_ntohs(udp_hdr.dest);
     event->net.sport = bpf_ntohs(udp_hdr.source);
 
@@ -219,7 +218,7 @@ handle_consume(struct sock *sk, struct sk_buff *skb, int len, enum ebpf_event_ty
     }
 
     // udp_send_skb includes the IP and UDP header, so offset
-    long offset = skb->transport_header + sizeof(struct udphdr);
+    long offset = transport_header_offset + sizeof(struct udphdr);
 
     long ret = bpf_probe_read_kernel(event->pkts[0].pkt, readsize, data + offset);
     if (ret != 0) {
@@ -241,7 +240,7 @@ out:
 SEC("fentry/ip_send_skb")
 int BPF_PROG(fentry__ip_send_skb, struct net *net, struct sk_buff *skb)
 {
-    return handle_consume(skb->sk, skb, skb->len, EBPF_EVENT_NETWORK_UDP_SENDMSG);
+    return handle_consume(skb, skb->len, EBPF_EVENT_NETWORK_UDP_SENDMSG);
 }
 
 SEC("fexit/skb_consume_udp")
@@ -252,7 +251,52 @@ int BPF_PROG(fexit__skb_consume_udp, struct sock *sk, struct sk_buff *skb, int l
     if (len < 0) {
         return 0;
     }
-    return handle_consume(sk, skb, len, EBPF_EVENT_NETWORK_UDP_RECVMSG);
+    return handle_consume(skb, len, EBPF_EVENT_NETWORK_UDP_RECVMSG);
+}
+
+SEC("kprobe/ip_send_skb")
+int BPF_KPROBE(kprobe__ip_send_skb, struct net *net, struct sk_buff *skb)
+{
+    long len = BPF_CORE_READ(skb, len);
+    return handle_consume(skb, len, EBPF_EVENT_NETWORK_UDP_SENDMSG);
+}
+
+SEC("kprobe/skb_consume_skb")
+int BPF_KPROBE(kprobe__skb_consume_skb, struct net *net, struct sk_buff *skb)
+{
+    // return handle_consume(skb, len, EBPF_EVENT_NETWORK_UDP_SENDMSG);
+    struct udp_ctx kctx;
+
+    // I suspect that using the PID_TID isn't the most reliable way to map the sockets/iters
+    // not sure what else we could use that's accessable from the kretprobe, though.
+    u64 pid_tid = bpf_get_current_pid_tgid();
+
+    long iter_err = bpf_probe_read(&kctx.skb, sizeof(kctx.skb), &skb);
+    if (iter_err != 0) {
+        bpf_printk("error reading skb in skb_consume_skb: %d", iter_err);
+        return 0;
+    }
+
+    long update_err = bpf_map_update_elem(&pkt_ctx, &pid_tid, &kctx, BPF_ANY);
+    if (update_err != 0) {
+        bpf_printk("error updating context map in udp_recvmsg: %d", update_err);
+        return 0;
+    }
+}
+
+SEC("kretprobe/skb_consume_skb")
+int BPF_KRETPROBE(kretprobe__skb_consume_skb, int ret)
+{
+    u64 pid_tid = bpf_get_current_pid_tgid();
+    void *vctx  = bpf_map_lookup_elem(&pkt_ctx, &pid_tid);
+
+    struct udp_ctx kctx;
+    long read_err = bpf_probe_read(&kctx, sizeof(kctx), vctx);
+    if (read_err != 0) {
+        bpf_printk("error reading back context in skb_consume_skb: %d", read_err);
+    }
+
+    return handle_consume(kctx.skb, ret, EBPF_EVENT_NETWORK_UDP_RECVMSG);
 }
 
 /*
@@ -268,51 +312,51 @@ int BPF_KPROBE(kprobe__udp_sendmsg, struct sock *sk, struct msghdr *msg, size_t 
 // We can't get the arguments from a kretprobe, so instead save off the pointer in
 // in the kprobe, then fetch the pointer from a context map in the kretprobe
 
-SEC("kprobe/udp_recvmsg")
-int BPF_KPROBE(kprobe__udp_recvmsg, struct sock *sk, struct msghdr *msg)
-{
-    struct udp_ctx kctx;
+// SEC("kprobe/udp_recvmsg")
+// int BPF_KPROBE(kprobe__udp_recvmsg, struct sock *sk, struct msghdr *msg)
+// {
+//     struct udp_ctx kctx;
 
-    // I suspect that using the PID_TID isn't the most reliable way to map the sockets/iters
-    // not sure what else we could use that's accessable from the kretprobe, though.
-    u64 pid_tid = bpf_get_current_pid_tgid();
+//     // I suspect that using the PID_TID isn't the most reliable way to map the sockets/iters
+//     // not sure what else we could use that's accessable from the kretprobe, though.
+//     u64 pid_tid = bpf_get_current_pid_tgid();
 
-    long iter_err = bpf_probe_read(&kctx.hdr, sizeof(kctx.hdr), &msg);
-    if (iter_err != 0) {
-        bpf_printk("error reading msg_iter in udp_recvmsg: %d", iter_err);
-        return 0;
-    }
+//     long iter_err = bpf_probe_read(&kctx.hdr, sizeof(kctx.hdr), &msg);
+//     if (iter_err != 0) {
+//         bpf_printk("error reading msg_iter in udp_recvmsg: %d", iter_err);
+//         return 0;
+//     }
 
-    long sk_err = bpf_probe_read(&kctx.sk, sizeof(kctx.sk), &sk);
-    if (sk_err != 0) {
-        bpf_printk("error reading msg_iter in udp_recvmsg: %d", sk_err);
-        return 0;
-    }
+//     long sk_err = bpf_probe_read(&kctx.sk, sizeof(kctx.sk), &sk);
+//     if (sk_err != 0) {
+//         bpf_printk("error reading msg_iter in udp_recvmsg: %d", sk_err);
+//         return 0;
+//     }
 
-    long update_err = bpf_map_update_elem(&pkt_ctx, &pid_tid, &kctx, BPF_ANY);
-    if (update_err != 0) {
-        bpf_printk("error updating context map in udp_recvmsg: %d", update_err);
-        return 0;
-    }
+//     long update_err = bpf_map_update_elem(&pkt_ctx, &pid_tid, &kctx, BPF_ANY);
+//     if (update_err != 0) {
+//         bpf_printk("error updating context map in udp_recvmsg: %d", update_err);
+//         return 0;
+//     }
 
-    return 0;
-}
+//     return 0;
+// }
 
-SEC("kretprobe/udp_recvmsg")
-int BPF_KRETPROBE(kretprobe__udp_recvmsg, int ret)
-{
+// SEC("kretprobe/udp_recvmsg")
+// int BPF_KRETPROBE(kretprobe__udp_recvmsg, int ret)
+// {
 
-    u64 pid_tid = bpf_get_current_pid_tgid();
-    void *vctx  = bpf_map_lookup_elem(&pkt_ctx, &pid_tid);
+//     u64 pid_tid = bpf_get_current_pid_tgid();
+//     void *vctx  = bpf_map_lookup_elem(&pkt_ctx, &pid_tid);
 
-    struct udp_ctx kctx;
-    long read_err = bpf_probe_read(&kctx, sizeof(kctx), vctx);
-    if (read_err != 0) {
-        bpf_printk("error reading back context in udp_recvmsg: %d", read_err);
-    }
+//     struct udp_ctx kctx;
+//     long read_err = bpf_probe_read(&kctx, sizeof(kctx), vctx);
+//     if (read_err != 0) {
+//         bpf_printk("error reading back context in udp_recvmsg: %d", read_err);
+//     }
 
-    return sock_dns_event_handle(kctx.sk, kctx.hdr, EBPF_EVENT_NETWORK_UDP_RECVMSG, ret);
-}
+//     return sock_dns_event_handle(kctx.sk, kctx.hdr, EBPF_EVENT_NETWORK_UDP_RECVMSG, ret);
+// }
 
 /*
 =============================== TCP probes ===============================
