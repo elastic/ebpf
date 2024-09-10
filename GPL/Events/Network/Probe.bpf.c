@@ -180,8 +180,8 @@ handle_consume(struct sock *sk, struct sk_buff *skb, int len, enum ebpf_event_ty
         bpf_core_read(&ip_hdr, sizeof(struct iphdr), data + skb->network_header);
 
         proto = ip_hdr.protocol;
-        bpf_probe_read(event->net.saddr, 4, (void*)&ip_hdr.saddr);
-        bpf_probe_read(event->net.daddr, 4, (void*)&ip_hdr.daddr);
+        bpf_probe_read(event->net.saddr, 4, (void *)&ip_hdr.saddr);
+        bpf_probe_read(event->net.daddr, 4, (void *)&ip_hdr.daddr);
 
     } else if (iphdr_first_byte == 6) {
         struct ipv6hdr ip6_hdr;
