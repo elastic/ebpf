@@ -386,6 +386,10 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__vfs_write, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__chown_common, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__chown_common, false);
+
+        // TEST CODE
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__udp_sendmsg, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__udp_recvmsg, false);
     } else {
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_unlinkat, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__mnt_want_write, false);
@@ -403,6 +407,9 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__do_truncate, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__vfs_write, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__chown_common, false);
+
+        err = err ?: bpf_program__set_autoload(obj->progs.fentry__ip_send_skb, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.fexit__skb_consume_udp, false);
     }
 
     return err;

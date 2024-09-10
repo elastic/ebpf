@@ -148,6 +148,88 @@ out:
 }
 
 /*
+=============================== TEST CODE ===============================
+
+Testing alternate code. This section will not be merged, or will be cleaned up.
+*/
+
+static int
+handle_consume(struct sock *sk, struct sk_buff *skb, int len, enum ebpf_event_type evt_type)
+{
+    if (!sk) {
+        return 0;
+    }
+
+    if (ebpf_events_is_trusted_pid())
+        return 0;
+
+    struct ebpf_dns_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    if (!event)
+        return 0;
+
+    // fill in socket and process metadata
+    if (ebpf_sock_info__fill(&event->net, sk)) {
+        goto out;
+    }
+
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    ebpf_pid_info__fill(&event->pids, task);
+    bpf_get_current_comm(event->comm, TASK_COMM_LEN);
+    event->hdr.ts = bpf_ktime_get_ns();
+
+    // filter out non-dns packets
+    if (event->net.dport != 53 && event->net.sport != 53) {
+        bpf_printk("not a dns packet...");
+        goto out;
+    }
+
+    // constrain the read size to make the verifier happy
+    long readsize = BPF_CORE_READ(skb, len);
+    if (readsize > MAX_DNS_PACKET) {
+        readsize = MAX_DNS_PACKET;
+    }
+
+    // udp_send_skb includes the IP and UDP header, so offset
+    long offset = 0;
+    if (evt_type == EBPF_EVENT_NETWORK_UDP_SENDMSG) {
+        offset = 28;
+    }
+
+    unsigned char *data = BPF_CORE_READ(skb, data);
+    long ret            = bpf_probe_read_kernel(event->pkts[0].pkt, readsize, data + offset);
+    if (ret != 0) {
+        bpf_printk("error reading in data buffer: %d", ret);
+        goto out;
+    }
+
+    event->hdr.type = EBPF_EVENT_NETWORK_DNS_PKT;
+    event->udp_evt  = evt_type;
+    bpf_ringbuf_submit(event, 0);
+
+    return 0;
+
+out:
+    bpf_ringbuf_discard(event, 0);
+    return 0;
+}
+
+SEC("fentry/ip_send_skb")
+int BPF_PROG(fentry__ip_send_skb, struct net *net, struct sk_buff *skb)
+{
+    return handle_consume(skb->sk, skb, skb->len, EBPF_EVENT_NETWORK_UDP_SENDMSG);
+}
+
+SEC("fexit/skb_consume_udp")
+int BPF_PROG(fexit__skb_consume_udp, struct sock *sk, struct sk_buff *skb, int len)
+{
+    // skip peek operations
+    if (len < 0) {
+        return 0;
+    }
+    return handle_consume(sk, skb, len, EBPF_EVENT_NETWORK_UDP_RECVMSG);
+}
+
+/*
 =============================== DNS probes ===============================
 */
 
