@@ -399,6 +399,21 @@ struct dns_body {
     uint8_t pkt[MAX_DNS_PACKET];
 } __attribute((packed));
 
+// from vmlinux.h, modified to make the ip addrs u8 arrays
+struct skb_iphdr {
+    uint8_t ihl : 4;
+    uint8_t version : 4;
+    uint8_t tos;
+    uint16_t tot_len;
+    uint16_t id;
+    uint16_t frag_off;
+    uint8_t ttl;
+    uint8_t protocol;
+    uint16_t check;
+    uint8_t saddr[4];
+    uint8_t daddr[4];
+};
+
 struct ebpf_dns_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
