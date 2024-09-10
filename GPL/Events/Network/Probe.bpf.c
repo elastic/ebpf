@@ -255,14 +255,14 @@ int BPF_PROG(fexit__skb_consume_udp, struct sock *sk, struct sk_buff *skb, int l
 }
 
 SEC("kprobe/ip_send_skb")
-int BPF_KPROBE(kprobe__ip_send_skb, struct net *net, struct sk_buff *skb)
+int BPF_KPROBE(kprobe__ip_send_udp, struct net *net, struct sk_buff *skb)
 {
     long len = BPF_CORE_READ(skb, len);
     return handle_consume(skb, len, EBPF_EVENT_NETWORK_UDP_SENDMSG);
 }
 
 SEC("kprobe/skb_consume_udp")
-int BPF_KPROBE(kprobe__skb_consume_skb, struct net *net, struct sk_buff *skb)
+int BPF_KPROBE(kprobe__skb_consume_udp, struct net *net, struct sk_buff *skb)
 {
     // return handle_consume(skb, len, EBPF_EVENT_NETWORK_UDP_SENDMSG);
     struct udp_ctx kctx;
@@ -282,10 +282,12 @@ int BPF_KPROBE(kprobe__skb_consume_skb, struct net *net, struct sk_buff *skb)
         bpf_printk("error updating context map in udp_recvmsg: %d", update_err);
         return 0;
     }
+
+    return 0;
 }
 
 SEC("kretprobe/skb_consume_udp")
-int BPF_KRETPROBE(kretprobe__skb_consume_skb, int ret)
+int BPF_KRETPROBE(kretprobe__skb_consume_udp, int ret)
 {
     u64 pid_tid = bpf_get_current_pid_tgid();
     void *vctx  = bpf_map_lookup_elem(&pkt_ctx, &pid_tid);
@@ -294,6 +296,7 @@ int BPF_KRETPROBE(kretprobe__skb_consume_skb, int ret)
     long read_err = bpf_probe_read(&kctx, sizeof(kctx), vctx);
     if (read_err != 0) {
         bpf_printk("error reading back context in skb_consume_skb: %d", read_err);
+        return 0;
     }
 
     return handle_consume(kctx.skb, ret, EBPF_EVENT_NETWORK_UDP_RECVMSG);

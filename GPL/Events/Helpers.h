@@ -370,7 +370,7 @@ static int get_iovec_nr_segs_or_max(struct iov_iter *from)
 struct udp_ctx {
     // struct sock *sk;
     // struct msghdr *hdr;
-    struct sk_buf *skb;
+    struct sk_buff *skb;
 } __attribute__((packed));
 
 // scratchspace map for fetching the arguments from a kretprobe
