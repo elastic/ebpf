@@ -134,7 +134,7 @@ out:
 SEC("fentry/ip_send_skb")
 int BPF_PROG(fentry__ip_send_skb, struct net *net, struct sk_buff *skb)
 {
-    return handle_consume(skb, skb->len, EBPF_EVENT_NETWORK_UDP_SENDMSG);
+    return handle_consume(skb, skb->len, EBPF_EVENT_NETWORK_UDP_SEND);
 }
 
 SEC("fexit/skb_consume_udp")
@@ -145,14 +145,14 @@ int BPF_PROG(fexit__skb_consume_udp, struct sock *sk, struct sk_buff *skb, int l
     if (len < 0) {
         return 0;
     }
-    return handle_consume(skb, len, EBPF_EVENT_NETWORK_UDP_RECVMSG);
+    return handle_consume(skb, len, EBPF_EVENT_NETWORK_UDP_RECV);
 }
 
 SEC("kprobe/ip_send_skb")
 int BPF_KPROBE(kprobe__ip_send_udp, struct net *net, struct sk_buff *skb)
 {
     long len = BPF_CORE_READ(skb, len);
-    return handle_consume(skb, len, EBPF_EVENT_NETWORK_UDP_SENDMSG);
+    return handle_consume(skb, len, EBPF_EVENT_NETWORK_UDP_SEND);
 }
 
 SEC("kprobe/skb_consume_udp")
@@ -193,7 +193,7 @@ int BPF_KRETPROBE(kretprobe__skb_consume_udp, int ret)
         return 0;
     }
 
-    return handle_consume(kctx.skb, ret, EBPF_EVENT_NETWORK_UDP_RECVMSG);
+    return handle_consume(kctx.skb, ret, EBPF_EVENT_NETWORK_UDP_RECV);
 }
 
 /*
