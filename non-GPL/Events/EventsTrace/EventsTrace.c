@@ -1061,12 +1061,17 @@ static void out_network_connection_accepted_event(struct ebpf_net_event *evt)
 
 static void out_network_dns_event(struct ebpf_dns_event *event)
 {
-    // TODO: format as JSON, or just remove?
-    printf("packet %d: ", event->udp_evt);
-    for (size_t i = 0; i < 60; i++) {
-        printf("%02X ", event->pkt[i]);
+    struct ebpf_varlen_field *field;
+    FOR_EACH_VARLEN_FIELD(event->vl_fields, field)
+    {
+        // TODO: format as JSON, or just remove?
+        printf("packet %d: ", event->udp_evt);
+        for (size_t i = 0; i < field->size; i++) {
+            uint8_t part = field->data[i];
+            printf("%02X ", part);
+        }
+        printf("\n");
     }
-    printf("\n");
 }
 
 static void out_network_connection_attempted_event(struct ebpf_net_event *evt)

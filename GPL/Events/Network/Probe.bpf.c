@@ -17,6 +17,7 @@
 #include "Helpers.h"
 #include "Network.h"
 #include "State.h"
+#include "Varlen.h"
 
 DECL_FUNC_RET(inet_csk_accept);
 
@@ -49,7 +50,7 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
     if (ebpf_events_is_trusted_pid())
         return 0;
 
-    struct ebpf_dns_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
+    struct ebpf_dns_event *event = get_event_buffer();
     if (!event)
         return 0;
 
@@ -106,26 +107,29 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
     size_t readsize = BPF_CORE_READ(skb, len);
     size_t datalen  = BPF_CORE_READ(skb, data_len);
     size_t headlen  = readsize - datalen;
-    bpf_printk("headlen: %lu", readsize - datalen);
     if (headlen > MAX_DNS_PACKET) {
         headlen = MAX_DNS_PACKET;
     }
 
-    long ret = bpf_probe_read_kernel(event->pkt, headlen,
+    ebpf_vl_fields__init(&event->vl_fields);
+    struct ebpf_varlen_field *field;
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_DNS_BODY);
+
+    long ret = bpf_probe_read_kernel(field->data, headlen,
                                      skb_head + transport_header_offset + sizeof(struct udphdr));
     if (ret != 0) {
         bpf_printk("error reading in data buffer: %d", ret);
         goto out;
     }
+    ebpf_vl_field__set_size(&event->vl_fields, field, headlen);
 
     event->hdr.type = EBPF_EVENT_NETWORK_DNS_PKT;
     event->udp_evt  = evt_type;
-    bpf_ringbuf_submit(event, 0);
+    ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
 
     return 0;
 
 out:
-    bpf_ringbuf_discard(event, 0);
     return 0;
 }
 

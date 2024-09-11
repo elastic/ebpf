@@ -11,6 +11,11 @@
 #define EBPF_EVENTPROBE_EBPFEVENTPROTO_H
 
 #define TASK_COMM_LEN 16
+// The theoretical max size of DNS packets over UDP
+// Like so many things in DNS this number probaby isn't 100% accurate.
+// DNS extensions in RFC2671 and RFC6891 mean the actual size can be larger,
+// although an additonal body over 512 is probably due to additional RR fields,
+// which we can (probably) get away with throwing out for now.
 #define MAX_DNS_PACKET 512
 
 #ifndef __KERNEL__
@@ -68,6 +73,7 @@ enum ebpf_varlen_field_type {
     EBPF_VL_FIELD_SYMLINK_TARGET_PATH,
     EBPF_VL_FIELD_MOD_VERSION,
     EBPF_VL_FIELD_MOD_SRCVERSION,
+    EBPF_VL_FIELD_DNS_BODY,
 };
 
 // Convenience macro to iterate all the variable length fields in an event
@@ -398,7 +404,9 @@ struct ebpf_dns_event {
     struct ebpf_net_info net;
     char comm[TASK_COMM_LEN];
     enum ebpf_net_udp_info udp_evt;
-    uint8_t pkt[MAX_DNS_PACKET];
+    // Variable length fields: dns body
+    struct ebpf_varlen_fields_start vl_fields;
+    // uint8_t pkt[MAX_DNS_PACKET];
 } __attribute__((packed));
 
 // Basic event statistics
