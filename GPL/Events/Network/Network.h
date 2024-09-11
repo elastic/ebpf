@@ -14,8 +14,6 @@
 #define AF_INET 2
 #define AF_INET6 10
 
-#define MSG_PEEK 2
-
 static int ebpf_sock_info__fill(struct ebpf_net_info *net, struct sock *sk)
 {
     int err = 0;

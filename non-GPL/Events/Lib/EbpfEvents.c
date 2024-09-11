@@ -406,7 +406,7 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__vfs_write, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__chown_common, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__ip_send_skb, false);
-        err = err ?: bpf_program__set_autoload(obj->progs.fexit__skb_consume_udp, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.fentry__skb_consume_udp, false);
     }
 
     return err;

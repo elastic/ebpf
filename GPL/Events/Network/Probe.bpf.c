@@ -48,11 +48,11 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
 {
 
     if (ebpf_events_is_trusted_pid())
-        return 0;
+        goto out;
 
     struct ebpf_dns_event *event = get_event_buffer();
     if (!event)
-        return 0;
+        goto out;
 
     // read from skbuf
     unsigned char *skb_head = BPF_CORE_READ(skb, head);
@@ -127,8 +127,6 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
     event->udp_evt  = evt_type;
     ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
 
-    return 0;
-
 out:
     return 0;
 }
@@ -140,7 +138,7 @@ int BPF_PROG(fentry__ip_send_skb, struct net *net, struct sk_buff *skb)
 }
 
 SEC("fentry/skb_consume_udp")
-int BPF_PROG(fexit__skb_consume_udp, struct sock *sk, struct sk_buff *skb, int len)
+int BPF_PROG(fentry__skb_consume_udp, struct sock *sk, struct sk_buff *skb, int len)
 {
     // skip peek operations
     if (len < 0) {
@@ -156,7 +154,7 @@ int BPF_KPROBE(kprobe__ip_send_udp, struct net *net, struct sk_buff *skb)
 }
 
 SEC("kprobe/skb_consume_udp")
-int BPF_KPROBE(kprobe__skb_consume_udp, struct net *net, struct sk_buff *skb)
+int BPF_KPROBE(kprobe__skb_consume_udp, struct net *net, struct sk_buff *skb, int len)
 {
     return udp_skb_handle(skb, EBPF_NETWORK_EVENT_SKB_CONSUME_UDP);
 }
