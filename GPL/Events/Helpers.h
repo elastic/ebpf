@@ -138,9 +138,6 @@ const volatile int consumer_pid = 0;
 // From include/uapi/asm-generic/termbits.h
 #define ECHO 0x00008
 
-/* tty_write */
-DECL_FIELD_OFFSET(iov_iter, __iov);
-
 static bool IS_ERR_OR_NULL(const void *ptr)
 {
     return (!ptr) || (unsigned long)ptr >= (unsigned long)-MAX_ERRNO;
@@ -359,24 +356,5 @@ static int is_equal_prefix(const char *str1, const char *str2, int len)
 {
     return !strncmp(str1, str2, len);
 }
-
-static int get_iovec_nr_segs_or_max(struct iov_iter *from)
-{
-    u64 nr_segs = BPF_CORE_READ(from, nr_segs);
-    nr_segs     = nr_segs > MAX_NR_SEGS ? MAX_NR_SEGS : nr_segs;
-    return nr_segs;
-}
-
-struct udp_ctx {
-    struct sk_buff *skb;
-} __attribute__((packed));
-
-// scratchspace map for fetching the arguments from a kretprobe
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, u64);
-    __type(value, struct udp_ctx);
-    __uint(max_entries, 1024);
-} pkt_ctx SEC(".maps");
 
 #endif // EBPF_EVENTPROBE_HELPERS_H

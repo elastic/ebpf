@@ -18,6 +18,9 @@
 #include "State.h"
 #include "Varlen.h"
 
+/* tty_write */
+DECL_FIELD_OFFSET(iov_iter, __iov);
+
 // Limits on large things we send up as variable length parameters.
 //
 // These should be kept _well_ under half the size of the event_buffer_map or
@@ -523,6 +526,8 @@ int BPF_KPROBE(kprobe__commit_creds, struct cred *new)
     return commit_creds__enter(new);
 }
 
+#define MAX_NR_SEGS 8
+
 static int output_tty_event(struct ebpf_tty_dev *slave, const void *base, size_t base_len)
 {
     struct ebpf_process_tty_write_event *event;
@@ -606,7 +611,8 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
     else
         goto out;
 
-    u64 nr_segs = get_iovec_nr_segs_or_max(from);
+    u64 nr_segs = BPF_CORE_READ(from, nr_segs);
+    nr_segs     = nr_segs > MAX_NR_SEGS ? MAX_NR_SEGS : nr_segs;
 
     if (nr_segs == 0) {
         u64 count = BPF_CORE_READ(from, count);

@@ -20,7 +20,7 @@
 
 DECL_FUNC_RET(inet_csk_accept);
 
-static int sock_object_handle(struct sock *sk, enum ebpf_event_type evt_type)
+static int inet_csk_accept__exit(struct sock *sk)
 {
     if (!sk)
         goto out;
@@ -36,18 +36,14 @@ static int sock_object_handle(struct sock *sk, enum ebpf_event_type evt_type)
         goto out;
     }
 
-    event->hdr.type = evt_type;
+    event->hdr.type = EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED;
     bpf_ringbuf_submit(event, 0);
 
 out:
     return 0;
 }
 
-/*
-=============================== DNS probes ===============================
-*/
-
-static int handle_consume(struct sk_buff *skb, int len, enum ebpf_event_type evt_type)
+static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
 {
 
     if (ebpf_events_is_trusted_pid())
@@ -58,31 +54,31 @@ static int handle_consume(struct sk_buff *skb, int len, enum ebpf_event_type evt
         return 0;
 
     // read from skbuf
-    unsigned char *data = BPF_CORE_READ(skb, head);
+    unsigned char *skb_head = BPF_CORE_READ(skb, head);
     // get lengths
     u16 net_header_offset       = BPF_CORE_READ(skb, network_header);
     u16 transport_header_offset = BPF_CORE_READ(skb, transport_header);
 
-    u8 iphdr_first_byte = 0;
-    bpf_core_read(&iphdr_first_byte, 1, data + net_header_offset);
-    iphdr_first_byte = iphdr_first_byte >> 4;
-
     u8 proto = 0;
-    if (iphdr_first_byte == 4) {
-        struct iphdr ip_hdr;
-        bpf_core_read(&ip_hdr, sizeof(struct iphdr), data + net_header_offset);
 
+    struct iphdr ip_hdr;
+    bpf_core_read(&ip_hdr, sizeof(struct iphdr), skb_head + net_header_offset);
+    if (ip_hdr.version == 4) {
         proto = ip_hdr.protocol;
-        bpf_probe_read(event->net.saddr, 4, (void *)&ip_hdr.saddr);
-        bpf_probe_read(event->net.daddr, 4, (void *)&ip_hdr.daddr);
 
-    } else if (iphdr_first_byte == 6) {
+        bpf_probe_read(event->net.saddr, 4, &ip_hdr.saddr);
+        bpf_probe_read(event->net.daddr, 4, &ip_hdr.daddr);
+
+        event->net.family = EBPF_NETWORK_EVENT_AF_INET;
+    } else if (ip_hdr.version == 6) {
         struct ipv6hdr ip6_hdr;
-        bpf_core_read(&ip6_hdr, sizeof(struct ipv6hdr), data + net_header_offset);
+        bpf_core_read(&ip6_hdr, sizeof(struct ipv6hdr), skb_head + net_header_offset);
         proto = ip6_hdr.nexthdr;
 
         bpf_probe_read(event->net.saddr6, 16, ip6_hdr.saddr.in6_u.u6_addr8);
         bpf_probe_read(event->net.daddr6, 16, ip6_hdr.daddr.in6_u.u6_addr8);
+
+        event->net.family = EBPF_NETWORK_EVENT_AF_INET6;
     }
 
     if (proto != IPPROTO_UDP) {
@@ -90,31 +86,33 @@ static int handle_consume(struct sk_buff *skb, int len, enum ebpf_event_type evt
     }
 
     struct udphdr udp_hdr;
-    bpf_core_read(&udp_hdr, sizeof(struct udphdr), data + transport_header_offset);
-    event->net.dport = bpf_ntohs(udp_hdr.dest);
-    event->net.sport = bpf_ntohs(udp_hdr.source);
+    bpf_core_read(&udp_hdr, sizeof(struct udphdr), skb_head + transport_header_offset);
+    event->net.dport     = bpf_ntohs(udp_hdr.dest);
+    event->net.sport     = bpf_ntohs(udp_hdr.source);
+    event->net.transport = EBPF_NETWORK_EVENT_TRANSPORT_UDP;
+
+    // filter out non-dns packets
+    if (event->net.sport != 53 && event->net.dport != 53) {
+        goto out;
+    }
 
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     ebpf_pid_info__fill(&event->pids, task);
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
     event->hdr.ts = bpf_ktime_get_ns();
 
-    // filter out non-dns packets
-    if (event->net.sport != 53 && event->net.dport != 53) {
-        bpf_printk("not a dns packet...");
-        goto out;
-    }
-
     // constrain the read size to make the verifier happy
-    long readsize = BPF_CORE_READ(skb, len);
-    if (readsize > MAX_DNS_PACKET) {
-        readsize = MAX_DNS_PACKET;
+    // see skb_headlen() in skbuff.h
+    size_t readsize = BPF_CORE_READ(skb, len);
+    size_t datalen  = BPF_CORE_READ(skb, data_len);
+    size_t headlen  = readsize - datalen;
+    bpf_printk("headlen: %lu", readsize - datalen);
+    if (headlen > MAX_DNS_PACKET) {
+        headlen = MAX_DNS_PACKET;
     }
 
-    // udp_send_skb includes the IP and UDP header, so offset
-    long offset = transport_header_offset + sizeof(struct udphdr);
-
-    long ret = bpf_probe_read_kernel(event->pkts[0].pkt, readsize, data + offset);
+    long ret = bpf_probe_read_kernel(event->pkt, headlen,
+                                     skb_head + transport_header_offset + sizeof(struct udphdr));
     if (ret != 0) {
         bpf_printk("error reading in data buffer: %d", ret);
         goto out;
@@ -134,83 +132,42 @@ out:
 SEC("fentry/ip_send_skb")
 int BPF_PROG(fentry__ip_send_skb, struct net *net, struct sk_buff *skb)
 {
-    return handle_consume(skb, skb->len, EBPF_EVENT_NETWORK_UDP_SEND);
+    return udp_skb_handle(skb, EBPF_NETWORK_EVENT_IP_SEND_UDP);
 }
 
-SEC("fexit/skb_consume_udp")
+SEC("fentry/skb_consume_udp")
 int BPF_PROG(fexit__skb_consume_udp, struct sock *sk, struct sk_buff *skb, int len)
 {
     // skip peek operations
-    bpf_printk("consume len: %d", len);
     if (len < 0) {
         return 0;
     }
-    return handle_consume(skb, len, EBPF_EVENT_NETWORK_UDP_RECV);
+    return udp_skb_handle(skb, EBPF_NETWORK_EVENT_SKB_CONSUME_UDP);
 }
 
 SEC("kprobe/ip_send_skb")
 int BPF_KPROBE(kprobe__ip_send_udp, struct net *net, struct sk_buff *skb)
 {
-    long len = BPF_CORE_READ(skb, len);
-    return handle_consume(skb, len, EBPF_EVENT_NETWORK_UDP_SEND);
+    return udp_skb_handle(skb, EBPF_NETWORK_EVENT_IP_SEND_UDP);
 }
 
 SEC("kprobe/skb_consume_udp")
 int BPF_KPROBE(kprobe__skb_consume_udp, struct net *net, struct sk_buff *skb)
 {
-    // return handle_consume(skb, len, EBPF_EVENT_NETWORK_UDP_SENDMSG);
-    struct udp_ctx kctx;
-
-    // I suspect that using the PID_TID isn't the most reliable way to map the sockets/iters
-    // not sure what else we could use that's accessable from the kretprobe, though.
-    u64 pid_tid = bpf_get_current_pid_tgid();
-
-    long iter_err = bpf_probe_read(&kctx.skb, sizeof(kctx.skb), &skb);
-    if (iter_err != 0) {
-        bpf_printk("error reading skb in skb_consume_skb: %d", iter_err);
-        return 0;
-    }
-
-    long update_err = bpf_map_update_elem(&pkt_ctx, &pid_tid, &kctx, BPF_ANY);
-    if (update_err != 0) {
-        bpf_printk("error updating context map in udp_recvmsg: %d", update_err);
-        return 0;
-    }
-
-    return 0;
+    return udp_skb_handle(skb, EBPF_NETWORK_EVENT_SKB_CONSUME_UDP);
 }
-
-SEC("kretprobe/skb_consume_udp")
-int BPF_KRETPROBE(kretprobe__skb_consume_udp, int ret)
-{
-    u64 pid_tid = bpf_get_current_pid_tgid();
-    void *vctx  = bpf_map_lookup_elem(&pkt_ctx, &pid_tid);
-
-    struct udp_ctx kctx;
-    long read_err = bpf_probe_read(&kctx, sizeof(kctx), vctx);
-    if (read_err != 0) {
-        bpf_printk("error reading back context in skb_consume_skb: %d", read_err);
-        return 0;
-    }
-
-    return handle_consume(kctx.skb, ret, EBPF_EVENT_NETWORK_UDP_RECV);
-}
-
-/*
-=============================== TCP probes ===============================
-*/
 
 SEC("fexit/inet_csk_accept")
 int BPF_PROG(fexit__inet_csk_accept)
 {
     struct sock *ret = FUNC_RET_READ(___type(ret), inet_csk_accept);
-    return sock_object_handle(ret, EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED);
+    return inet_csk_accept__exit(ret);
 }
 
 SEC("kretprobe/inet_csk_accept")
 int BPF_KRETPROBE(kretprobe__inet_csk_accept, struct sock *ret)
 {
-    return sock_object_handle(ret, EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED);
+    return inet_csk_accept__exit(ret);
 }
 
 static int tcp_connect(struct sock *sk, int ret)

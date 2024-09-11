@@ -16,12 +16,6 @@
 
 #define MSG_PEEK 2
 
-// See RFC1035
-#define DNS_QR_BIT 1 << 15
-
-// I have made this number up to make the verifier happy
-#define DNS_MAX_LABELS 255
-
 static int ebpf_sock_info__fill(struct ebpf_net_info *net, struct sock *sk)
 {
     int err = 0;
@@ -74,9 +68,6 @@ static int ebpf_sock_info__fill(struct ebpf_net_info *net, struct sock *sk)
     switch (proto) {
     case IPPROTO_TCP:
         net->transport = EBPF_NETWORK_EVENT_TRANSPORT_TCP;
-        break;
-    case IPPROTO_UDP:
-        net->transport = EBPF_NETWORK_EVENT_TRANSPORT_UDP;
         break;
     default:
         err = -1;

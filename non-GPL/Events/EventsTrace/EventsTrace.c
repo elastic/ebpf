@@ -1059,22 +1059,12 @@ static void out_network_connection_accepted_event(struct ebpf_net_event *evt)
     out_network_event("NETWORK_CONNECTION_ACCEPTED", evt);
 }
 
-static void out_network_udp_sendmsg(struct ebpf_net_event *evnt)
-{
-    out_network_event("NETWORK_UDP_SENDMSG", evnt);
-}
-
-static void out_network_udp_recvmsg(struct ebpf_net_event *evnt)
-{
-    out_network_event("NETWORK_UDP_RECVMSG", evnt);
-}
-
 static void out_network_dns_event(struct ebpf_dns_event *event)
 {
     // TODO: format as JSON, or just remove?
     printf("packet %d: ", event->udp_evt);
     for (size_t i = 0; i < 60; i++) {
-        printf("%02x ", event->pkts[0].pkt[i]);
+        printf("%02X ", event->pkt[i]);
     }
     printf("\n");
 }
@@ -1157,12 +1147,6 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         break;
     case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
         out_network_connection_closed_event((struct ebpf_net_event *)evt_hdr);
-        break;
-    case EBPF_EVENT_NETWORK_UDP_SEND:
-        out_network_udp_sendmsg((struct ebpf_net_event *)evt_hdr);
-        break;
-    case EBPF_EVENT_NETWORK_UDP_RECV:
-        out_network_udp_recvmsg((struct ebpf_net_event *)evt_hdr);
         break;
     case EBPF_EVENT_NETWORK_DNS_PKT:
         out_network_dns_event((struct ebpf_dns_event *)evt_hdr);

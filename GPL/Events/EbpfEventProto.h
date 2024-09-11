@@ -12,7 +12,6 @@
 
 #define TASK_COMM_LEN 16
 #define MAX_DNS_PACKET 512
-#define MAX_NR_SEGS 8
 
 #ifndef __KERNEL__
 #include <stdint.h>
@@ -42,8 +41,6 @@ enum ebpf_event_type {
     EBPF_EVENT_PROCESS_SHMGET               = (1 << 17),
     EBPF_EVENT_PROCESS_PTRACE               = (1 << 18),
     EBPF_EVENT_PROCESS_LOAD_MODULE          = (1 << 19),
-    EBPF_EVENT_NETWORK_UDP_SEND             = (1 << 20),
-    EBPF_EVENT_NETWORK_UDP_RECV             = (1 << 21),
     EBPF_EVENT_NETWORK_DNS_PKT              = (1 << 22),
 };
 
@@ -354,6 +351,11 @@ enum ebpf_net_info_af {
     EBPF_NETWORK_EVENT_AF_INET6 = 2,
 };
 
+enum ebpf_net_udp_info {
+    EBPF_NETWORK_EVENT_SKB_CONSUME_UDP = 1,
+    EBPF_NETWORK_EVENT_IP_SEND_UDP     = 2,
+};
+
 struct ebpf_net_info_tcp_close {
     uint64_t bytes_sent;
     uint64_t bytes_received;
@@ -385,42 +387,18 @@ struct ebpf_net_event {
     char comm[TASK_COMM_LEN];
 } __attribute__((packed));
 
-struct dns_pkt_header {
-    uint16_t transaction_id;
-    uint16_t flags;
-    uint16_t num_questions;
-    uint16_t num_answers;
-    uint16_t num_auth_rrs;
-    uint16_t num_additional_rrs;
-} __attribute__((packed));
-
 struct dns_body {
     size_t len;
     uint8_t pkt[MAX_DNS_PACKET];
 } __attribute((packed));
-
-// from vmlinux.h, modified to make the ip addrs u8 arrays
-struct skb_iphdr {
-    uint8_t ihl : 4;
-    uint8_t version : 4;
-    uint8_t tos;
-    uint16_t tot_len;
-    uint16_t id;
-    uint16_t frag_off;
-    uint8_t ttl;
-    uint8_t protocol;
-    uint16_t check;
-    uint8_t saddr[4];
-    uint8_t daddr[4];
-};
 
 struct ebpf_dns_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
     struct ebpf_net_info net;
     char comm[TASK_COMM_LEN];
-    enum ebpf_event_type udp_evt;
-    struct dns_body pkts[MAX_NR_SEGS];
+    enum ebpf_net_udp_info udp_evt;
+    uint8_t pkt[MAX_DNS_PACKET];
 } __attribute__((packed));
 
 // Basic event statistics
