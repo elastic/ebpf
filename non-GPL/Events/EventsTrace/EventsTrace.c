@@ -969,9 +969,8 @@ static void out_ip6_addr(const char *name, const void *addr)
     printf("\"%s\":\"%s\"", name, buf);
 }
 
-static void out_net_info(const char *name, struct ebpf_net_event *evt)
+static void out_net_info(const char *name, struct ebpf_net_info *net, struct ebpf_event_header *hdr)
 {
-    struct ebpf_net_info *net = &evt->net;
 
     printf("\"%s\":", name);
     out_object_start();
@@ -1023,7 +1022,7 @@ static void out_net_info(const char *name, struct ebpf_net_event *evt)
     out_comma();
     out_int("network_namespace", net->netns);
 
-    switch (evt->hdr.type) {
+    switch (hdr->type) {
     case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
         out_comma();
         out_uint("bytes_sent", net->tcp.close.bytes_sent);
@@ -1045,7 +1044,7 @@ static void out_network_event(const char *name, struct ebpf_net_event *evt)
     out_pid_info("pids", &evt->pids);
     out_comma();
 
-    out_net_info("net", evt);
+    out_net_info("net", &evt->net, &evt->hdr);
     out_comma();
 
     out_string("comm", (const char *)&evt->comm);
@@ -1061,17 +1060,36 @@ static void out_network_connection_accepted_event(struct ebpf_net_event *evt)
 
 static void out_network_dns_event(struct ebpf_dns_event *event)
 {
+    out_object_start();
+    out_event_type("DNS_EVENT");
+    out_comma();
+
+    out_pid_info("pids", &event->pids);
+    out_comma();
+
+    out_net_info("net", &event->net, &event->hdr);
+    out_comma();
+
+    out_string("comm", (const char *)&event->comm);
+
+    printf("\"data\":");
+    out_array_start();
     struct ebpf_varlen_field *field;
     FOR_EACH_VARLEN_FIELD(event->vl_fields, field)
     {
-        // TODO: format as JSON, or just remove?
         printf("packet %d: ", event->udp_evt);
         for (size_t i = 0; i < field->size; i++) {
             uint8_t part = field->data[i];
             printf("%02X ", part);
+            if (i < field->size - 1) {
+                printf(", ");
+            }
         }
-        printf("\n");
     }
+    out_array_end();
+
+    out_object_end();
+    out_newline();
 }
 
 static void out_network_connection_attempted_event(struct ebpf_net_event *evt)
