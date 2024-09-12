@@ -11,12 +11,10 @@
 #define EBPF_EVENTPROBE_EBPFEVENTPROTO_H
 
 #define TASK_COMM_LEN 16
-// The theoretical max size of DNS packets over UDP
+// The theoretical max size of DNS packets over UDP is 512.
 // Like so many things in DNS this number probaby isn't 100% accurate.
-// DNS extensions in RFC2671 and RFC6891 mean the actual size can be larger,
-// although an additonal body over 512 is probably due to additional RR fields,
-// which we can (probably) get away with throwing out for now.
-#define MAX_DNS_PACKET 512
+// DNS extensions in RFC2671 and RFC6891 mean the actual size can be larger.
+#define MAX_DNS_PACKET 1500
 
 #ifndef __KERNEL__
 #include <stdint.h>
