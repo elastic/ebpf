@@ -156,6 +156,10 @@ int BPF_KPROBE(kprobe__ip_send_udp, struct net *net, struct sk_buff *skb)
 SEC("kprobe/skb_consume_udp")
 int BPF_KPROBE(kprobe__skb_consume_udp, struct net *net, struct sk_buff *skb, int len)
 {
+    // skip peek operations
+    if (len < 0) {
+        return 0;
+    }
     return udp_skb_handle(skb, EBPF_NETWORK_EVENT_SKB_CONSUME_UDP);
 }
 
