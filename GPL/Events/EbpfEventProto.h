@@ -46,7 +46,7 @@ enum ebpf_event_type {
     EBPF_EVENT_PROCESS_SHMGET               = (1 << 17),
     EBPF_EVENT_PROCESS_PTRACE               = (1 << 18),
     EBPF_EVENT_PROCESS_LOAD_MODULE          = (1 << 19),
-    EBPF_EVENT_NETWORK_DNS_PKT              = (1 << 22),
+    EBPF_EVENT_NETWORK_DNS_PKT              = (1 << 20),
 };
 
 struct ebpf_event_header {
@@ -393,11 +393,6 @@ struct ebpf_net_event {
     char comm[TASK_COMM_LEN];
 } __attribute__((packed));
 
-struct dns_body {
-    size_t len;
-    uint8_t pkt[MAX_DNS_PACKET];
-} __attribute((packed));
-
 struct ebpf_dns_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
@@ -406,7 +401,6 @@ struct ebpf_dns_event {
     enum ebpf_net_udp_info udp_evt;
     // Variable length fields: dns body
     struct ebpf_varlen_fields_start vl_fields;
-    // uint8_t pkt[MAX_DNS_PACKET];
 } __attribute__((packed));
 
 // Basic event statistics
