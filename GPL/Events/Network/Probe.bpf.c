@@ -51,7 +51,7 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
         goto out;
 
     struct ebpf_dns_event *event = get_event_buffer();
-    if (!event)
+    if (event == NULL)
         goto out;
 
     // read from skbuf
@@ -107,6 +107,17 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
     size_t readsize = BPF_CORE_READ(skb, len);
     size_t datalen  = BPF_CORE_READ(skb, data_len);
     size_t headlen  = readsize - datalen;
+    // headlen of zero indicates we have no non-paged data, and thus cannot read
+    // anything from the root data node
+    if (headlen == 0) {
+        u32 zero                    = 0;
+        struct ebpf_event_stats *es = bpf_map_lookup_elem(&ringbuf_stats, &zero);
+        if (es != NULL) {
+            es->lost++;
+        }
+        goto out;
+    }
+
     if (headlen > MAX_DNS_PACKET) {
         headlen = MAX_DNS_PACKET;
     }
