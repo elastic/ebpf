@@ -820,6 +820,7 @@ int ebpf_event_ctx__read_stats(struct ebpf_event_ctx *ctx, struct ebpf_event_sta
     for (i = 0; i < libbpf_num_possible_cpus(); i++) {
         ees->lost += pcpu_ees[i].lost;
         ees->sent += pcpu_ees[i].sent;
+        ees->paged_out += pcpu_ees[i].paged_out;
     }
 
     return 0;
