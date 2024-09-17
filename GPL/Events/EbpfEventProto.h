@@ -406,8 +406,8 @@ struct ebpf_dns_event {
 struct ebpf_event_stats {
     uint64_t lost; // lost events due to a full ringbuffer
     uint64_t sent; // events sent through the ringbuffer
-    uint64_t
-        dns_body_paged_out; // indicates that an sk_buff for a DNS event contained no non-paged data
+    // indicates that an sk_buff for a DNS event contained no non-paged data in sk_buff->data
+    uint64_t dns_zero_body;
 };
 
 #endif // EBPF_EVENTPROBE_EBPFEVENTPROTO_H

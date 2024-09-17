@@ -134,7 +134,7 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
         u32 zero                    = 0;
         struct ebpf_event_stats *es = bpf_map_lookup_elem(&ringbuf_stats, &zero);
         if (es != NULL) {
-            es->dns_body_paged_out++;
+            es->dns_zero_body++;
         }
         goto out;
     }
