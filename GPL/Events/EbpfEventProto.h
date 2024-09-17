@@ -397,6 +397,7 @@ struct ebpf_dns_event {
     struct ebpf_net_info net;
     char comm[TASK_COMM_LEN];
     enum ebpf_net_udp_info udp_evt;
+    uint64_t original_len;
     // Variable length fields: dns body
     struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));

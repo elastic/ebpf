@@ -1080,7 +1080,7 @@ static void out_network_dns_event(struct ebpf_dns_event *event)
         printf("packet %d: ", event->udp_evt);
         for (size_t i = 0; i < field->size; i++) {
             uint8_t part = field->data[i];
-            printf("%02X ", part);
+            printf("%02X", part);
             if (i < field->size - 1) {
                 printf(", ");
             }

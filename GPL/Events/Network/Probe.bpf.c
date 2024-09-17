@@ -67,8 +67,13 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
     if (ip_hdr.version == 4) {
         proto = ip_hdr.protocol;
 
-        bpf_probe_read(event->net.saddr, 4, &ip_hdr.saddr);
-        bpf_probe_read(event->net.daddr, 4, &ip_hdr.daddr);
+        if (bpf_probe_read(event->net.saddr, 4, &ip_hdr.saddr) != 0) {
+            goto out;
+        };
+
+        if (bpf_probe_read(event->net.daddr, 4, &ip_hdr.daddr) != 0) {
+            goto out;
+        }
 
         event->net.family = EBPF_NETWORK_EVENT_AF_INET;
     } else if (ip_hdr.version == 6) {
@@ -76,10 +81,17 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
         bpf_core_read(&ip6_hdr, sizeof(struct ipv6hdr), skb_head + net_header_offset);
         proto = ip6_hdr.nexthdr;
 
-        bpf_probe_read(event->net.saddr6, 16, ip6_hdr.saddr.in6_u.u6_addr8);
-        bpf_probe_read(event->net.daddr6, 16, ip6_hdr.daddr.in6_u.u6_addr8);
+        if (bpf_probe_read(event->net.saddr6, 16, ip6_hdr.saddr.in6_u.u6_addr8) != 0) {
+            goto out;
+        }
+
+        if (bpf_probe_read(event->net.daddr6, 16, ip6_hdr.daddr.in6_u.u6_addr8) != 0) {
+            goto out;
+        }
 
         event->net.family = EBPF_NETWORK_EVENT_AF_INET6;
+    } else {
+        goto out;
     }
 
     if (proto != IPPROTO_UDP) {
@@ -87,9 +99,18 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
     }
 
     struct udphdr udp_hdr;
-    bpf_core_read(&udp_hdr, sizeof(struct udphdr), skb_head + transport_header_offset);
-    event->net.dport     = bpf_ntohs(udp_hdr.dest);
-    event->net.sport     = bpf_ntohs(udp_hdr.source);
+    if (bpf_core_read(&udp_hdr, sizeof(struct udphdr), skb_head + transport_header_offset) != 0) {
+        goto out;
+    }
+
+    uint16_t dport = bpf_ntohs(udp_hdr.dest);
+    uint16_t sport = bpf_ntohs(udp_hdr.source);
+    if (sport != 53 && dport != 53) {
+        goto out;
+    }
+
+    event->net.dport     = dport;
+    event->net.sport     = sport;
     event->net.transport = EBPF_NETWORK_EVENT_TRANSPORT_UDP;
 
     // filter out non-dns packets
@@ -118,6 +139,7 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
         goto out;
     }
 
+    event->original_len = headlen;
     if (headlen > MAX_DNS_PACKET) {
         headlen = MAX_DNS_PACKET;
     }
