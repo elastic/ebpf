@@ -1071,16 +1071,16 @@ static void out_network_dns_event(struct ebpf_dns_event *event)
     out_comma();
 
     out_string("comm", (const char *)&event->comm);
+    out_comma();
 
     printf("\"data\":");
     out_array_start();
     struct ebpf_varlen_field *field;
     FOR_EACH_VARLEN_FIELD(event->vl_fields, field)
     {
-        printf("packet %d: ", event->udp_evt);
         for (size_t i = 0; i < field->size; i++) {
             uint8_t part = field->data[i];
-            printf("%02X", part);
+            printf("%d", part);
             if (i < field->size - 1) {
                 printf(", ");
             }

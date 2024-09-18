@@ -152,6 +152,30 @@ func TestForkExec(et *EventsTraceInstance) {
 	AssertStringsEqual(execEvent.Cwd, "/")
 }
 
+func TestDNSMonitor(et *EventsTraceInstance) {
+	runTestCmd("dig github.com")
+
+	type dnsOutput struct {
+		Data []uint8 `json:"data"`
+		NetConnAcceptEvent
+	}
+
+	line := et.GetNextEventJson("DNS_EVENT")
+	lineData := dnsOutput{}
+	err := json.Unmarshal([]byte(line), &lineData)
+	if err != nil {
+		TestFail("failed to unmarshal JSON body", err)
+	}
+
+	AssertStringsEqual(lineData.Net.Transport, "UDP")
+	AssertStringsEqual(lineData.Net.Family, "AF_INET")
+	// first two bytes of a DNS body will be the session ID for the query, and
+	// should not be zero
+	AssertNotZero(lineData.Data[0])
+	AssertNotZero(lineData.Data[1])
+
+}
+
 func TestFileCreate(et *EventsTraceInstance) {
 	outputStr := runTestBin("create_rename_delete_file")
 	var binOutput struct {

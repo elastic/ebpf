@@ -193,10 +193,21 @@ func getJsonEventType(jsonLine string) (string, error) {
 	return jsonUnmarshaled.EventType, nil
 }
 
+func runTestCmd(cmdStr string) []byte {
+	cmdArg := strings.Split(cmdStr, " ")
+	cmd := exec.Command(cmdArg[0], cmdArg[1:]...)
+	return handleTestOutput(cmd)
+}
+
 func runTestBin(binName string) []byte {
 	cmd := exec.Command(fmt.Sprintf("/%s", binName))
+	return handleTestOutput(cmd)
 
+}
+
+func handleTestOutput(cmd *exec.Cmd) []byte {
 	output, err := cmd.Output()
+	binName := cmd.Path
 	if err != nil {
 		fmt.Printf("===== stderr of %s =====\n", binName)
 		fmt.Println(err)
@@ -235,6 +246,12 @@ func AssertFalse(val bool) {
 func AssertStringsEqual(a, b string) {
 	if a != b {
 		TestFail(fmt.Sprintf("Test assertion failed %s != %s", a, b))
+	}
+}
+
+func AssertNotZero(a uint8) {
+	if a == 0 {
+		TestFail(fmt.Sprintf("Test assertion failed %d == 0", a))
 	}
 }
 
@@ -345,6 +362,7 @@ func RunTest(f func()) {
 func RunEventsTest(f func(*EventsTraceInstance), args ...string) {
 	testFuncName := runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
 	ctx, cancel := context.WithTimeout(context.TODO(), 90*time.Second)
+	fmt.Printf("running test: %s\n", testFuncName)
 
 	et := NewEventsTrace(ctx, args...)
 	et.Start(ctx)
