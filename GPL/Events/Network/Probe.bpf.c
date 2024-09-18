@@ -62,8 +62,8 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
     // get lengths
     u16 net_header_offset       = BPF_CORE_READ(skb, network_header);
     u16 transport_header_offset = BPF_CORE_READ(skb, transport_header);
-
-    u8 proto = 0;
+    size_t network_header_size  = 0;
+    u8 proto                    = 0;
 
     struct iphdr ip_hdr;
     bpf_core_read(&ip_hdr, sizeof(struct iphdr), skb_head + net_header_offset);
@@ -77,8 +77,8 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
         if (bpf_probe_read(event->net.daddr, 4, &ip_hdr.daddr) != 0) {
             goto out;
         }
-
-        event->net.family = EBPF_NETWORK_EVENT_AF_INET;
+        network_header_size = sizeof(struct iphdr);
+        event->net.family   = EBPF_NETWORK_EVENT_AF_INET;
     } else if (ip_hdr.version == 6) {
         struct ipv6hdr ip6_hdr;
         bpf_core_read(&ip6_hdr, sizeof(struct ipv6hdr), skb_head + net_header_offset);
@@ -92,7 +92,8 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
             goto out;
         }
 
-        event->net.family = EBPF_NETWORK_EVENT_AF_INET6;
+        network_header_size = sizeof(struct ipv6hdr);
+        event->net.family   = EBPF_NETWORK_EVENT_AF_INET6;
     } else {
         goto out;
     }
@@ -138,21 +139,29 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
         goto out;
     }
 
+    size_t body_size = headlen;
+    // for ip_send_skb(), we're at a point in the network stack where we've just prepended the IP
+    // header, so the normal headlen for the skb_buff includes the headers. Reset them so we *just*
+    // read the application body.
+    if (evt_type == EBPF_NETWORK_EVENT_IP_SEND_UDP) {
+        body_size = headlen - (sizeof(struct udphdr) + network_header_size);
+    }
+
     event->original_len = headlen;
-    if (headlen > MAX_DNS_PACKET) {
-        headlen = MAX_DNS_PACKET;
+    if (body_size > MAX_DNS_PACKET) {
+        body_size = MAX_DNS_PACKET;
     }
 
     ebpf_vl_fields__init(&event->vl_fields);
     struct ebpf_varlen_field *field;
     field    = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_DNS_BODY);
-    long ret = bpf_probe_read_kernel(field->data, headlen,
+    long ret = bpf_probe_read_kernel(field->data, body_size,
                                      skb_head + transport_header_offset + sizeof(struct udphdr));
     if (ret != 0) {
         bpf_printk("error reading in data buffer: %d", ret);
         goto out;
     }
-    ebpf_vl_field__set_size(&event->vl_fields, field, headlen);
+    ebpf_vl_field__set_size(&event->vl_fields, field, body_size);
 
     event->hdr.type = EBPF_EVENT_NETWORK_DNS_PKT;
     event->udp_evt  = evt_type;
