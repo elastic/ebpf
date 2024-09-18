@@ -27,7 +27,7 @@ int main(int argc, char **argv)
     int sockfd;
     struct sockaddr_in server;
 
-    create_buffer(buffer, sizeof(buffer));
+    memset(&buffer, 0xff, sizeof(buffer));
 
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {

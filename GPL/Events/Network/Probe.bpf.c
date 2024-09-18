@@ -46,6 +46,9 @@ out:
 
 static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
 {
+    if (skb == NULL){
+        goto out;
+    }
 
     if (ebpf_events_is_trusted_pid())
         goto out;
@@ -105,6 +108,7 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
 
     uint16_t dport = bpf_ntohs(udp_hdr.dest);
     uint16_t sport = bpf_ntohs(udp_hdr.source);
+    // filter out non-DNS packets
     if (sport != 53 && dport != 53) {
         goto out;
     }
@@ -112,11 +116,6 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
     event->net.dport     = dport;
     event->net.sport     = sport;
     event->net.transport = EBPF_NETWORK_EVENT_TRANSPORT_UDP;
-
-    // filter out non-dns packets
-    if (event->net.sport != 53 && event->net.dport != 53) {
-        goto out;
-    }
 
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     ebpf_pid_info__fill(&event->pids, task);
@@ -147,7 +146,6 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
     ebpf_vl_fields__init(&event->vl_fields);
     struct ebpf_varlen_field *field;
     field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_DNS_BODY);
-
     long ret = bpf_probe_read_kernel(field->data, headlen,
                                      skb_head + transport_header_offset + sizeof(struct udphdr));
     if (ret != 0) {
