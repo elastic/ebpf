@@ -193,8 +193,7 @@ func getJsonEventType(jsonLine string) (string, error) {
 	return jsonUnmarshaled.EventType, nil
 }
 
-func runTestCmd(cmdStr string) []byte {
-	cmdArg := strings.Split(cmdStr, " ")
+func runTestCmd(cmdArg []string) []byte {
 	cmd := exec.Command(cmdArg[0], cmdArg[1:]...)
 	return handleTestOutput(cmd)
 }
