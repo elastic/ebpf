@@ -153,7 +153,7 @@ func TestForkExec(et *EventsTraceInstance) {
 }
 
 func TestDNSMonitor(et *EventsTraceInstance) {
-	runTestCmd([]string{"/usr/bin/host", "github.com"})
+	runTestCmd([]string{"bash", "-c", "host github.com"})
 
 	type dnsOutput struct {
 		Data []uint8 `json:"data"`
