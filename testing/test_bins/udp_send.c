@@ -15,13 +15,6 @@
 
 char buffer[BUFFER_SIZE];
 
-void create_buffer(uint8_t *buffer, size_t length)
-{
-    for (size_t i = 0; i < length; i++) {
-        buffer[i] = 0xff;
-    }
-}
-
 int main(int argc, char **argv)
 {
     int sockfd;

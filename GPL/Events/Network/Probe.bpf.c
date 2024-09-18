@@ -46,7 +46,7 @@ out:
 
 static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
 {
-    if (skb == NULL){
+    if (skb == NULL) {
         goto out;
     }
 
@@ -145,7 +145,7 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
 
     ebpf_vl_fields__init(&event->vl_fields);
     struct ebpf_varlen_field *field;
-    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_DNS_BODY);
+    field    = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_DNS_BODY);
     long ret = bpf_probe_read_kernel(field->data, headlen,
                                      skb_head + transport_header_offset + sizeof(struct udphdr));
     if (ret != 0) {
