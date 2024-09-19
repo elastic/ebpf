@@ -1,43 +1,48 @@
-#include <arpa/inet.h>
-#include <errno.h>
-#include <fcntl.h>
+#define _GNU_SOURCE 		/* program_invocation_name */
+#include <sys/types.h>
+#include <sys/socket.h>
+
 #include <netinet/in.h>
-#include <stdint.h>
+
+#include <arpa/inet.h>
+
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
+#include <errno.h>
+#include <err.h>
 
-#define BUFFER_SIZE 512
-
-char buffer[BUFFER_SIZE];
-
-int main(int argc, char **argv)
+int
+main(int argc, char *argv[])
 {
-    int sockfd;
-    struct sockaddr_in server;
+	struct sockaddr_in	sin;
+	int			sock, ch, do_connect;
+	ssize_t			n;
+    char* inaddr = "127.0.0.1";
+	uint64_t		buf[] = {
+		0xdeadbeef, 0xdeadbeef, 0xdeadbeef, 0xdeadbeef,
+		0xdeadbeef, 0xdeadbeef, 0xdeadbeef, 0xdeadbeef
+	};
 
-    memset(&buffer, 0xff, sizeof(buffer));
+	bzero(&sin, sizeof(sin));
 
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd < 0) {
-        fprintf(stderr, "Error opening socket");
-        return -1;
-    }
 
-    bzero((char *)&server, sizeof(server));
-    server.sin_family      = AF_INET;
-    server.sin_addr.s_addr = inet_addr("127.0.0.1");
-    server.sin_port        = htons(53);
-    printf("sending...\n");
-    if (sendto(sockfd, &buffer, BUFFER_SIZE, 0, (const struct sockaddr *)&server, sizeof(server)) <
-        0) {
-        fprintf(stderr, "Error in sendto()\n");
-        return -1;
-    }
+	if (inet_aton(inaddr, &sin.sin_addr) == 0)
+		errx(1, "inet_aton(%s)", inaddr);
+	sin.sin_port = htons(53);
+	sin.sin_family = AF_INET;
 
-    return 0;
+	if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+		err(1, "socket");
+
+
+	n = sendto(sock, buf, sizeof(buf), 0,
+	    (struct sockaddr *)&sin, sizeof(sin));
+	if (n == -1)
+		err(1, "sendto");
+	else if (n != sizeof(buf))
+		errx(1, "sendto: shortcount");
+
+	return (0);
 }
