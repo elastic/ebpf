@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	RunEventsTest(TestFeaturesCorrect)
+	RunEventsTest(TestFeaturesCorrect_old)
 	RunEventsTest(TestForkExit, "--process-fork")
 	RunEventsTest(TestForkExec, "--process-fork", "--process-exec")
 	RunEventsTest(TestSetuid, "--process-setuid")

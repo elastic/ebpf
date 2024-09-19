@@ -15,10 +15,9 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
-	"testing"
 )
 
-func TestFeaturesCorrect(t *testing.T, et *EventsTraceInstance) {
+func TestFeaturesCorrect_old(et *EventsTraceInstance) {
 	var utsname syscall.Utsname
 	if err := syscall.Uname(&utsname); err != nil {
 		TestFail(fmt.Sprintf("Failed to run uname: %s", err))
