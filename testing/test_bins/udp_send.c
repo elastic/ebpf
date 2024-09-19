@@ -16,7 +16,7 @@
 int main(int argc, char *argv[])
 {
     struct sockaddr_in sin;
-    int sock, ch, do_connect;
+    int sock;
     ssize_t n;
     char *inaddr   = "127.0.0.1";
     uint64_t buf[] = {0xdeadbeef, 0xdeadbeef, 0xdeadbeef, 0xdeadbeef,
