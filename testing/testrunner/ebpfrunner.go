@@ -13,6 +13,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os/exec"
 	"strings"
@@ -32,6 +33,7 @@ type Runner struct {
 	StderrChan chan string
 	readChan   chan string
 	doneChan   chan struct{}
+	errChan    chan error
 
 	InitMsg InitMsg
 	t       *testing.T
@@ -42,7 +44,7 @@ type Runner struct {
 	readCursor int
 }
 
-func runStreamChannel(t *testing.T, sender chan string, buffer *bufio.Scanner) {
+func runStreamChannel(sender chan string, errChan chan error, buffer *bufio.Scanner) {
 	buf := make([]byte, 0, 64*1024)
 	buffer.Buffer(buf, 1024*1024)
 	go func() {
@@ -55,8 +57,11 @@ func runStreamChannel(t *testing.T, sender chan string, buffer *bufio.Scanner) {
 
 				}
 			}
+			// the go testing libraries don't like it when you call
+			// t.Fail() in a child thread; so we have to trickle down the failure
 			if err := buffer.Err(); err != nil {
-				t.Logf("scanner error: %s", err)
+				errChan <- fmt.Errorf("error in buffer: %w", err)
+				return
 			}
 
 		}
@@ -96,8 +101,8 @@ func (runner *Runner) Start() {
 	stderrStream := bufio.NewScanner(runner.Stderr)
 	stdoutStream := bufio.NewScanner(runner.Stdout)
 
-	runStreamChannel(runner.t, runner.StdoutChan, stdoutStream)
-	runStreamChannel(runner.t, runner.StderrChan, stderrStream)
+	runStreamChannel(runner.StdoutChan, runner.errChan, stdoutStream)
+	runStreamChannel(runner.StderrChan, runner.errChan, stderrStream)
 
 	go func() {
 		runner.runIORead()
@@ -125,6 +130,8 @@ func (runner *Runner) GetNextEventOut(types ...string) string {
 		select {
 		case <-ctx.Done():
 			runner.t.Fatalf("timed out waiting for %v events", types)
+		case err := <-runner.errChan:
+			require.NoError(runner.t, err, "error reading from stdout/stderr in buffer")
 		case line := <-runner.readChan:
 			var resp baseEvent
 			err := json.Unmarshal([]byte(line), &resp)
@@ -171,6 +178,7 @@ func NewEbpfRunner(ctx context.Context, t *testing.T, args ...string) *Runner {
 		StderrChan: make(chan string, 1024),
 		readChan:   make(chan string, 1024),
 		doneChan:   make(chan struct{}),
+		errChan:    make(chan error, 1),
 		t:          t,
 	}
 	args = append(args, "--print-features-on-init", "--unbuffer-stdout", "--libbpf-verbose")

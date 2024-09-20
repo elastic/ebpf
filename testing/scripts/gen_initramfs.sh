@@ -78,7 +78,7 @@ invoke_bluebox() {
 
     local cmd="bluebox"
     cmd+=" -a $goarch"
-    cmd+=" -e testrunner/testrunner"
+    cmd+=" -e testrunner/testrunner:-test.v"
     cmd+=" -r $eventstrace"
     cmd+=" -r $tcfiltertests"
     cmd+=" -r $tcfilterbpf"

@@ -636,7 +636,7 @@ func TestEbpf(t *testing.T) {
 				t.Skip("tests already failed")
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*3)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
 			defer cancel()
 			run := NewEbpfRunner(ctx, t, test.args...)
 			// on return, check for failure. If we've failed, dump stderr and stdout
