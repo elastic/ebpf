@@ -3,6 +3,7 @@ package testrunner
 import (
 	"context"
 	"encoding/json"
+	"os/exec"
 	"syscall"
 	"testing"
 	"time"
@@ -64,7 +65,7 @@ func ForkExit(t *testing.T, et *Runner) {
 
 	var forkEvent ProcessForkEvent
 	for {
-		et.UnmarshalNextEvent(t, &forkEvent, "PROCESS_FORK")
+		et.UnmarshalNextEvent(&forkEvent, "PROCESS_FORK")
 
 		if forkEvent.ParentPids.Tid == binOutput.Tid {
 			break
@@ -155,7 +156,7 @@ func FileCreate(t *testing.T, et *Runner) {
 
 	var fileCreateEvent FileCreateEvent
 	for {
-		et.UnmarshalNextEvent(t, &fileCreateEvent, "FILE_CREATE")
+		et.UnmarshalNextEvent(&fileCreateEvent, "FILE_CREATE")
 		if fileCreateEvent.Pids.Tid == binOutput.PidInfo.Tid {
 			break
 		}
@@ -183,7 +184,7 @@ func FileDelete(t *testing.T, et *Runner) {
 
 	var fileDeleteEvent FileDeleteEvent
 	for {
-		et.UnmarshalNextEvent(t, &fileDeleteEvent, "FILE_DELETE")
+		et.UnmarshalNextEvent(&fileDeleteEvent, "FILE_DELETE")
 		if fileDeleteEvent.Pids.Tid == binOutput.PidInfo.Tid {
 			break
 		}
@@ -210,7 +211,7 @@ func FileRename(t *testing.T, et *Runner) {
 
 	var fileRenameEvent FileRenameEvent
 	for {
-		et.UnmarshalNextEvent(t, &fileRenameEvent, "FILE_RENAME")
+		et.UnmarshalNextEvent(&fileRenameEvent, "FILE_RENAME")
 		if fileRenameEvent.Pids.Tid == binOutput.PidInfo.Tid {
 			break
 		}
@@ -238,7 +239,7 @@ func Setuid(t *testing.T, et *Runner) {
 
 	var setUidEvent SetUidEvent
 	for {
-		et.UnmarshalNextEvent(t, &setUidEvent, "PROCESS_SETUID")
+		et.UnmarshalNextEvent(&setUidEvent, "PROCESS_SETUID")
 		if setUidEvent.Pids.Tid == binOutput.PidInfo.Tid {
 			break
 		}
@@ -259,7 +260,7 @@ func Setgid(t *testing.T, et *Runner) {
 
 	var setGidEvent SetGidEvent
 	for {
-		et.UnmarshalNextEvent(t, &setGidEvent, "PROCESS_SETGID")
+		et.UnmarshalNextEvent(&setGidEvent, "PROCESS_SETGID")
 		if setGidEvent.Pids.Tid == binOutput.PidInfo.Tid {
 			break
 		}
@@ -280,7 +281,7 @@ func FileCreateContainer(t *testing.T, et *Runner) {
 
 	var fileCreateEvent FileCreateEvent
 	for {
-		et.UnmarshalNextEvent(t, &fileCreateEvent, "FILE_CREATE")
+		et.UnmarshalNextEvent(&fileCreateEvent, "FILE_CREATE")
 		if fileCreateEvent.Pids.Tgid == binOutput.ChildPid {
 			break
 		}
@@ -298,7 +299,7 @@ func FileRenameContainer(t *testing.T, et *Runner) {
 
 	var fileRenameEvent FileRenameEvent
 	for {
-		et.UnmarshalNextEvent(t, &fileRenameEvent, "FILE_RENAME")
+		et.UnmarshalNextEvent(&fileRenameEvent, "FILE_RENAME")
 		if fileRenameEvent.Pids.Tgid == binOutput.ChildPid {
 			break
 		}
@@ -318,7 +319,7 @@ func FileDeleteContainer(t *testing.T, et *Runner) {
 
 	var fileDeleteEvent FileDeleteEvent
 	for {
-		et.UnmarshalNextEvent(t, &fileDeleteEvent, "FILE_DELETE")
+		et.UnmarshalNextEvent(&fileDeleteEvent, "FILE_DELETE")
 		if fileDeleteEvent.Pids.Tgid == binOutput.ChildPid {
 			break
 		}
@@ -339,7 +340,7 @@ func FileModify(t *testing.T, et *Runner) {
 	events := make([]FileModifyEvent, 0, eventsCount)
 	for {
 		var event FileModifyEvent
-		et.UnmarshalNextEvent(t, &event, "FILE_MODIFY")
+		et.UnmarshalNextEvent(&event, "FILE_MODIFY")
 
 		if event.Pids.Tid == binOutput.PidInfo.Tid {
 			events = append(events, event)
@@ -379,13 +380,13 @@ func TtyWrite(t *testing.T, et *Runner) {
 
 	var ev TtyWriteEvent
 	for {
-		et.UnmarshalNextEvent(t, &ev, "PROCESS_TTY_WRITE")
+		et.UnmarshalNextEvent(&ev, "PROCESS_TTY_WRITE")
 		if ev.Pids.Tgid == output.Pid {
 			break
 		}
 	}
 
-	require.Equal(t, ev.Truncated, 0)
+	require.Equal(t, ev.Truncated, int64(0))
 	require.Equal(t, ev.Out, "--- OK\n")
 	// This is a virtual console, not a pseudo terminal.
 	require.Equal(t, ev.TtyDev.Major, int64(4))
@@ -404,7 +405,7 @@ func Tcpv4ConnectionAttempt(t *testing.T, et *Runner) {
 
 	var ev NetConnAttemptEvent
 	for {
-		et.UnmarshalNextEvent(t, &ev, "NETWORK_CONNECTION_ATTEMPTED")
+		et.UnmarshalNextEvent(&ev, "NETWORK_CONNECTION_ATTEMPTED")
 		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
 			break
 		}
@@ -433,7 +434,7 @@ func Tcpv4ConnectionAccept(t *testing.T, et *Runner) {
 
 	var ev NetConnAcceptEvent
 	for {
-		et.UnmarshalNextEvent(t, &ev, "NETWORK_CONNECTION_ACCEPTED")
+		et.UnmarshalNextEvent(&ev, "NETWORK_CONNECTION_ACCEPTED")
 		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
 			break
 		}
@@ -461,7 +462,7 @@ func Tcpv4ConnectionClose(t *testing.T, et *Runner) {
 
 	var ev NetConnCloseEvent
 	for {
-		et.UnmarshalNextEvent(t, &ev, "NETWORK_CONNECTION_CLOSED")
+		et.UnmarshalNextEvent(&ev, "NETWORK_CONNECTION_CLOSED")
 		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
 			break
 		}
@@ -509,7 +510,7 @@ func Tcpv6ConnectionAttempt(t *testing.T, et *Runner) {
 
 	var ev NetConnAttemptEvent
 	for {
-		et.UnmarshalNextEvent(t, &ev, "NETWORK_CONNECTION_ATTEMPTED")
+		et.UnmarshalNextEvent(&ev, "NETWORK_CONNECTION_ATTEMPTED")
 		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
 			break
 		}
@@ -537,7 +538,7 @@ func Tcpv6ConnectionAccept(t *testing.T, et *Runner) {
 
 	var ev NetConnAttemptEvent
 	for {
-		et.UnmarshalNextEvent(t, &ev, "NETWORK_CONNECTION_ACCEPTED")
+		et.UnmarshalNextEvent(&ev, "NETWORK_CONNECTION_ACCEPTED")
 		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
 			break
 		}
@@ -565,7 +566,7 @@ func Tcpv6ConnectionClose(t *testing.T, et *Runner) {
 
 	var ev NetConnCloseEvent
 	for {
-		et.UnmarshalNextEvent(t, &ev, "NETWORK_CONNECTION_CLOSED")
+		et.UnmarshalNextEvent(&ev, "NETWORK_CONNECTION_CLOSED")
 		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
 			break
 		}
@@ -583,7 +584,7 @@ func Tcpv6ConnectionClose(t *testing.T, et *Runner) {
 }
 
 func TestEbpf(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.TODO(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
 	hasOverlayFS := IsOverlayFsSupported(t)
@@ -636,4 +637,31 @@ func TestEbpf(t *testing.T) {
 		})
 	}
 
+}
+
+func TestNewReader(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	testRunner := &Runner{
+		ctx:        ctx,
+		StdoutChan: make(chan string, 1024),
+		StderrChan: make(chan string, 1024),
+		readChan:   make(chan string, 1024),
+		t:          t,
+	}
+
+	testRunner.Cmd = exec.CommandContext(ctx, "ls", "-la")
+
+	var err error
+	testRunner.Stdout, err = testRunner.Cmd.StdoutPipe()
+	require.NoError(t, err, "failed to redirect stdout")
+
+	testRunner.Stderr, err = testRunner.Cmd.StderrPipe()
+	require.NoError(t, err, "failed to redirect stderr")
+
+	go func() {
+		testRunner.runIORead()
+	}()
+
+	testRunner.ReadEvent()
 }

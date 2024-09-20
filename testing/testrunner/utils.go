@@ -182,13 +182,11 @@ type NetConnCloseEvent struct {
 }
 
 var testBinaryPath = "/"
+var eventsTracePath = "/EventsTrace"
 
+// init will run at startup and figure out if we're running in the bluebox test env or not,
+// and set paths for the binaries as needed
 func init() {
-	// when we start up, try to find the root directory
-	// and the path to test_bins
-	// This way we can run the tests as "normal" go tests, or as
-	// part of the bluebox test suite
-
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
 	res, err := cmd.CombinedOutput()
 	// if there's an error, assume that we're in the test environment,
@@ -209,10 +207,16 @@ func init() {
 		fmt.Printf("unsupported arch %s, reverting to root path for test binaries\n", runtime.GOARCH)
 		return
 	}
-	stripped := strings.TrimSpace(string(res))
-	testBinaryPath = filepath.Join(stripped, "testing/test_bins/bin", arch)
+	rootEbpfPath := strings.TrimSpace(string(res))
+	testBinaryPath = filepath.Join(rootEbpfPath, "testing/test_bins/bin", arch)
 	fmt.Printf("using root path '%s' for binary path\n", testBinaryPath)
 
+	// if running in a non-root path, assume we're not in bluebox, set binary path accordingly
+	if testBinaryPath != "/" {
+		artifactDir := fmt.Sprintf("artifacts-%s", arch)
+		eventsTracePath = filepath.Join(rootEbpfPath, artifactDir, "non-GPL/Events/EventsTrace/EventsTrace")
+	}
+	fmt.Printf("using path '%s' for EventsTrace\n", eventsTracePath)
 }
 
 func getEventType(t *testing.T, jsonLine string) string {
@@ -231,6 +235,13 @@ func runTestBin(t *testing.T, binName string, args ...string) []byte {
 	cmd := exec.Command(filepath.Join(testBinaryPath, binName), args...)
 
 	output, err := cmd.CombinedOutput()
+	// the "correct" way to do this would be errors.Is(), but it doesn't seem to work reliably for the errors that exec returns
+	if err != nil {
+		if strings.Contains(err.Error(), "no such file") {
+			require.NoError(t, err, "test binary %s not found; try `make testbins` to compile test binaries", binName)
+		}
+	}
+
 	require.NoError(t, err, "error running command %s\n OUTPUT: \n %s", binName, string(output))
 	return output
 }
@@ -299,5 +310,4 @@ func PrintDebugOutputOnFail() {
 	fmt.Print("\n")
 
 	fmt.Println("BPF test failed, see errors and stacktrace above")
-	os.Exit(1)
 }

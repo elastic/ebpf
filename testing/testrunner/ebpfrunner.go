@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os/exec"
 	"strings"
@@ -15,19 +14,22 @@ import (
 )
 
 type Runner struct {
-	ctx        context.Context
-	Cmd        *exec.Cmd
-	Stdout     io.ReadCloser
-	Stderr     io.ReadCloser
+	ctx    context.Context
+	Cmd    *exec.Cmd
+	Stdout io.ReadCloser
+	Stderr io.ReadCloser
+
 	StdoutChan chan string
 	StderrChan chan string
-	InitMsg    InitMsg
-	t          *testing.T
+	readChan   chan string
 
-	// in case of failure, we want to dump everything that EventTrace has done,
-	// so track in one central place so we can dump on failure
-	errBuff string
-	outBuff string
+	InitMsg InitMsg
+	t       *testing.T
+
+	// buffers carry lifelong copy of stderr/stdout
+	errBuff    []string
+	outBuff    []string
+	readCursor int
 }
 
 func runStreamChannel(t *testing.T, sender chan string, buffer *bufio.Scanner) {
@@ -38,7 +40,9 @@ func runStreamChannel(t *testing.T, sender chan string, buffer *bufio.Scanner) {
 				if len(line) > 0 {
 					txt := strings.TrimSpace(line)
 					if len(txt) > 0 {
-						// TODO: we still risk a block here. Do we need a separate timeout?
+						// because we create the channels with large buffers, this is unlikly to block;
+						// however, if it does, the write() calls to stderr/stdout in EventsTrace will block,'
+						// and the whole test will just time out.
 						sender <- txt
 
 					}
@@ -50,6 +54,41 @@ func runStreamChannel(t *testing.T, sender chan string, buffer *bufio.Scanner) {
 
 		}
 	}()
+}
+
+func (runner *Runner) runIORead() {
+	err := runner.Cmd.Start()
+	require.NoError(runner.t, err)
+	stderrStream := bufio.NewScanner(NewContextReader(runner.ctx, runner.Stderr))
+	stdoutStream := bufio.NewScanner(NewContextReader(runner.ctx, runner.Stdout))
+
+	runStreamChannel(runner.t, runner.StdoutChan, stdoutStream)
+	runStreamChannel(runner.t, runner.StderrChan, stderrStream)
+	runner.readCursor = 0
+	for {
+		// this select case must never block
+		select {
+		case <-runner.ctx.Done():
+			close(runner.readChan)
+			runner.t.Fatalf("got contex timeout")
+
+		case line := <-runner.StderrChan:
+			runner.errBuff = append(runner.errBuff, line)
+		case line := <-runner.StdoutChan:
+			runner.outBuff = append(runner.outBuff, line)
+			select {
+			case runner.readChan <- runner.outBuff[runner.readCursor]:
+				runner.readCursor += 1
+			default:
+			}
+		}
+	}
+}
+
+func (runner *Runner) ReadEvent() {
+	for line := range runner.readChan {
+		runner.t.Logf("Got line : %s", line)
+	}
 }
 
 func (runner *Runner) Start() {
@@ -65,7 +104,7 @@ func (runner *Runner) Start() {
 	// run a channel that just appends it to our buffer
 	go func() {
 		for line := range runner.StderrChan {
-			runner.errBuff = fmt.Sprintf("%s\n%s", runner.errBuff, line)
+			runner.errBuff = append(runner.errBuff, line)
 		}
 	}()
 
@@ -96,11 +135,11 @@ func (runner *Runner) GetNextEventOut(types ...string) string {
 			runner.t.Fatalf("timed out waiting for %v events", types)
 		case line := <-runner.StdoutChan:
 			// log stdout
-			runner.outBuff = fmt.Sprintf("%s\n%s", runner.outBuff, line)
+			runner.outBuff = append(runner.outBuff, line)
 
 			var resp baseEvent
 			err := json.Unmarshal([]byte(line), &resp)
-			require.NoError(runner.t, err, "error unmarshaling event_type from stdout. stderr: \n", runner.errBuff)
+			require.NoError(runner.t, err, "error unmarshaling event_type from event %s", line)
 			for _, evtType := range types {
 				if evtType == resp.EventType {
 					return line
@@ -110,10 +149,10 @@ func (runner *Runner) GetNextEventOut(types ...string) string {
 	}
 }
 
-func (runner *Runner) UnmarshalNextEvent(t *testing.T, body any, types ...string) {
+func (runner *Runner) UnmarshalNextEvent(body any, types ...string) {
 	line := runner.GetNextEventOut(types...)
 	err := json.Unmarshal([]byte(line), &body)
-	require.NoError(t, err, "error unmarshaling JSON for types %v", types)
+	require.NoError(runner.t, err, "error unmarshaling JSON for types %v", types)
 }
 
 func (runner *Runner) Stop() {
@@ -127,19 +166,19 @@ func (runner *Runner) Stop() {
 }
 
 func (runner *Runner) Dump() {
-	runner.t.Logf("STDOUT:\n %s \n STDERR: \n%s", runner.outBuff, runner.errBuff)
+	//t.Logf("STDOUT:\n %s \n STDERR: \n%s", runner.outBuff, runner.errBuff)
+	runner.t.Logf("STDOUT:\n %s ", runner.outBuff)
 }
 
 func NewEbpfRunner(ctx context.Context, t *testing.T, args ...string) *Runner {
 	testRunner := &Runner{
 		ctx:        ctx,
-		StdoutChan: make(chan string, 100),
-		StderrChan: make(chan string, 100),
+		StdoutChan: make(chan string, 1024),
+		StderrChan: make(chan string, 1024),
 		t:          t,
 	}
-	binPath := "../../artifacts-x86_64/non-GPL/Events/EventsTrace/EventsTrace"
 	args = append(args, "--print-features-on-init", "--unbuffer-stdout", "--libbpf-verbose")
-	testRunner.Cmd = exec.CommandContext(ctx, binPath, args...)
+	testRunner.Cmd = exec.CommandContext(ctx, eventsTracePath, args...)
 
 	var err error
 	testRunner.Stdout, err = testRunner.Cmd.StdoutPipe()
