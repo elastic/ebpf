@@ -592,9 +592,6 @@ func Tcpv6ConnectionClose(t *testing.T, et *Runner) {
 }
 
 func TestEbpf(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-	defer cancel()
-
 	hasOverlayFS := IsOverlayFsSupported(t)
 
 	testCases := []struct {
@@ -624,18 +621,25 @@ func TestEbpf(t *testing.T) {
 		{"FileRenameContainer", FileRenameContainer, []string{"--file-rename"}, true},
 		{"FileDeleteContainer", FileDeleteContainer, []string{"--file-delete"}, true},
 	}
-
+	// small hack to make sure we don't continue to run tests when the first one fails
+	failed := false
 	for _, test := range testCases {
+		if failed {
+			return
+		}
 		t.Run(test.name, func(t *testing.T) {
 			if test.requireOverlayFS && !hasOverlayFS {
 				t.Skipf("Test requires OverlayFS, not available")
 			}
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*2)
+			defer cancel()
 			run := NewEbpfRunner(ctx, t, test.args...)
 			// on return, check for failure. If we've failed, dump stderr and stdout
 			defer func() {
 				if t.Failed() {
 					PrintDebugOutputOnFail()
 					run.Dump()
+					failed = true
 				}
 			}()
 
