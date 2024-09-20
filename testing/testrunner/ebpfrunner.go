@@ -43,16 +43,16 @@ type Runner struct {
 }
 
 func runStreamChannel(t *testing.T, sender chan string, buffer *bufio.Scanner) {
+	buf := make([]byte, 0, 64*1024)
+	buffer.Buffer(buf, 1024*1024)
 	go func() {
 		for {
 			for buffer.Scan() {
 				line := buffer.Text()
-				if len(line) > 0 {
-					txt := strings.TrimSpace(line)
-					if len(txt) > 0 {
-						sender <- txt
+				txt := strings.TrimSpace(line)
+				if len(txt) > 0 {
+					sender <- txt
 
-					}
 				}
 			}
 			if err := buffer.Err(); err != nil {
@@ -154,8 +154,14 @@ func (runner *Runner) Stop() {
 }
 
 func (runner *Runner) Dump() {
-	runner.t.Logf("STDOUT:\n %s \n STDERR: \n%s", runner.outBuff, runner.errBuff)
-	//runner.t.Logf("STDOUT:\n %s ", runner.outBuff)
+	runner.t.Logf("STDOUT: \n")
+	for _, line := range runner.outBuff {
+		runner.t.Logf("%s", line)
+	}
+	runner.t.Logf("STDERR: \n")
+	for _, line := range runner.errBuff {
+		runner.t.Logf("%s", line)
+	}
 }
 
 func NewEbpfRunner(ctx context.Context, t *testing.T, args ...string) *Runner {
