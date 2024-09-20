@@ -37,7 +37,7 @@ build_testrunner() {
     pushd testrunner > /dev/null
 
     go clean
-    GOARCH=$goarch go build
+    GOARCH=$goarch go test -c
 
     if [[ $? -ne 0 ]]
     then
@@ -78,7 +78,7 @@ invoke_bluebox() {
 
     local cmd="bluebox"
     cmd+=" -a $goarch"
-    cmd+=" -e testrunner/testrunner"
+    cmd+=" -e testrunner/testrunner.test"
     cmd+=" -r $eventstrace"
     cmd+=" -r $tcfiltertests"
     cmd+=" -r $tcfilterbpf"

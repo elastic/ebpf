@@ -231,7 +231,6 @@ func getEventType(t *testing.T, jsonLine string) string {
 }
 
 func runTestBin(t *testing.T, binName string, args ...string) []byte {
-	fmt.Printf("running with test path %s\n", testBinaryPath)
 	cmd := exec.Command(filepath.Join(testBinaryPath, binName), args...)
 
 	output, err := cmd.CombinedOutput()

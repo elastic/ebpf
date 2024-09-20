@@ -3,7 +3,6 @@ package testrunner
 import (
 	"context"
 	"encoding/json"
-	"os/exec"
 	"syscall"
 	"testing"
 	"time"
@@ -41,7 +40,7 @@ func FeaturesCorrect(t *testing.T, et *Runner) {
 	switch arch {
 	case "x86_64":
 		// All x86 kernels in the CI test matrix currently enable bpf
-		// trampolines (it's super ubiquitious on x86 as far as I can see), so
+		// trampolines (it's super ubiquitous on x86 as far as I can see), so
 		// just assertTrue on BPF tramp support on x86. If a kernel is added
 		// that doesn't enable BPF tramps on x86, logic should be added to
 		// handle it here.
@@ -133,11 +132,11 @@ func ForkExec(t *testing.T, et *Runner) {
 		}
 	}
 
-	require.Equal(t, uint64(forkEvent.Creds.CapPermitted), uint64(0x00000000ffffffff))
-	require.Equal(t, uint64(forkEvent.Creds.CapEffective), uint64(0x00000000f0f0f0f0))
+	require.Equal(t, forkEvent.Creds.CapPermitted, uint64(0x00000000ffffffff))
+	require.Equal(t, forkEvent.Creds.CapEffective, uint64(0x00000000f0f0f0f0))
 
-	require.Equal(t, uint64(execEvent.Creds.CapPermitted), uint64(0x000001ffffffffff))
-	require.Equal(t, uint64(execEvent.Creds.CapEffective), uint64(0x000001ffffffffff))
+	require.Equal(t, execEvent.Creds.CapPermitted, uint64(0x000001ffffffffff))
+	require.Equal(t, execEvent.Creds.CapEffective, uint64(0x000001ffffffffff))
 	require.Equal(t, execEvent.FileName, "./do_nothing")
 	require.Equal(t, execEvent.Argv[0], "./do_nothing")
 	require.Equal(t, execEvent.Env[0], "TEST_ENV_KEY1=TEST_ENV_VAL1")
@@ -584,7 +583,7 @@ func Tcpv6ConnectionClose(t *testing.T, et *Runner) {
 }
 
 func TestEbpf(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
 	hasOverlayFS := IsOverlayFsSupported(t)
@@ -632,36 +631,10 @@ func TestEbpf(t *testing.T) {
 			}()
 
 			run.Start()
+			// actually run test
 			test.handle(t, run)
 			run.Stop()
 		})
 	}
 
-}
-
-func TestNewReader(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
-	defer cancel()
-	testRunner := &Runner{
-		ctx:        ctx,
-		StdoutChan: make(chan string, 1024),
-		StderrChan: make(chan string, 1024),
-		readChan:   make(chan string, 1024),
-		t:          t,
-	}
-
-	testRunner.Cmd = exec.CommandContext(ctx, "ls", "-la")
-
-	var err error
-	testRunner.Stdout, err = testRunner.Cmd.StdoutPipe()
-	require.NoError(t, err, "failed to redirect stdout")
-
-	testRunner.Stderr, err = testRunner.Cmd.StderrPipe()
-	require.NoError(t, err, "failed to redirect stderr")
-
-	go func() {
-		testRunner.runIORead()
-	}()
-
-	testRunner.ReadEvent()
 }

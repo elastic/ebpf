@@ -22,6 +22,7 @@ type Runner struct {
 	StdoutChan chan string
 	StderrChan chan string
 	readChan   chan string
+	doneChan   chan struct{}
 
 	InitMsg InitMsg
 	t       *testing.T
@@ -40,9 +41,6 @@ func runStreamChannel(t *testing.T, sender chan string, buffer *bufio.Scanner) {
 				if len(line) > 0 {
 					txt := strings.TrimSpace(line)
 					if len(txt) > 0 {
-						// because we create the channels with large buffers, this is unlikly to block;
-						// however, if it does, the write() calls to stderr/stdout in EventsTrace will block,'
-						// and the whole test will just time out.
 						sender <- txt
 
 					}
@@ -57,21 +55,19 @@ func runStreamChannel(t *testing.T, sender chan string, buffer *bufio.Scanner) {
 }
 
 func (runner *Runner) runIORead() {
-	err := runner.Cmd.Start()
-	require.NoError(runner.t, err)
-	stderrStream := bufio.NewScanner(NewContextReader(runner.ctx, runner.Stderr))
-	stdoutStream := bufio.NewScanner(NewContextReader(runner.ctx, runner.Stdout))
-
-	runStreamChannel(runner.t, runner.StdoutChan, stdoutStream)
-	runStreamChannel(runner.t, runner.StderrChan, stderrStream)
 	runner.readCursor = 0
+	defer func() {
+		close(runner.readChan)
+	}()
 	for {
-		// this select case must never block
+		// this select case must never block, or else the underlying write() syscalls in EventsTrace
+		// could block.
 		select {
+		case <-runner.doneChan:
+			return
 		case <-runner.ctx.Done():
-			close(runner.readChan)
-			runner.t.Fatalf("got contex timeout")
-
+			runner.t.Logf("got context done")
+			return
 		case line := <-runner.StderrChan:
 			runner.errBuff = append(runner.errBuff, line)
 		case line := <-runner.StdoutChan:
@@ -85,12 +81,6 @@ func (runner *Runner) runIORead() {
 	}
 }
 
-func (runner *Runner) ReadEvent() {
-	for line := range runner.readChan {
-		runner.t.Logf("Got line : %s", line)
-	}
-}
-
 func (runner *Runner) Start() {
 	err := runner.Cmd.Start()
 	require.NoError(runner.t, err)
@@ -100,22 +90,15 @@ func (runner *Runner) Start() {
 	runStreamChannel(runner.t, runner.StdoutChan, stdoutStream)
 	runStreamChannel(runner.t, runner.StderrChan, stderrStream)
 
-	// we only care about stderr in failures;
-	// run a channel that just appends it to our buffer
 	go func() {
-		for line := range runner.StderrChan {
-			runner.errBuff = append(runner.errBuff, line)
-		}
+		runner.runIORead()
 	}()
 
-	runner.t.Logf("Waiting for initial response from EventsTrace...")
-
 	// run until we get the first log line
-	// TODO: should we run this in a loop and verify the message?
 	select {
 	case <-runner.ctx.Done():
 		runner.t.Fatalf("timed out while waiting for initial response from EventsTrace")
-	case line := <-runner.StdoutChan:
+	case line := <-runner.readChan:
 		err := json.Unmarshal([]byte(line), &runner.InitMsg)
 		require.NoError(runner.t, err, "could not unmarshall json of first line. Stderr: \n", runner.errBuff)
 	}
@@ -133,10 +116,7 @@ func (runner *Runner) GetNextEventOut(types ...string) string {
 		select {
 		case <-ctx.Done():
 			runner.t.Fatalf("timed out waiting for %v events", types)
-		case line := <-runner.StdoutChan:
-			// log stdout
-			runner.outBuff = append(runner.outBuff, line)
-
+		case line := <-runner.readChan:
 			var resp baseEvent
 			err := json.Unmarshal([]byte(line), &resp)
 			require.NoError(runner.t, err, "error unmarshaling event_type from event %s", line)
@@ -156,8 +136,7 @@ func (runner *Runner) UnmarshalNextEvent(body any, types ...string) {
 }
 
 func (runner *Runner) Stop() {
-	close(runner.StderrChan)
-	close(runner.StdoutChan)
+	runner.doneChan <- struct{}{}
 	err := runner.Cmd.Process.Kill()
 	require.NoError(runner.t, err)
 
@@ -166,8 +145,8 @@ func (runner *Runner) Stop() {
 }
 
 func (runner *Runner) Dump() {
-	//t.Logf("STDOUT:\n %s \n STDERR: \n%s", runner.outBuff, runner.errBuff)
-	runner.t.Logf("STDOUT:\n %s ", runner.outBuff)
+	runner.t.Logf("STDOUT:\n %s \n STDERR: \n%s", runner.outBuff, runner.errBuff)
+	//runner.t.Logf("STDOUT:\n %s ", runner.outBuff)
 }
 
 func NewEbpfRunner(ctx context.Context, t *testing.T, args ...string) *Runner {
@@ -175,6 +154,8 @@ func NewEbpfRunner(ctx context.Context, t *testing.T, args ...string) *Runner {
 		ctx:        ctx,
 		StdoutChan: make(chan string, 1024),
 		StderrChan: make(chan string, 1024),
+		readChan:   make(chan string, 1024),
+		doneChan:   make(chan struct{}),
 		t:          t,
 	}
 	args = append(args, "--print-features-on-init", "--unbuffer-stdout", "--libbpf-verbose")
