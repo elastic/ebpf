@@ -1,4 +1,4 @@
-package main
+package testrunner
 
 import (
 	"context"

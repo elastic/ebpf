@@ -1,6 +1,6 @@
 module github.com/elastic/ebpf/testrunner
 
-go 1.17
+go 1.22
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

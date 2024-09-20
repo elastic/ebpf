@@ -135,6 +135,7 @@ int main()
 
 cleanup:
     // Clean up directories created by child
+    CHECK(umount2(ovl_mountpoint, MNT_DETACH), -1);
     CHECK(rm_recursive(ovl_mountpoint), -1);
     CHECK(rm_recursive(ovl_upperdir), -1);
     CHECK(rm_recursive(ovl_lowerdir), -1);

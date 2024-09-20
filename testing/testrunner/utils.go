@@ -7,20 +7,21 @@
  * License 2.0.
  */
 
-package main
+package testrunner
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
-	"reflect"
+	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // This is a JSON type printed by the test binaries (not by EventsTrace), it's
@@ -180,86 +181,91 @@ type NetConnCloseEvent struct {
 	Comm string  `json:"comm"`
 }
 
-func getJsonEventType(jsonLine string) (string, error) {
+var testBinaryPath = "/"
+
+func init() {
+	// when we start up, try to find the root directory
+	// and the path to test_bins
+	// This way we can run the tests as "normal" go tests, or as
+	// part of the bluebox test suite
+
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	res, err := cmd.CombinedOutput()
+	// if there's an error, assume that we're in the test environment,
+	// and we're using the root path
+	if err != nil {
+		fmt.Printf("using root path '%s' for test binary path\n", testBinaryPath)
+		return
+	}
+	// if we have a root path, create the path to test_bins
+	// convert GOARCH values to the gcc tuple values
+	var arch string
+	switch runtime.GOARCH {
+	case "amd64":
+		arch = "x86_64"
+	case "arm64":
+		arch = "aarch64"
+	default:
+		fmt.Printf("unsupported arch %s, reverting to root path for test binaries\n", runtime.GOARCH)
+		return
+	}
+	stripped := strings.TrimSpace(string(res))
+	testBinaryPath = filepath.Join(stripped, "testing/test_bins/bin", arch)
+	fmt.Printf("using root path '%s' for binary path\n", testBinaryPath)
+
+}
+
+func getEventType(t *testing.T, jsonLine string) string {
 	var jsonUnmarshaled struct {
 		EventType string `json:"event_type"`
 	}
 
 	err := json.Unmarshal([]byte(jsonLine), &jsonUnmarshaled)
-	if err != nil {
-		return "", err
-	}
+	require.NoError(t, err, "error unmarshaling JSON to fetch event type")
 
-	return jsonUnmarshaled.EventType, nil
+	return jsonUnmarshaled.EventType
 }
 
-func runTestBin(binName string) []byte {
-	cmd := exec.Command(fmt.Sprintf("/%s", binName))
+func runTestBin(t *testing.T, binName string, args ...string) []byte {
+	fmt.Printf("running with test path %s\n", testBinaryPath)
+	cmd := exec.Command(filepath.Join(testBinaryPath, binName), args...)
 
-	output, err := cmd.Output()
-	if err != nil {
-		fmt.Printf("===== stderr of %s =====\n", binName)
-		fmt.Println(err)
-		fmt.Printf("===== end stderr of %s =====\n", binName)
-
-		fmt.Printf("===== stdout of %s =====\n", binName)
-		fmt.Println(string(output))
-		fmt.Printf("===== end stdout of %s =====\n", binName)
-
-		TestFail(fmt.Sprintf("Could not run test binary %s (see output above)", binName))
-	}
-
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, "error running command %s\n OUTPUT: \n %s", binName, string(output))
 	return output
 }
 
-func AssertPidInfoEqual(tpi TestPidInfo, pi PidInfo) {
-	AssertInt64Equal(pi.Tid, tpi.Tid)
-	AssertInt64Equal(pi.Tgid, tpi.Tgid)
-	AssertInt64Equal(pi.Ppid, tpi.Ppid)
-	AssertInt64Equal(pi.Pgid, tpi.Pgid)
-	AssertInt64Equal(pi.Sid, tpi.Sid)
+func runTestUnmarshalOutput(t *testing.T, binName string, body any) {
+	raw := runTestBin(t, binName)
+	err := json.Unmarshal(raw, &body)
+	require.NoError(t, err, "error unmarshaling output from %s, got:\n %s", binName, string(raw))
 }
 
-func AssertTrue(val bool) {
-	if !val {
-		TestFail(fmt.Sprintf("Expected %t to be true", val))
-	}
+func TestPidEqual(t *testing.T, tpi TestPidInfo, pi PidInfo) {
+	require.Equal(t, pi.Tid, tpi.Tid)
+	require.Equal(t, pi.Tgid, tpi.Tgid)
+	require.Equal(t, pi.Ppid, tpi.Ppid)
+	require.Equal(t, pi.Pgid, tpi.Pgid)
+	require.Equal(t, pi.Sid, tpi.Sid)
 }
 
-func AssertFalse(val bool) {
-	if val {
-		TestFail(fmt.Sprintf("Expected %t to be false", val))
-	}
-}
+func IsOverlayFsSupported(t *testing.T) bool {
+	file, err := os.Open("/proc/filesystems")
+	require.NoError(t, err)
+	defer file.Close()
 
-func AssertStringsEqual(a, b string) {
-	if a != b {
-		TestFail(fmt.Sprintf("Test assertion failed %s != %s", a, b))
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasSuffix(line, "overlay") {
+			return true
+		}
 	}
-}
 
-func AssertInt64Equal(a, b int64) {
-	if a != b {
-		TestFail(fmt.Sprintf("Test assertion failed %d != %d", a, b))
-	}
-}
+	err = scanner.Err()
+	require.NoError(t, err)
 
-func AssertInt64NotEqual(a, b int64) {
-	if a == b {
-		TestFail(fmt.Sprintf("Test assertion failed %d == %d", a, b))
-	}
-}
-
-func AssertUint64Equal(a, b uint64) {
-	if a != b {
-		TestFail(fmt.Sprintf("Test assertion failed 0x%016x != 0x%016x", a, b))
-	}
-}
-
-func AssertUint64NotEqual(a, b uint64) {
-	if a == b {
-		TestFail(fmt.Sprintf("Test assertion failed 0x%016x == 0x%016x", a, b))
-	}
+	return false
 }
 
 func PrintBPFDebugOutput() {
@@ -279,21 +285,7 @@ func PrintBPFDebugOutput() {
 	fmt.Print(string(b))
 }
 
-func TestFail(v ...interface{}) {
-	fmt.Println(v...)
-
-	fmt.Println("===== STACKTRACE FOR FAILED TEST =====")
-	// Don't use debug.PrintStack here. It prints to stderr, which can cause
-	// Bluebox's init process to Log the stderr/stdout lines out of order (this
-	// is hard on the eyes when reading). Instead manually print the stacktrace
-	// to stdout so everything is going to the same stream and is serialized
-	// nicely.
-	b := make([]byte, 16384)
-	n := runtime.Stack(b, false)
-	s := string(b[:n])
-	fmt.Print(s)
-	fmt.Println("===== END STACKTRACE FOR FAILED TEST =====")
-
+func PrintDebugOutputOnFail() {
 	fmt.Println("===== CONTENTS OF /sys/kernel/debug/tracing/trace =====")
 	PrintBPFDebugOutput()
 	fmt.Println("===== END CONTENTS OF /sys/kernel/debug/tracing/trace =====")
@@ -308,55 +300,4 @@ func TestFail(v ...interface{}) {
 
 	fmt.Println("BPF test failed, see errors and stacktrace above")
 	os.Exit(1)
-}
-
-func AllTestsPassed() {
-	fmt.Println("ALL BPF TESTS PASSED")
-}
-
-func IsOverlayFsSupported() bool {
-	file, err := os.Open("/proc/filesystems")
-	if err != nil {
-		TestFail(fmt.Sprintf("Could not open /proc/filesystems: %s", err))
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasSuffix(line, "overlay") {
-			return true
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		TestFail(fmt.Sprintf("Could not read from /proc/filesystems: %s", err))
-	}
-
-	return false
-}
-
-func RunTest(f func()) {
-	testFuncName := runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
-	f() // Will dump info and shutdown if test fails
-	fmt.Println("test passed: ", testFuncName)
-}
-
-func RunEventsTest(f func(*EventsTraceInstance), args ...string) {
-	testFuncName := runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
-	ctx, cancel := context.WithTimeout(context.TODO(), 90*time.Second)
-
-	et := NewEventsTrace(ctx, args...)
-	et.Start(ctx)
-
-	f(et) // Will dump info and shutdown if test fails
-
-	// Shuts down eventstrace and goroutines listening on stdout/stderr
-	cancel()
-
-	fmt.Println("test passed: ", testFuncName)
-
-	if err := et.Stop(); err != nil {
-		TestFail(fmt.Sprintf("Could not stop EventsTrace binary: %s", err))
-	}
 }
