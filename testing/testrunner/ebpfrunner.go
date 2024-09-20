@@ -1,3 +1,12 @@
+// SPDX-License-Identifier: Elastic-2.0
+
+/*
+ * Copyright 2022 Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under
+ * one or more contributor license agreements. Licensed under the Elastic
+ * License 2.0; you may not use this file except in compliance with the Elastic
+ * License 2.0.
+ */
+
 package testrunner
 
 import (
@@ -84,8 +93,8 @@ func (runner *Runner) runIORead() {
 func (runner *Runner) Start() {
 	err := runner.Cmd.Start()
 	require.NoError(runner.t, err)
-	stderrStream := bufio.NewScanner(NewContextReader(runner.ctx, runner.Stderr))
-	stdoutStream := bufio.NewScanner(NewContextReader(runner.ctx, runner.Stdout))
+	stderrStream := bufio.NewScanner(runner.Stderr)
+	stdoutStream := bufio.NewScanner(runner.Stdout)
 
 	runStreamChannel(runner.t, runner.StdoutChan, stdoutStream)
 	runStreamChannel(runner.t, runner.StderrChan, stderrStream)

@@ -276,9 +276,9 @@ static void out_escaped_string(const char *value)
             break;
         default:
             if (!isascii(c) || iscntrl(c))
-            // \x is not a valid escape character in json,
-            // and something like '\xff' will break a remarkable number of JSON parsers.
-            // we have to print as '0xff'
+                // \x is not a valid escape character in json,
+                // and something like '\xff' will break a remarkable number of JSON parsers.
+                // we have to print as '0xff'
                 printf("x%02x", (uint8_t)c);
             else
                 printf("%c", c);
