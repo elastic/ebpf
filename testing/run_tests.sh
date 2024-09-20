@@ -8,7 +8,7 @@
 readonly PROGNAME=$(basename $0)
 readonly ARGS="$@"
 
-readonly SUCCESS_STRING="ALL BPF TESTS PASSED"
+readonly SUCCESS_STRING="exit status 0"
 readonly SUMMARY_FILE="bpf-check-summary.txt"
 readonly RESULTS_DIR="results"
 
@@ -70,8 +70,7 @@ EOF
 }
 
 main() {
-    local arch=$1
-    local artifacts="$2"
+
     local jobs=$(nproc)
 
     while getopts "j:" opt; do
@@ -84,6 +83,9 @@ main() {
                 ;;
         esac
     done
+
+    local arch=$1
+    local artifacts="$2"
 
     shift 2
 

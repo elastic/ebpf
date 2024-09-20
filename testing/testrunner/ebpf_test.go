@@ -621,16 +621,21 @@ func TestEbpf(t *testing.T) {
 		{"FileRenameContainer", FileRenameContainer, []string{"--file-rename"}, true},
 		{"FileDeleteContainer", FileDeleteContainer, []string{"--file-delete"}, true},
 	}
-	// small hack to make sure we don't continue to run tests when the first one fails
+
 	failed := false
+
 	for _, test := range testCases {
-		if failed {
-			return
-		}
 		t.Run(test.name, func(t *testing.T) {
 			if test.requireOverlayFS && !hasOverlayFS {
 				t.Skipf("Test requires OverlayFS, not available")
 			}
+			if failed {
+				// small hack to make sure we don't continue to run tests when the first one fails,
+				// since a single test failure will dump tons of logs to the console
+				// we do this instead of a hard return in order to preserve an exit code
+				t.Skip("tests already failed")
+			}
+
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*2)
 			defer cancel()
 			run := NewEbpfRunner(ctx, t, test.args...)
