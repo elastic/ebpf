@@ -591,6 +591,23 @@ func Tcpv6ConnectionClose(t *testing.T, et *Runner) {
 	require.Equal(t, ev.Comm, "tcpv6_connect")
 }
 
+func DNSMonitor(t *testing.T, et *Runner) {
+	type dnsOutput struct {
+		Data []uint8 `json:"data"`
+		NetConnAcceptEvent
+	}
+	runTestBin(t, "udp_send")
+
+	lineData := dnsOutput{}
+	et.UnmarshalNextEvent(&lineData, "DNS_EVENT")
+
+	require.Equal(t, lineData.Net.Transport, "UDP")
+	require.Equal(t, lineData.Net.Family, "AF_INET")
+
+	require.NotZero(t, lineData.Data[0])
+	require.NotZero(t, lineData.Data[1])
+}
+
 func TestEbpf(t *testing.T) {
 	hasOverlayFS := IsOverlayFsSupported(t)
 
@@ -616,6 +633,7 @@ func TestEbpf(t *testing.T) {
 		{"Tcpv6ConnectionAttempt", Tcpv6ConnectionAttempt, []string{"--net-conn-attempt"}, false},
 		{"Tcpv6ConnectionAccept", Tcpv6ConnectionAccept, []string{"--net-conn-accept"}, false},
 		{"Tcpv6ConnectionClose", Tcpv6ConnectionClose, []string{"--net-conn-close"}, false},
+		{"DNSMonitor", DNSMonitor, []string{"--net-conn-dns-pkt"}, false},
 
 		{"FileCreateContainer", FileCreateContainer, []string{"--file-create"}, true},
 		{"FileRenameContainer", FileRenameContainer, []string{"--file-rename"}, true},
