@@ -135,7 +135,11 @@ int main()
 
 cleanup:
     // Clean up directories created by child
-    CHECK(umount2(ovl_mountpoint, MNT_FORCE), -1);
+
+    // in the 5.10 test kernels, this umount call fails, so don't check.
+    // Can't reproduce the issue locally, but `unmount` operations on overlayfs have historically
+    // been quirky.
+    umount2(ovl_mountpoint, MNT_FORCE);
     CHECK(rm_recursive(ovl_mountpoint), -1);
     CHECK(rm_recursive(ovl_upperdir), -1);
     CHECK(rm_recursive(ovl_lowerdir), -1);
