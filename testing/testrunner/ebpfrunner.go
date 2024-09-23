@@ -48,23 +48,21 @@ func runStreamChannel(sender chan string, errChan chan error, buffer *bufio.Scan
 	buf := make([]byte, 0, 64*1024)
 	buffer.Buffer(buf, 1024*1024)
 	go func() {
-		for {
-			for buffer.Scan() {
-				line := buffer.Text()
-				txt := strings.TrimSpace(line)
-				if len(txt) > 0 {
-					sender <- txt
+		for buffer.Scan() {
+			line := buffer.Text()
+			txt := strings.TrimSpace(line)
+			if len(txt) > 0 {
+				sender <- txt
 
-				}
 			}
-			// the go testing libraries don't like it when you call
-			// t.Fail() in a child thread; so we have to trickle down the failure
-			if err := buffer.Err(); err != nil {
-				errChan <- fmt.Errorf("error in buffer: %w", err)
-				return
-			}
-
 		}
+		// the go testing libraries don't like it when you call
+		// t.Fail() in a child thread; so we have to trickle down the failure
+		if err := buffer.Err(); err != nil {
+			errChan <- fmt.Errorf("error in buffer: %w", err)
+			return
+		}
+
 	}()
 }
 

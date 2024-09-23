@@ -171,7 +171,7 @@ ifndef IMG_FILTER
 	exit 1
 endif
 	go install github.com/florianl/bluebox@b8590fb1850f56df6e6d7786931fcabdc1e9173d
-	cd testing && ./run_tests.sh -j2 ${ARCH} ${ARTIFACTS_PATH} ${PWD}/kernel-images/${IMG_FILTER}/${ARCH}/*
+	cd testing && ./run_tests.sh ${ARCH} ${ARTIFACTS_PATH} ${PWD}/kernel-images/${IMG_FILTER}/${ARCH}/*
 
 testbins: testbinpath $(TESTBIN_PROGS)
 
