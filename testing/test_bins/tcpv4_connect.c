@@ -25,22 +25,6 @@
 
 #define BOUND_PORT 2048
 
-int dump_info(int client_port, int server_port)
-{
-    char pid_info[8192];
-    gen_pid_info_json(pid_info, sizeof(pid_info));
-
-    char netns[128];
-    ssize_t nbytes;
-    CHECK(nbytes = readlink("/proc/self/ns/net", netns, sizeof(netns)), -1);
-    netns[nbytes] = '\0';
-
-    uint64_t netns_inode;
-    sscanf(netns, "net:[%lu]", &netns_inode);
-
-    printf("{ \"pid_info\": %s, \"client_port\": %d, \"server_port\": %d, \"netns\": %lu }\n",
-           pid_info, client_port, server_port, netns_inode);
-}
 
 int main()
 {

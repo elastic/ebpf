@@ -592,15 +592,27 @@ func Tcpv6ConnectionClose(t *testing.T, et *Runner) {
 }
 
 func DNSMonitor(t *testing.T, et *Runner) {
+	var binOutput struct {
+		PidInfo    TestPidInfo `json:"pid_info"`
+		ClientPort int64       `json:"client_port"`
+		ServerPort int64       `json:"server_port"`
+		NetNs      int64       `json:"netns"`
+	}
+	runTestUnmarshalOutput(t, "udp_send", &binOutput)
 	type dnsOutput struct {
 		Data []uint8 `json:"data"`
-		NetConnAcceptEvent
+		Pids PidInfo `json:"pids"`
+		Net  NetInfo `json:"net"`
+		Comm string  `json:"comm"`
 	}
 	runTestBin(t, "udp_send")
 
 	lineData := dnsOutput{}
 	et.UnmarshalNextEvent(&lineData, "DNS_EVENT")
 
+	require.Equal(t, lineData.Net.DestAddr, "127.0.0.1")
+	require.Equal(t, lineData.Net.SourceAddr, "127.0.0.1")
+	TestPidEqual(t, binOutput.PidInfo, lineData.Pids)
 	require.Equal(t, lineData.Net.Transport, "UDP")
 	require.Equal(t, lineData.Net.Family, "AF_INET")
 

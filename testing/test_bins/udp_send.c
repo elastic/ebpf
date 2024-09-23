@@ -13,6 +13,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "common.h"
+
 int main(int argc, char *argv[])
 {
     struct sockaddr_in sin;
@@ -37,6 +39,8 @@ int main(int argc, char *argv[])
         err(1, "sendto");
     else if (n != sizeof(buf))
         errx(1, "sendto: shortcount");
+
+    dump_info(53, 0);
 
     return (0);
 }
