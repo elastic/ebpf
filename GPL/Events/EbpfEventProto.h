@@ -11,6 +11,10 @@
 #define EBPF_EVENTPROBE_EBPFEVENTPROTO_H
 
 #define TASK_COMM_LEN 16
+// The theoretical max size of DNS packets over UDP is 512.
+// Like so many things in DNS this number probaby isn't 100% accurate.
+// DNS extensions in RFC2671 and RFC6891 mean the actual size can be larger.
+#define MAX_DNS_PACKET 1500
 
 #ifndef __KERNEL__
 #include <stdint.h>
@@ -40,6 +44,7 @@ enum ebpf_event_type {
     EBPF_EVENT_PROCESS_SHMGET               = (1 << 17),
     EBPF_EVENT_PROCESS_PTRACE               = (1 << 18),
     EBPF_EVENT_PROCESS_LOAD_MODULE          = (1 << 19),
+    EBPF_EVENT_NETWORK_DNS_PKT              = (1 << 20),
 };
 
 struct ebpf_event_header {
@@ -66,6 +71,7 @@ enum ebpf_varlen_field_type {
     EBPF_VL_FIELD_SYMLINK_TARGET_PATH,
     EBPF_VL_FIELD_MOD_VERSION,
     EBPF_VL_FIELD_MOD_SRCVERSION,
+    EBPF_VL_FIELD_DNS_BODY,
 };
 
 // Convenience macro to iterate all the variable length fields in an event
@@ -341,11 +347,17 @@ struct ebpf_process_load_module_event {
 
 enum ebpf_net_info_transport {
     EBPF_NETWORK_EVENT_TRANSPORT_TCP = 1,
+    EBPF_NETWORK_EVENT_TRANSPORT_UDP = 2,
 };
 
 enum ebpf_net_info_af {
     EBPF_NETWORK_EVENT_AF_INET  = 1,
     EBPF_NETWORK_EVENT_AF_INET6 = 2,
+};
+
+enum ebpf_net_udp_info {
+    EBPF_NETWORK_EVENT_SKB_CONSUME_UDP = 1,
+    EBPF_NETWORK_EVENT_IP_SEND_UDP     = 2,
 };
 
 struct ebpf_net_info_tcp_close {
@@ -379,10 +391,22 @@ struct ebpf_net_event {
     char comm[TASK_COMM_LEN];
 } __attribute__((packed));
 
+struct ebpf_dns_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
+    struct ebpf_net_info net;
+    char comm[TASK_COMM_LEN];
+    enum ebpf_net_udp_info udp_evt;
+    uint64_t original_len;
+    // Variable length fields: dns body
+    struct ebpf_varlen_fields_start vl_fields;
+} __attribute__((packed));
+
 // Basic event statistics
 struct ebpf_event_stats {
-    uint64_t lost; // lost events due to a full ringbuffer
-    uint64_t sent; // events sent through the ringbuffer
+    uint64_t lost;          // lost events due to a full ringbuffer
+    uint64_t sent;          // events sent through the ringbuffer
+    uint64_t dns_zero_body; // indicates that the dns body of a sk_buff was unavailable
 };
 
 #endif // EBPF_EVENTPROBE_EBPFEVENTPROTO_H

@@ -220,6 +220,12 @@ func AssertPidInfoEqual(tpi TestPidInfo, pi PidInfo) {
 	AssertInt64Equal(pi.Sid, tpi.Sid)
 }
 
+func AssertNotZero(a uint8) {
+	if a == 0 {
+		TestFail(fmt.Sprintf("Test assertion failed %d == 0", a))
+	}
+}
+
 func AssertTrue(val bool) {
 	if !val {
 		TestFail(fmt.Sprintf("Expected %t to be true", val))

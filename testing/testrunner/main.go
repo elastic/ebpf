@@ -9,9 +9,7 @@
 
 package main
 
-import (
-	"fmt"
-)
+import "fmt"
 
 func main() {
 	RunEventsTest(TestFeaturesCorrect)
@@ -32,6 +30,7 @@ func main() {
 	RunEventsTest(TestTcpv6ConnectionAttempt, "--net-conn-attempt")
 	RunEventsTest(TestTcpv6ConnectionAccept, "--net-conn-accept")
 	RunEventsTest(TestTcpv6ConnectionClose, "--net-conn-close")
+	RunEventsTest(TestDNSMonitor, "--net-conn-dns-pkt")
 
 	RunTest(TestTcFilter)
 
