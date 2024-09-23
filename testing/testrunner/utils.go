@@ -251,12 +251,25 @@ func runTestUnmarshalOutput(t *testing.T, binName string, body any) {
 	require.NoError(t, err, "error unmarshaling output from %s, got:\n %s", binName, string(raw))
 }
 
+<<<<<<< HEAD
 func TestPidEqual(t *testing.T, tpi TestPidInfo, pi PidInfo) {
 	require.Equal(t, pi.Tid, tpi.Tid)
 	require.Equal(t, pi.Tgid, tpi.Tgid)
 	require.Equal(t, pi.Ppid, tpi.Ppid)
 	require.Equal(t, pi.Pgid, tpi.Pgid)
 	require.Equal(t, pi.Sid, tpi.Sid)
+=======
+func AssertNotZero(a uint8) {
+	if a == 0 {
+		TestFail(fmt.Sprintf("Test assertion failed %d == 0", a))
+	}
+}
+
+func AssertTrue(val bool) {
+	if !val {
+		TestFail(fmt.Sprintf("Expected %t to be true", val))
+	}
+>>>>>>> origin/main
 }
 
 func IsOverlayFsSupported(t *testing.T) bool {
