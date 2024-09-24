@@ -7,21 +7,25 @@
  * License 2.0.
  */
 
-package main
+package testrunner
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"syscall"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
-func TestFeaturesCorrect(et *EventsTraceInstance) {
+func FeaturesCorrect(t *testing.T, et *Runner) {
 	var utsname syscall.Utsname
-	if err := syscall.Uname(&utsname); err != nil {
-		TestFail(fmt.Sprintf("Failed to run uname: %s", err))
-	}
+	err := syscall.Uname(&utsname)
+	require.NoError(t, err)
 
 	int8ArrayToString := func(arr [65]int8) string {
 		var buf []byte
@@ -48,38 +52,31 @@ func TestFeaturesCorrect(et *EventsTraceInstance) {
 	switch arch {
 	case "x86_64":
 		// All x86 kernels in the CI test matrix currently enable bpf
-		// trampolines (it's super ubiquitious on x86 as far as I can see), so
+		// trampolines (it's super ubiquitous on x86 as far as I can see), so
 		// just assertTrue on BPF tramp support on x86. If a kernel is added
 		// that doesn't enable BPF tramps on x86, logic should be added to
 		// handle it here.
-		AssertTrue(et.InitMsg.Features.BpfTramp)
+		require.True(t, et.InitMsg.Features.BpfTramp)
 	case "aarch64":
 		hasBpfTramp := []string{"6.4.0", "6.4.16", "6.5.0"}
 
 		if contains(hasBpfTramp, kernelVersion) {
-			AssertTrue(et.InitMsg.Features.BpfTramp)
+			require.True(t, et.InitMsg.Features.BpfTramp)
 		} else {
-			AssertFalse(et.InitMsg.Features.BpfTramp)
+			require.False(t, et.InitMsg.Features.BpfTramp)
 		}
 	default:
-		TestFail(fmt.Sprintf("unknown arch %s, please add to the TestFeaturesCorrect test", arch))
+		t.Fatalf("unknown arch %s, please add to the TestFeaturesCorrect test", arch)
 	}
 }
 
-func TestForkExit(et *EventsTraceInstance) {
-	outputStr := runTestBin("fork_exit")
+func ForkExit(t *testing.T, et *Runner) {
 	var binOutput TestPidInfo
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json: ", err)
-	}
+	runTestUnmarshalOutput(t, "fork_exit", &binOutput)
 
 	var forkEvent ProcessForkEvent
 	for {
-		line := et.GetNextEventJson("PROCESS_FORK")
-
-		if err := json.Unmarshal([]byte(line), &forkEvent); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
+		et.UnmarshalNextEvent(&forkEvent, "PROCESS_FORK")
 
 		if forkEvent.ParentPids.Tid == binOutput.Tid {
 			break
@@ -87,328 +84,274 @@ func TestForkExit(et *EventsTraceInstance) {
 	}
 
 	// Verify forkEvent.ParentPids against bin output
-	AssertPidInfoEqual(binOutput, forkEvent.ParentPids)
+	TestPidEqual(t, binOutput, forkEvent.ParentPids)
 
 	// We don't have the child pid info but can do some internal validations
 	// knowing that the parent did a fork(), thus the child process is in the
 	// same process group / session but a different thread group
-	AssertInt64Equal(forkEvent.ChildPids.Ppid, forkEvent.ParentPids.Tgid)
-	AssertInt64Equal(forkEvent.ChildPids.Tid, forkEvent.ChildPids.Tgid)
-	AssertInt64Equal(forkEvent.ChildPids.Sid, forkEvent.ParentPids.Sid)
-	AssertInt64Equal(forkEvent.ChildPids.Pgid, forkEvent.ParentPids.Pgid)
-	AssertInt64NotEqual(forkEvent.ChildPids.Tgid, forkEvent.ParentPids.Tgid)
+	require.Equal(t, forkEvent.ChildPids.Ppid, forkEvent.ParentPids.Tgid)
+	require.Equal(t, forkEvent.ChildPids.Tid, forkEvent.ChildPids.Tgid)
+	require.Equal(t, forkEvent.ChildPids.Sid, forkEvent.ParentPids.Sid)
+	require.Equal(t, forkEvent.ChildPids.Pgid, forkEvent.ParentPids.Pgid)
+	require.NotEqual(t, forkEvent.ChildPids.Tgid, forkEvent.ParentPids.Tgid)
 }
 
-func TestForkExec(et *EventsTraceInstance) {
-	outputStr := runTestBin("fork_exec")
+func ForkExec(t *testing.T, et *Runner) {
+	if testBinaryPath != "/" {
+		t.Skipf("Test will not work outside test framework")
+	}
 	var binOutput struct {
 		ParentPidInfo TestPidInfo `json:"parent_info"`
 		ChildPid      int64       `json:"child_pid"`
 	}
-
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "fork_exec", &binOutput)
 
 	var forkEvent *ProcessForkEvent
 	var execEvent *ProcessExecEvent
+	// execEvent currently does not work outside the test environment;
+	// the calls to capset() break excevl() depending on the path passed to the call.
+	// we may want to rewrite that to use a more "correct" set of capabilities.
 	for forkEvent == nil || execEvent == nil {
-		line := et.GetNextEventJson("PROCESS_FORK", "PROCESS_EXEC")
+		line := et.GetNextEventOut("PROCESS_FORK", "PROCESS_EXEC")
 
-		eventType, err := getJsonEventType(line)
-		if err != nil {
-			et.DumpStderr()
-			TestFail(fmt.Sprintf("Failed to unmarshal the following JSON: \"%s\": %s", line, err))
-		}
+		eventType := getEventType(t, line)
 
 		switch eventType {
 		case "PROCESS_FORK":
-			forkEvent = new(ProcessForkEvent)
-			if err := json.Unmarshal([]byte(line), &forkEvent); err != nil {
-				TestFail("failed to unmarshal JSON: ", err)
-			}
-			if forkEvent.ChildPids.Tgid != binOutput.ChildPid {
-				forkEvent = nil
+			if forkEvent == nil {
+				forkEvent = new(ProcessForkEvent)
+				err := json.Unmarshal([]byte(line), &forkEvent)
+				require.NoError(t, err, "error unmarshaling forkEvent")
+
+				if forkEvent.ChildPids.Tgid != binOutput.ChildPid {
+					forkEvent = nil
+				} else {
+					t.Logf("got fork event...")
+				}
 			}
 		case "PROCESS_EXEC":
-			execEvent = new(ProcessExecEvent)
-			if err := json.Unmarshal([]byte(line), &execEvent); err != nil {
-				TestFail("failed to unmarshal JSON: ", err)
+			if execEvent == nil {
+				execEvent = new(ProcessExecEvent)
+				err := json.Unmarshal([]byte(line), &execEvent)
+				require.NoError(t, err, "error unmarshaling processExecEvent")
+				if execEvent.Pids.Tgid != binOutput.ChildPid {
+					execEvent = nil
+				} else {
+					t.Logf("got exec event...")
+				}
 			}
-			if execEvent.Pids.Tgid != binOutput.ChildPid {
-				execEvent = nil
-			}
+
 		}
 	}
 
-	AssertUint64Equal(uint64(forkEvent.Creds.CapPermitted), uint64(0x00000000ffffffff))
-	AssertUint64Equal(uint64(forkEvent.Creds.CapEffective), uint64(0x00000000f0f0f0f0))
-	AssertUint64Equal(uint64(execEvent.Creds.CapPermitted), uint64(0x000001ffffffffff))
-	AssertUint64Equal(uint64(execEvent.Creds.CapEffective), uint64(0x000001ffffffffff))
-	AssertStringsEqual(execEvent.FileName, "./do_nothing")
-	AssertStringsEqual(execEvent.Argv[0], "./do_nothing")
-	AssertStringsEqual(execEvent.Env[0], "TEST_ENV_KEY1=TEST_ENV_VAL1")
-	AssertStringsEqual(execEvent.Env[1], "TEST_ENV_KEY2=TEST_ENV_VAL2")
-	AssertStringsEqual(execEvent.Cwd, "/")
+	require.Equal(t, forkEvent.Creds.CapPermitted, uint64(0x00000000ffffffff))
+	require.Equal(t, forkEvent.Creds.CapEffective, uint64(0x00000000f0f0f0f0))
+
+	require.Equal(t, execEvent.Creds.CapPermitted, uint64(0x000001ffffffffff))
+	require.Equal(t, execEvent.Creds.CapEffective, uint64(0x000001ffffffffff))
+	require.Equal(t, execEvent.FileName, "./do_nothing")
+	require.Equal(t, execEvent.Argv[0], "./do_nothing")
+	require.Equal(t, execEvent.Env[0], "TEST_ENV_KEY1=TEST_ENV_VAL1")
+	require.Equal(t, execEvent.Env[1], "TEST_ENV_KEY2=TEST_ENV_VAL2")
+	require.Equal(t, execEvent.Cwd, "/")
+
 }
 
-func TestFileCreate(et *EventsTraceInstance) {
-	outputStr := runTestBin("create_rename_delete_file")
+func FileCreate(t *testing.T, et *Runner) {
 	var binOutput struct {
 		PidInfo      TestPidInfo `json:"pid_info"`
 		FileNameOrig string      `json:"filename_orig"`
 		FileNameNew  string      `json:"filename_new"`
 	}
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "create_rename_delete_file", &binOutput)
 
 	var fileCreateEvent FileCreateEvent
 	for {
-		line := et.GetNextEventJson("FILE_CREATE")
-		if err := json.Unmarshal([]byte(line), &fileCreateEvent); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
-
+		et.UnmarshalNextEvent(&fileCreateEvent, "FILE_CREATE")
 		if fileCreateEvent.Pids.Tid == binOutput.PidInfo.Tid {
 			break
 		}
 	}
 
-	AssertPidInfoEqual(binOutput.PidInfo, fileCreateEvent.Pids)
-	AssertStringsEqual(fileCreateEvent.Path, binOutput.FileNameOrig)
+	TestPidEqual(t, binOutput.PidInfo, fileCreateEvent.Pids)
+	require.Equal(t, fileCreateEvent.Path, binOutput.FileNameOrig)
 	// File Info
-	AssertStringsEqual(fileCreateEvent.Finfo.Type, "FILE")
-	AssertUint64NotEqual(fileCreateEvent.Finfo.Inode, 0)
-	AssertUint64Equal(fileCreateEvent.Finfo.Mode, 100644)
-	AssertUint64Equal(fileCreateEvent.Finfo.Size, 0)
-	AssertUint64Equal(fileCreateEvent.Finfo.Uid, 0)
-	AssertUint64Equal(fileCreateEvent.Finfo.Gid, 0)
+	require.Equal(t, fileCreateEvent.Finfo.Type, "FILE")
+	require.NotEqual(t, fileCreateEvent.Finfo.Inode, uint64(0))
+	require.Equal(t, fileCreateEvent.Finfo.Mode, uint64(100644))
+	require.Equal(t, fileCreateEvent.Finfo.Size, uint64(0))
+	require.Equal(t, fileCreateEvent.Finfo.Uid, uint64(0))
+	require.Equal(t, fileCreateEvent.Finfo.Gid, uint64(0))
 }
 
-func TestFileDelete(et *EventsTraceInstance) {
-	outputStr := runTestBin("create_rename_delete_file")
+func FileDelete(t *testing.T, et *Runner) {
+
 	var binOutput struct {
 		PidInfo      TestPidInfo `json:"pid_info"`
 		FileNameOrig string      `json:"filename_orig"`
 		FileNameNew  string      `json:"filename_new"`
 	}
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "create_rename_delete_file", &binOutput)
 
 	var fileDeleteEvent FileDeleteEvent
 	for {
-		line := et.GetNextEventJson("FILE_DELETE")
-		if err := json.Unmarshal([]byte(line), &fileDeleteEvent); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
-
+		et.UnmarshalNextEvent(&fileDeleteEvent, "FILE_DELETE")
 		if fileDeleteEvent.Pids.Tid == binOutput.PidInfo.Tid {
 			break
 		}
 	}
 
-	AssertPidInfoEqual(binOutput.PidInfo, fileDeleteEvent.Pids)
-	AssertStringsEqual(fileDeleteEvent.Path, binOutput.FileNameNew)
+	TestPidEqual(t, binOutput.PidInfo, fileDeleteEvent.Pids)
+	require.Equal(t, fileDeleteEvent.Path, binOutput.FileNameNew)
 	// File Info
-	AssertStringsEqual(fileDeleteEvent.Finfo.Type, "FILE")
-	AssertUint64NotEqual(fileDeleteEvent.Finfo.Inode, 0)
-	AssertUint64Equal(fileDeleteEvent.Finfo.Mode, 100777)
-	AssertUint64Equal(fileDeleteEvent.Finfo.Size, 0)
-	AssertUint64Equal(fileDeleteEvent.Finfo.Uid, 0)
-	AssertUint64Equal(fileDeleteEvent.Finfo.Gid, 0)
+	require.Equal(t, fileDeleteEvent.Finfo.Type, "FILE")
+	require.NotEqual(t, fileDeleteEvent.Finfo.Inode, 0)
+	require.Equal(t, fileDeleteEvent.Finfo.Mode, uint64(100777))
+	require.Equal(t, fileDeleteEvent.Finfo.Size, uint64(0))
+	require.Equal(t, fileDeleteEvent.Finfo.Uid, uint64(0))
+	require.Equal(t, fileDeleteEvent.Finfo.Gid, uint64(0))
 }
 
-func TestFileRename(et *EventsTraceInstance) {
-	outputStr := runTestBin("create_rename_delete_file")
+func FileRename(t *testing.T, et *Runner) {
 	var binOutput struct {
 		PidInfo      TestPidInfo `json:"pid_info"`
 		FileNameOrig string      `json:"filename_orig"`
 		FileNameNew  string      `json:"filename_new"`
 	}
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "create_rename_delete_file", &binOutput)
 
 	var fileRenameEvent FileRenameEvent
 	for {
-		line := et.GetNextEventJson("FILE_RENAME")
-		if err := json.Unmarshal([]byte(line), &fileRenameEvent); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
-
+		et.UnmarshalNextEvent(&fileRenameEvent, "FILE_RENAME")
 		if fileRenameEvent.Pids.Tid == binOutput.PidInfo.Tid {
 			break
 		}
 	}
 
-	AssertPidInfoEqual(binOutput.PidInfo, fileRenameEvent.Pids)
-	AssertStringsEqual(fileRenameEvent.OldPath, binOutput.FileNameOrig)
-	AssertStringsEqual(fileRenameEvent.NewPath, binOutput.FileNameNew)
+	TestPidEqual(t, binOutput.PidInfo, fileRenameEvent.Pids)
+	require.Equal(t, fileRenameEvent.OldPath, binOutput.FileNameOrig)
+	require.Equal(t, fileRenameEvent.NewPath, binOutput.FileNameNew)
 	// File Info
-	AssertStringsEqual(fileRenameEvent.Finfo.Type, "FILE")
-	AssertUint64NotEqual(fileRenameEvent.Finfo.Inode, 0)
-	AssertUint64Equal(fileRenameEvent.Finfo.Mode, 100644)
-	AssertUint64Equal(fileRenameEvent.Finfo.Size, 0)
-	AssertUint64Equal(fileRenameEvent.Finfo.Uid, 0)
-	AssertUint64Equal(fileRenameEvent.Finfo.Gid, 0)
+	require.Equal(t, fileRenameEvent.Finfo.Type, "FILE")
+	require.NotEqual(t, fileRenameEvent.Finfo.Inode, uint64(0))
+	require.Equal(t, fileRenameEvent.Finfo.Mode, uint64(100644))
+	require.Equal(t, fileRenameEvent.Finfo.Size, uint64(0))
+	require.Equal(t, fileRenameEvent.Finfo.Uid, uint64(0))
+	require.Equal(t, fileRenameEvent.Finfo.Gid, uint64(0))
 }
 
-func TestSetuid(et *EventsTraceInstance) {
-	outputStr := runTestBin("setreuid")
+func Setuid(t *testing.T, et *Runner) {
 	var binOutput struct {
 		PidInfo TestPidInfo `json:"pid_info"`
 		NewRuid int64       `json:"new_ruid"`
 		NewEuid int64       `json:"new_euid"`
 	}
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "setreuid", &binOutput)
 
 	var setUidEvent SetUidEvent
 	for {
-		line := et.GetNextEventJson("PROCESS_SETUID")
-		if err := json.Unmarshal([]byte(line), &setUidEvent); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
-
+		et.UnmarshalNextEvent(&setUidEvent, "PROCESS_SETUID")
 		if setUidEvent.Pids.Tid == binOutput.PidInfo.Tid {
 			break
 		}
 	}
 
-	AssertInt64Equal(binOutput.NewRuid, setUidEvent.NewRuid)
-	AssertInt64Equal(binOutput.NewEuid, setUidEvent.NewEuid)
-	AssertPidInfoEqual(binOutput.PidInfo, setUidEvent.Pids)
+	require.Equal(t, binOutput.NewRuid, setUidEvent.NewRuid)
+	require.Equal(t, binOutput.NewEuid, setUidEvent.NewEuid)
+	TestPidEqual(t, binOutput.PidInfo, setUidEvent.Pids)
 }
 
-func TestSetgid(et *EventsTraceInstance) {
-	outputStr := runTestBin("setregid")
+func Setgid(t *testing.T, et *Runner) {
 	var binOutput struct {
 		PidInfo TestPidInfo `json:"pid_info"`
 		NewRgid int64       `json:"new_rgid"`
 		NewEgid int64       `json:"new_egid"`
 	}
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "setregid", &binOutput)
 
 	var setGidEvent SetGidEvent
 	for {
-		line := et.GetNextEventJson("PROCESS_SETGID")
-		if err := json.Unmarshal([]byte(line), &setGidEvent); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
-
+		et.UnmarshalNextEvent(&setGidEvent, "PROCESS_SETGID")
 		if setGidEvent.Pids.Tid == binOutput.PidInfo.Tid {
 			break
 		}
 	}
 
-	AssertInt64Equal(binOutput.NewRgid, setGidEvent.NewRgid)
-	AssertInt64Equal(binOutput.NewEgid, setGidEvent.NewEgid)
-	AssertPidInfoEqual(binOutput.PidInfo, setGidEvent.Pids)
+	require.Equal(t, binOutput.NewRgid, setGidEvent.NewRgid)
+	require.Equal(t, binOutput.NewEgid, setGidEvent.NewEgid)
+	TestPidEqual(t, binOutput.PidInfo, setGidEvent.Pids)
 }
 
-func TestFileCreateContainer(et *EventsTraceInstance) {
-	outputStr := runTestBin("create_rename_delete_file_container")
+func FileCreateContainer(t *testing.T, et *Runner) {
 	var binOutput struct {
 		ChildPid     int64  `json:"child_pid"`
 		FileNameOrig string `json:"filename_orig"`
 		FileNameNew  string `json:"filename_new"`
 	}
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "create_rename_delete_file_container", &binOutput)
 
 	var fileCreateEvent FileCreateEvent
 	for {
-		line := et.GetNextEventJson("FILE_CREATE")
-		if err := json.Unmarshal([]byte(line), &fileCreateEvent); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
-
+		et.UnmarshalNextEvent(&fileCreateEvent, "FILE_CREATE")
 		if fileCreateEvent.Pids.Tgid == binOutput.ChildPid {
 			break
 		}
 	}
-
-	AssertStringsEqual(fileCreateEvent.Path, binOutput.FileNameOrig)
+	require.Equal(t, fileCreateEvent.Path, binOutput.FileNameOrig)
 }
 
-func TestFileRenameContainer(et *EventsTraceInstance) {
-	outputStr := runTestBin("create_rename_delete_file_container")
+func FileRenameContainer(t *testing.T, et *Runner) {
 	var binOutput struct {
 		ChildPid     int64  `json:"child_pid"`
 		FileNameOrig string `json:"filename_orig"`
 		FileNameNew  string `json:"filename_new"`
 	}
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "create_rename_delete_file_container", &binOutput)
 
 	var fileRenameEvent FileRenameEvent
 	for {
-		line := et.GetNextEventJson("FILE_RENAME")
-		if err := json.Unmarshal([]byte(line), &fileRenameEvent); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
-
+		et.UnmarshalNextEvent(&fileRenameEvent, "FILE_RENAME")
 		if fileRenameEvent.Pids.Tgid == binOutput.ChildPid {
 			break
 		}
 	}
 
-	AssertStringsEqual(fileRenameEvent.OldPath, binOutput.FileNameOrig)
-	AssertStringsEqual(fileRenameEvent.NewPath, binOutput.FileNameNew)
+	require.Equal(t, fileRenameEvent.OldPath, binOutput.FileNameOrig)
+	require.Equal(t, fileRenameEvent.NewPath, binOutput.FileNameNew)
 }
 
-func TestFileDeleteContainer(et *EventsTraceInstance) {
-	outputStr := runTestBin("create_rename_delete_file_container")
+func FileDeleteContainer(t *testing.T, et *Runner) {
 	var binOutput struct {
 		ChildPid     int64  `json:"child_pid"`
 		FileNameOrig string `json:"filename_orig"`
 		FileNameNew  string `json:"filename_new"`
 	}
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "create_rename_delete_file_container", &binOutput)
 
 	var fileDeleteEvent FileDeleteEvent
 	for {
-		line := et.GetNextEventJson("FILE_DELETE")
-		if err := json.Unmarshal([]byte(line), &fileDeleteEvent); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
-
+		et.UnmarshalNextEvent(&fileDeleteEvent, "FILE_DELETE")
 		if fileDeleteEvent.Pids.Tgid == binOutput.ChildPid {
 			break
 		}
 	}
 
-	AssertStringsEqual(fileDeleteEvent.Path, binOutput.FileNameNew)
+	require.Equal(t, fileDeleteEvent.Path, binOutput.FileNameNew)
 }
 
-func TestFileModify(et *EventsTraceInstance) {
-	outputStr := runTestBin("create_rename_delete_file")
+func FileModify(t *testing.T, et *Runner) {
 	var binOutput struct {
 		PidInfo      TestPidInfo `json:"pid_info"`
 		FileNameOrig string      `json:"filename_orig"`
 		FileNameNew  string      `json:"filename_new"`
 	}
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "create_rename_delete_file", &binOutput)
 
 	eventsCount := 4 // chmod, write, writev, truncate
 	events := make([]FileModifyEvent, 0, eventsCount)
 	for {
 		var event FileModifyEvent
-		line := et.GetNextEventJson("FILE_MODIFY")
-		if err := json.Unmarshal([]byte(line), &event); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
+		et.UnmarshalNextEvent(&event, "FILE_MODIFY")
 
 		if event.Pids.Tid == binOutput.PidInfo.Tid {
 			events = append(events, event)
@@ -420,146 +363,117 @@ func TestFileModify(et *EventsTraceInstance) {
 	}
 
 	// chmod
-	AssertStringsEqual(events[0].Path, binOutput.FileNameNew)
-	AssertStringsEqual(events[0].ChangeType, "PERMISSIONS")
-	AssertUint64Equal(events[0].Finfo.Mode, 100777)
+	require.Equal(t, events[0].Path, binOutput.FileNameNew)
+	require.Equal(t, events[0].ChangeType, "PERMISSIONS")
+	require.Equal(t, events[0].Finfo.Mode, uint64(100777))
 
 	// write
-	AssertStringsEqual(events[1].Path, binOutput.FileNameNew)
-	AssertStringsEqual(events[1].ChangeType, "CONTENT")
-	AssertUint64Equal(events[1].Finfo.Size, 4)
+	require.Equal(t, events[1].Path, binOutput.FileNameNew)
+	require.Equal(t, events[1].ChangeType, "CONTENT")
+	require.Equal(t, events[1].Finfo.Size, uint64(4))
 
 	// writev
-	AssertStringsEqual(events[2].Path, binOutput.FileNameNew)
-	AssertStringsEqual(events[2].ChangeType, "CONTENT")
-	AssertUint64Equal(events[2].Finfo.Size, 4+5+5)
+	require.Equal(t, events[2].Path, binOutput.FileNameNew)
+	require.Equal(t, events[2].ChangeType, "CONTENT")
+	require.Equal(t, events[2].Finfo.Size, uint64(4+5+5))
 
 	// truncate
-	AssertStringsEqual(events[3].Path, binOutput.FileNameNew)
-	AssertStringsEqual(events[3].ChangeType, "CONTENT")
-	AssertUint64Equal(events[3].Finfo.Size, 0)
+	require.Equal(t, events[3].Path, binOutput.FileNameNew)
+	require.Equal(t, events[3].ChangeType, "CONTENT")
+	require.Equal(t, events[3].Finfo.Size, uint64(0))
 }
 
-func TestTtyWrite(et *EventsTraceInstance) {
-	out := runTestBin("tty_write")
+func TtyWrite(t *testing.T, et *Runner) {
 	var output struct {
 		Pid int64 `json:"pid"`
 	}
-	if err := json.Unmarshal(out, &output); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "tty_write", &output)
 
 	var ev TtyWriteEvent
 	for {
-		line := et.GetNextEventJson("PROCESS_TTY_WRITE")
-		if err := json.Unmarshal([]byte(line), &ev); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
+		et.UnmarshalNextEvent(&ev, "PROCESS_TTY_WRITE")
 		if ev.Pids.Tgid == output.Pid {
 			break
 		}
 	}
 
-	AssertInt64Equal(ev.Truncated, 0)
-	AssertStringsEqual(ev.Out, "--- OK\n")
+	require.Equal(t, ev.Truncated, int64(0))
+	require.Equal(t, ev.Out, "--- OK\n")
 	// This is a virtual console, not a pseudo terminal.
-	AssertInt64Equal(ev.TtyDev.Major, 4)
-	AssertInt64Equal(ev.TtyDev.WinsizeRows, 0)
-	AssertInt64Equal(ev.TtyDev.WinsizeCols, 0)
+	require.Equal(t, ev.TtyDev.Major, int64(4))
+	require.Equal(t, ev.TtyDev.WinsizeRows, int64(0))
+	require.Equal(t, ev.TtyDev.WinsizeCols, int64(0))
 }
 
-func TestTcpv4ConnectionAttempt(et *EventsTraceInstance) {
-	outputStr := runTestBin("tcpv4_connect")
+func Tcpv4ConnectionAttempt(t *testing.T, et *Runner) {
 	var binOutput struct {
 		PidInfo    TestPidInfo `json:"pid_info"`
 		ClientPort int64       `json:"client_port"`
 		ServerPort int64       `json:"server_port"`
 		NetNs      int64       `json:"netns"`
 	}
-
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "tcpv4_connect", &binOutput)
 
 	var ev NetConnAttemptEvent
 	for {
-		line := et.GetNextEventJson("NETWORK_CONNECTION_ATTEMPTED")
-		if err := json.Unmarshal([]byte(line), &ev); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
-
+		et.UnmarshalNextEvent(&ev, "NETWORK_CONNECTION_ATTEMPTED")
 		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
 			break
 		}
 	}
 
-	AssertPidInfoEqual(binOutput.PidInfo, ev.Pids)
-	AssertStringsEqual(ev.Net.Transport, "TCP")
-	AssertStringsEqual(ev.Net.Family, "AF_INET")
-	AssertStringsEqual(ev.Net.SourceAddr, "127.0.0.1")
-	AssertInt64Equal(ev.Net.SourcePort, binOutput.ClientPort)
-	AssertStringsEqual(ev.Net.DestAddr, "127.0.0.1")
-	AssertInt64Equal(ev.Net.DestPort, binOutput.ServerPort)
-	AssertInt64Equal(ev.Net.NetNs, binOutput.NetNs)
-	AssertStringsEqual(ev.Comm, "tcpv4_connect")
+	TestPidEqual(t, binOutput.PidInfo, ev.Pids)
+	require.Equal(t, ev.Net.Transport, "TCP")
+	require.Equal(t, ev.Net.Family, "AF_INET")
+	require.Equal(t, ev.Net.SourceAddr, "127.0.0.1")
+	require.Equal(t, ev.Net.SourcePort, binOutput.ClientPort)
+	require.Equal(t, ev.Net.DestAddr, "127.0.0.1")
+	require.Equal(t, ev.Net.DestPort, binOutput.ServerPort)
+	require.Equal(t, ev.Net.NetNs, binOutput.NetNs)
+	require.Equal(t, ev.Comm, "tcpv4_connect")
+
 }
 
-func TestTcpv4ConnectionAccept(et *EventsTraceInstance) {
-	outputStr := runTestBin("tcpv4_connect")
+func Tcpv4ConnectionAccept(t *testing.T, et *Runner) {
 	var binOutput struct {
 		PidInfo    TestPidInfo `json:"pid_info"`
 		ClientPort int64       `json:"client_port"`
 		ServerPort int64       `json:"server_port"`
 		NetNs      int64       `json:"netns"`
 	}
-
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "tcpv4_connect", &binOutput)
 
 	var ev NetConnAcceptEvent
 	for {
-		line := et.GetNextEventJson("NETWORK_CONNECTION_ACCEPTED")
-		if err := json.Unmarshal([]byte(line), &ev); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
-
+		et.UnmarshalNextEvent(&ev, "NETWORK_CONNECTION_ACCEPTED")
 		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
 			break
 		}
 	}
 
-	AssertPidInfoEqual(binOutput.PidInfo, ev.Pids)
-	AssertStringsEqual(ev.Net.Transport, "TCP")
-	AssertStringsEqual(ev.Net.Family, "AF_INET")
-	AssertStringsEqual(ev.Net.SourceAddr, "127.0.0.1")
-	AssertInt64Equal(ev.Net.SourcePort, binOutput.ServerPort)
-	AssertStringsEqual(ev.Net.DestAddr, "127.0.0.1")
-	AssertInt64Equal(ev.Net.DestPort, binOutput.ClientPort)
-	AssertInt64Equal(ev.Net.NetNs, binOutput.NetNs)
-	AssertStringsEqual(ev.Comm, "tcpv4_connect")
+	TestPidEqual(t, binOutput.PidInfo, ev.Pids)
+	require.Equal(t, ev.Net.Transport, "TCP")
+	require.Equal(t, ev.Net.Family, "AF_INET")
+	require.Equal(t, ev.Net.SourceAddr, "127.0.0.1")
+	require.Equal(t, ev.Net.SourcePort, binOutput.ServerPort)
+	require.Equal(t, ev.Net.DestAddr, "127.0.0.1")
+	require.Equal(t, ev.Net.DestPort, binOutput.ClientPort)
+	require.Equal(t, ev.Net.NetNs, binOutput.NetNs)
+	require.Equal(t, ev.Comm, "tcpv4_connect")
 }
 
-func TestTcpv4ConnectionClose(et *EventsTraceInstance) {
-	outputStr := runTestBin("tcpv4_connect")
+func Tcpv4ConnectionClose(t *testing.T, et *Runner) {
 	var binOutput struct {
 		PidInfo    TestPidInfo `json:"pid_info"`
 		ClientPort int64       `json:"client_port"`
 		ServerPort int64       `json:"server_port"`
 		NetNs      int64       `json:"netns"`
 	}
-
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "tcpv4_connect", &binOutput)
 
 	var ev NetConnCloseEvent
 	for {
-		line := et.GetNextEventJson("NETWORK_CONNECTION_CLOSED")
-		if err := json.Unmarshal([]byte(line), &ev); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
-
+		et.UnmarshalNextEvent(&ev, "NETWORK_CONNECTION_CLOSED")
 		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
 			break
 		}
@@ -585,133 +499,206 @@ func TestTcpv4ConnectionClose(et *EventsTraceInstance) {
 	// socket's point of view for the close event. The SourcePort and DestPort
 	// assertions below verify this is correct.
 
-	AssertPidInfoEqual(binOutput.PidInfo, ev.Pids)
-	AssertStringsEqual(ev.Net.Transport, "TCP")
-	AssertStringsEqual(ev.Net.Family, "AF_INET")
-	AssertStringsEqual(ev.Net.SourceAddr, "127.0.0.1")
-	AssertInt64Equal(ev.Net.SourcePort, binOutput.ClientPort)
-	AssertStringsEqual(ev.Net.DestAddr, "127.0.0.1")
-	AssertInt64Equal(ev.Net.DestPort, binOutput.ServerPort)
-	AssertInt64Equal(ev.Net.NetNs, binOutput.NetNs)
-	AssertStringsEqual(ev.Comm, "tcpv4_connect")
+	TestPidEqual(t, binOutput.PidInfo, ev.Pids)
+	require.Equal(t, ev.Net.Transport, "TCP")
+	require.Equal(t, ev.Net.Family, "AF_INET")
+	require.Equal(t, ev.Net.SourceAddr, "127.0.0.1")
+	require.Equal(t, ev.Net.SourcePort, binOutput.ClientPort)
+	require.Equal(t, ev.Net.DestAddr, "127.0.0.1")
+	require.Equal(t, ev.Net.DestPort, binOutput.ServerPort)
+	require.Equal(t, ev.Net.NetNs, binOutput.NetNs)
+	require.Equal(t, ev.Comm, "tcpv4_connect")
 }
 
-func TestTcpv6ConnectionAttempt(et *EventsTraceInstance) {
-	outputStr := runTestBin("tcpv6_connect")
+func Tcpv6ConnectionAttempt(t *testing.T, et *Runner) {
 	var binOutput struct {
 		PidInfo    TestPidInfo `json:"pid_info"`
 		ClientPort int64       `json:"client_port"`
 		ServerPort int64       `json:"server_port"`
 		NetNs      int64       `json:"netns"`
 	}
-
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "tcpv6_connect", &binOutput)
 
 	var ev NetConnAttemptEvent
 	for {
-		line := et.GetNextEventJson("NETWORK_CONNECTION_ATTEMPTED")
-		if err := json.Unmarshal([]byte(line), &ev); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
-
+		et.UnmarshalNextEvent(&ev, "NETWORK_CONNECTION_ATTEMPTED")
 		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
 			break
 		}
 	}
 
-	AssertPidInfoEqual(binOutput.PidInfo, ev.Pids)
-	AssertStringsEqual(ev.Net.Transport, "TCP")
-	AssertStringsEqual(ev.Net.Family, "AF_INET6")
-	AssertStringsEqual(ev.Net.SourceAddr, "::1")
-	AssertInt64Equal(ev.Net.SourcePort, binOutput.ClientPort)
-	AssertStringsEqual(ev.Net.DestAddr, "::1")
-	AssertInt64Equal(ev.Net.DestPort, binOutput.ServerPort)
-	AssertInt64Equal(ev.Net.NetNs, binOutput.NetNs)
-	AssertStringsEqual(ev.Comm, "tcpv6_connect")
+	TestPidEqual(t, binOutput.PidInfo, ev.Pids)
+	require.Equal(t, ev.Net.Transport, "TCP")
+	require.Equal(t, ev.Net.Family, "AF_INET6")
+	require.Equal(t, ev.Net.SourceAddr, "::1")
+	require.Equal(t, ev.Net.SourcePort, binOutput.ClientPort)
+	require.Equal(t, ev.Net.DestAddr, "::1")
+	require.Equal(t, ev.Net.DestPort, binOutput.ServerPort)
+	require.Equal(t, ev.Net.NetNs, binOutput.NetNs)
+	require.Equal(t, ev.Comm, "tcpv6_connect")
 }
 
-func TestTcpv6ConnectionAccept(et *EventsTraceInstance) {
-	outputStr := runTestBin("tcpv6_connect")
+func Tcpv6ConnectionAccept(t *testing.T, et *Runner) {
 	var binOutput struct {
 		PidInfo    TestPidInfo `json:"pid_info"`
 		ClientPort int64       `json:"client_port"`
 		ServerPort int64       `json:"server_port"`
 		NetNs      int64       `json:"netns"`
 	}
-
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "tcpv6_connect", &binOutput)
 
 	var ev NetConnAttemptEvent
 	for {
-		line := et.GetNextEventJson("NETWORK_CONNECTION_ACCEPTED")
-		if err := json.Unmarshal([]byte(line), &ev); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
-
+		et.UnmarshalNextEvent(&ev, "NETWORK_CONNECTION_ACCEPTED")
 		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
 			break
 		}
 	}
 
-	AssertPidInfoEqual(binOutput.PidInfo, ev.Pids)
-	AssertStringsEqual(ev.Net.Transport, "TCP")
-	AssertStringsEqual(ev.Net.Family, "AF_INET6")
-	AssertStringsEqual(ev.Net.SourceAddr, "::1")
-	AssertInt64Equal(ev.Net.SourcePort, binOutput.ServerPort)
-	AssertStringsEqual(ev.Net.DestAddr, "::1")
-	AssertInt64Equal(ev.Net.DestPort, binOutput.ClientPort)
-	AssertInt64Equal(ev.Net.NetNs, binOutput.NetNs)
-	AssertStringsEqual(ev.Comm, "tcpv6_connect")
+	TestPidEqual(t, binOutput.PidInfo, ev.Pids)
+	require.Equal(t, ev.Net.Transport, "TCP")
+	require.Equal(t, ev.Net.Family, "AF_INET6")
+	require.Equal(t, ev.Net.SourceAddr, "::1")
+	require.Equal(t, ev.Net.SourcePort, binOutput.ServerPort)
+	require.Equal(t, ev.Net.DestAddr, "::1")
+	require.Equal(t, ev.Net.DestPort, binOutput.ClientPort)
+	require.Equal(t, ev.Net.NetNs, binOutput.NetNs)
+	require.Equal(t, ev.Comm, "tcpv6_connect")
 }
 
-func TestTcpv6ConnectionClose(et *EventsTraceInstance) {
-	outputStr := runTestBin("tcpv6_connect")
+func Tcpv6ConnectionClose(t *testing.T, et *Runner) {
 	var binOutput struct {
 		PidInfo    TestPidInfo `json:"pid_info"`
 		ClientPort int64       `json:"client_port"`
 		ServerPort int64       `json:"server_port"`
 		NetNs      int64       `json:"netns"`
 	}
-
-	if err := json.Unmarshal(outputStr, &binOutput); err != nil {
-		TestFail("failed to unmarshal json", err)
-	}
+	runTestUnmarshalOutput(t, "tcpv6_connect", &binOutput)
 
 	var ev NetConnCloseEvent
 	for {
-		line := et.GetNextEventJson("NETWORK_CONNECTION_CLOSED")
-		if err := json.Unmarshal([]byte(line), &ev); err != nil {
-			TestFail("failed to unmarshal JSON: ", err)
-		}
-
+		et.UnmarshalNextEvent(&ev, "NETWORK_CONNECTION_CLOSED")
 		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
 			break
 		}
 	}
 
-	AssertPidInfoEqual(binOutput.PidInfo, ev.Pids)
-	AssertStringsEqual(ev.Net.Transport, "TCP")
-	AssertStringsEqual(ev.Net.Family, "AF_INET6")
-	AssertStringsEqual(ev.Net.SourceAddr, "::1")
-	AssertInt64Equal(ev.Net.SourcePort, binOutput.ClientPort)
-	AssertStringsEqual(ev.Net.DestAddr, "::1")
-	AssertInt64Equal(ev.Net.DestPort, binOutput.ServerPort)
-	AssertInt64Equal(ev.Net.NetNs, binOutput.NetNs)
-	AssertStringsEqual(ev.Comm, "tcpv6_connect")
+	TestPidEqual(t, binOutput.PidInfo, ev.Pids)
+	require.Equal(t, ev.Net.Transport, "TCP")
+	require.Equal(t, ev.Net.Family, "AF_INET6")
+	require.Equal(t, ev.Net.SourceAddr, "::1")
+	require.Equal(t, ev.Net.SourcePort, binOutput.ClientPort)
+	require.Equal(t, ev.Net.DestAddr, "::1")
+	require.Equal(t, ev.Net.DestPort, binOutput.ServerPort)
+	require.Equal(t, ev.Net.NetNs, binOutput.NetNs)
+	require.Equal(t, ev.Comm, "tcpv6_connect")
 }
 
-func TestTcFilter() {
-	cmd := exec.Command("/BPFTcFilterTests")
-	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "ELASTIC_EBPF_TC_FILTER_OBJ_PATH=/TcFilter.bpf.o")
-	output, err := cmd.Output()
-
-	if err != nil {
-		fmt.Println(string(output))
-		TestFail(fmt.Sprintf("BPFTcFilterTests failed: %s", err))
+func DNSMonitor(t *testing.T, et *Runner) {
+	var binOutput struct {
+		PidInfo    TestPidInfo `json:"pid_info"`
+		ClientPort int64       `json:"client_port"`
+		ServerPort int64       `json:"server_port"`
+		NetNs      int64       `json:"netns"`
 	}
+	runTestUnmarshalOutput(t, "udp_send", &binOutput)
+	type dnsOutput struct {
+		Data []uint8 `json:"data"`
+		Pids PidInfo `json:"pids"`
+		Net  NetInfo `json:"net"`
+		Comm string  `json:"comm"`
+	}
+	runTestBin(t, "udp_send")
+
+	lineData := dnsOutput{}
+	et.UnmarshalNextEvent(&lineData, "DNS_EVENT")
+
+	require.Equal(t, lineData.Net.DestAddr, "127.0.0.1")
+	require.Equal(t, lineData.Net.SourceAddr, "127.0.0.1")
+	TestPidEqual(t, binOutput.PidInfo, lineData.Pids)
+	require.Equal(t, lineData.Net.Transport, "UDP")
+	require.Equal(t, lineData.Net.Family, "AF_INET")
+
+	require.NotZero(t, lineData.Data[0])
+	require.NotZero(t, lineData.Data[1])
+}
+
+func TcFilter(t *testing.T, et *Runner) {
+	// TC test is weird, and doesn't actually use the
+	// return-json-and-check-eventsTrace-output the other tests use
+	cmd := exec.Command(tcTestPath)
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, fmt.Sprintf("ELASTIC_EBPF_TC_FILTER_OBJ_PATH=%s", tcObjPath))
+	output, err := cmd.Output()
+	require.NoError(t, err, "error running Tc filter tests: %s\n", string(output))
+}
+
+func TestEbpf(t *testing.T) {
+	hasOverlayFS := IsOverlayFsSupported(t)
+
+	testCases := []struct {
+		name             string
+		handle           func(t *testing.T, et *Runner)
+		args             []string
+		requireOverlayFS bool
+	}{
+		{"FeaturesCorrect", FeaturesCorrect, []string{}, false},
+		{"ForkExit", ForkExit, []string{"--process-fork"}, false},
+		{"ForkExec", ForkExec, []string{"--process-fork", "--process-exec"}, false},
+		{"FileCreate", FileCreate, []string{"--file-create"}, false},
+		{"FileDelete", FileDelete, []string{"--file-delete"}, false},
+		{"FileRename", FileRename, []string{"--file-rename"}, false},
+		{"Setuid", Setuid, []string{"--process-setuid"}, false},
+		{"Setgid", Setgid, []string{"--process-setgid"}, false},
+		{"FileModify", FileModify, []string{"--file-modify"}, false},
+		{"TtyWrite", TtyWrite, []string{"--process-tty-write"}, false},
+		{"Tcpv4ConnectionAttempt", Tcpv4ConnectionAttempt, []string{"--net-conn-attempt"}, false},
+		{"Tcpv4ConnectionAccept", Tcpv4ConnectionAccept, []string{"--net-conn-accept"}, false},
+		{"Tcpv4ConnectionClose", Tcpv4ConnectionClose, []string{"--net-conn-close"}, false},
+		{"Tcpv6ConnectionAttempt", Tcpv6ConnectionAttempt, []string{"--net-conn-attempt"}, false},
+		{"Tcpv6ConnectionAccept", Tcpv6ConnectionAccept, []string{"--net-conn-accept"}, false},
+		{"Tcpv6ConnectionClose", Tcpv6ConnectionClose, []string{"--net-conn-close"}, false},
+		{"DNSMonitor", DNSMonitor, []string{"--net-conn-dns-pkt"}, false},
+
+		{"TcFilter", TcFilter, []string{}, false},
+
+		{"FileCreateContainer", FileCreateContainer, []string{"--file-create"}, true},
+		{"FileRenameContainer", FileRenameContainer, []string{"--file-rename"}, true},
+		{"FileDeleteContainer", FileDeleteContainer, []string{"--file-delete"}, true},
+	}
+
+	failed := false
+
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			if test.requireOverlayFS && !hasOverlayFS {
+				t.Skipf("Test requires OverlayFS, not available")
+			}
+			if failed {
+				// small hack to make sure we don't continue to run tests when the first one fails,
+				// since a single test failure will dump tons of logs to the console
+				// we do this instead of a hard return in order to preserve an exit code
+				t.Skip("tests already failed")
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+			defer cancel()
+
+			run := NewEbpfRunner(ctx, t, test.args...)
+			// on return, check for failure. If we've failed, dump stderr and stdout
+			defer func() {
+				if t.Failed() {
+					PrintDebugOutputOnFail()
+					run.Dump()
+					failed = true
+				}
+			}()
+
+			run.Start()
+			// actually run test
+			test.handle(t, run)
+			run.Stop()
+		})
+	}
+
 }
