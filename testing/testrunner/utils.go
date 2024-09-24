@@ -175,6 +175,13 @@ type NetConnAcceptEvent struct {
 	Comm string  `json:"comm"`
 }
 
+type NetBinOut struct {
+	PidInfo    TestPidInfo `json:"pid_info"`
+	ClientPort int64       `json:"client_port"`
+	ServerPort int64       `json:"server_port"`
+	NetNs      int64       `json:"netns"`
+}
+
 type NetConnCloseEvent struct {
 	Pids PidInfo `json:"pids"`
 	Net  NetInfo `json:"net"`
@@ -189,7 +196,6 @@ var eventsTracePath = "/EventsTrace"
 
 // Path to the TC filter test binary and probe. This one is weird and lives outside the rest of the test binaries
 var tcTestPath = "/BPFTcFilterTests"
-
 var tcObjPath = "/TcFilter.bpf.o"
 
 // init will run at startup and figure out if we're running in the bluebox test env or not,

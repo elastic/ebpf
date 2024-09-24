@@ -406,12 +406,7 @@ func TtyWrite(t *testing.T, et *Runner) {
 }
 
 func Tcpv4ConnectionAttempt(t *testing.T, et *Runner) {
-	var binOutput struct {
-		PidInfo    TestPidInfo `json:"pid_info"`
-		ClientPort int64       `json:"client_port"`
-		ServerPort int64       `json:"server_port"`
-		NetNs      int64       `json:"netns"`
-	}
+	binOutput := NetBinOut{}
 	runTestUnmarshalOutput(t, "tcpv4_connect", &binOutput)
 
 	var ev NetConnAttemptEvent
@@ -435,12 +430,7 @@ func Tcpv4ConnectionAttempt(t *testing.T, et *Runner) {
 }
 
 func Tcpv4ConnectionAccept(t *testing.T, et *Runner) {
-	var binOutput struct {
-		PidInfo    TestPidInfo `json:"pid_info"`
-		ClientPort int64       `json:"client_port"`
-		ServerPort int64       `json:"server_port"`
-		NetNs      int64       `json:"netns"`
-	}
+	binOutput := NetBinOut{}
 	runTestUnmarshalOutput(t, "tcpv4_connect", &binOutput)
 
 	var ev NetConnAcceptEvent
@@ -463,12 +453,7 @@ func Tcpv4ConnectionAccept(t *testing.T, et *Runner) {
 }
 
 func Tcpv4ConnectionClose(t *testing.T, et *Runner) {
-	var binOutput struct {
-		PidInfo    TestPidInfo `json:"pid_info"`
-		ClientPort int64       `json:"client_port"`
-		ServerPort int64       `json:"server_port"`
-		NetNs      int64       `json:"netns"`
-	}
+	binOutput := NetBinOut{}
 	runTestUnmarshalOutput(t, "tcpv4_connect", &binOutput)
 
 	var ev NetConnCloseEvent
@@ -511,12 +496,7 @@ func Tcpv4ConnectionClose(t *testing.T, et *Runner) {
 }
 
 func Tcpv6ConnectionAttempt(t *testing.T, et *Runner) {
-	var binOutput struct {
-		PidInfo    TestPidInfo `json:"pid_info"`
-		ClientPort int64       `json:"client_port"`
-		ServerPort int64       `json:"server_port"`
-		NetNs      int64       `json:"netns"`
-	}
+	binOutput := NetBinOut{}
 	runTestUnmarshalOutput(t, "tcpv6_connect", &binOutput)
 
 	var ev NetConnAttemptEvent
@@ -539,12 +519,7 @@ func Tcpv6ConnectionAttempt(t *testing.T, et *Runner) {
 }
 
 func Tcpv6ConnectionAccept(t *testing.T, et *Runner) {
-	var binOutput struct {
-		PidInfo    TestPidInfo `json:"pid_info"`
-		ClientPort int64       `json:"client_port"`
-		ServerPort int64       `json:"server_port"`
-		NetNs      int64       `json:"netns"`
-	}
+	binOutput := NetBinOut{}
 	runTestUnmarshalOutput(t, "tcpv6_connect", &binOutput)
 
 	var ev NetConnAttemptEvent
@@ -567,12 +542,7 @@ func Tcpv6ConnectionAccept(t *testing.T, et *Runner) {
 }
 
 func Tcpv6ConnectionClose(t *testing.T, et *Runner) {
-	var binOutput struct {
-		PidInfo    TestPidInfo `json:"pid_info"`
-		ClientPort int64       `json:"client_port"`
-		ServerPort int64       `json:"server_port"`
-		NetNs      int64       `json:"netns"`
-	}
+	binOutput := NetBinOut{}
 	runTestUnmarshalOutput(t, "tcpv6_connect", &binOutput)
 
 	var ev NetConnCloseEvent
@@ -595,12 +565,7 @@ func Tcpv6ConnectionClose(t *testing.T, et *Runner) {
 }
 
 func DNSMonitor(t *testing.T, et *Runner) {
-	var binOutput struct {
-		PidInfo    TestPidInfo `json:"pid_info"`
-		ClientPort int64       `json:"client_port"`
-		ServerPort int64       `json:"server_port"`
-		NetNs      int64       `json:"netns"`
-	}
+	binOutput := NetBinOut{}
 	runTestUnmarshalOutput(t, "udp_send", &binOutput)
 	type dnsOutput struct {
 		Data []uint8 `json:"data"`
