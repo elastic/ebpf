@@ -181,14 +181,22 @@ type NetConnCloseEvent struct {
 	Comm string  `json:"comm"`
 }
 
+// path to the test binaries we use to create events for EventsTrace
 var testBinaryPath = "/"
+
+// path to the EventsTrace binary
 var eventsTracePath = "/EventsTrace"
+
+// Path to the TC filter test binary and probe. This one is weird and lives outside the rest of the test binaries
+var tcTestPath = "/BPFTcFilterTests"
+
+var tcObjPath = "/TcFilter.bpf.o"
 
 // init will run at startup and figure out if we're running in the bluebox test env or not,
 // and set paths for the binaries as needed
 func init() {
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
-	res, err := cmd.CombinedOutput()
+	gitRootPath, err := cmd.CombinedOutput()
 	// if there's an error, assume that we're in the test environment,
 	// and we're using the root path
 	if err != nil {
@@ -207,16 +215,19 @@ func init() {
 		fmt.Printf("unsupported arch %s, reverting to root path for test binaries\n", runtime.GOARCH)
 		return
 	}
-	rootEbpfPath := strings.TrimSpace(string(res))
+	rootEbpfPath := strings.TrimSpace(string(gitRootPath))
 	testBinaryPath = filepath.Join(rootEbpfPath, "testing/test_bins/bin", arch)
 	fmt.Printf("using root path '%s' for binary path\n", testBinaryPath)
 
 	// if running in a non-root path, assume we're not in bluebox, set binary path accordingly
-	if testBinaryPath != "/" {
-		artifactDir := fmt.Sprintf("artifacts-%s", arch)
-		eventsTracePath = filepath.Join(rootEbpfPath, artifactDir, "non-GPL/Events/EventsTrace/EventsTrace")
-	}
+
+	artifactDir := fmt.Sprintf("artifacts-%s", arch)
+	eventsTracePath = filepath.Join(rootEbpfPath, artifactDir, "package/bin/EventsTrace")
+	tcTestPath = filepath.Join(rootEbpfPath, artifactDir, "package/bin/BPFTcFilterTests")
+	tcObjPath = filepath.Join(rootEbpfPath, artifactDir, "package/probes/TcFilter.bpf.o")
+
 	fmt.Printf("using path '%s' for EventsTrace\n", eventsTracePath)
+	fmt.Printf("using path '%s' for BPFTcFilterTests\n", tcTestPath)
 }
 
 func getEventType(t *testing.T, jsonLine string) string {

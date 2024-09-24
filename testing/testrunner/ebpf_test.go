@@ -12,6 +12,9 @@ package testrunner
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
 	"syscall"
 	"testing"
 	"time"
@@ -620,6 +623,16 @@ func DNSMonitor(t *testing.T, et *Runner) {
 	require.NotZero(t, lineData.Data[1])
 }
 
+func TcFilter(t *testing.T, et *Runner) {
+	// TC test is weird, and doesn't actually use the
+	// return-json-and-check-eventsTrace-output the other tests use
+	cmd := exec.Command(tcTestPath)
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, fmt.Sprintf("ELASTIC_EBPF_TC_FILTER_OBJ_PATH=%s", tcObjPath))
+	output, err := cmd.Output()
+	require.NoError(t, err, "error running Tc filter tests: %s\n", string(output))
+}
+
 func TestEbpf(t *testing.T) {
 	hasOverlayFS := IsOverlayFsSupported(t)
 
@@ -646,6 +659,8 @@ func TestEbpf(t *testing.T) {
 		{"Tcpv6ConnectionAccept", Tcpv6ConnectionAccept, []string{"--net-conn-accept"}, false},
 		{"Tcpv6ConnectionClose", Tcpv6ConnectionClose, []string{"--net-conn-close"}, false},
 		{"DNSMonitor", DNSMonitor, []string{"--net-conn-dns-pkt"}, false},
+
+		{"TcFilter", TcFilter, []string{}, false},
 
 		{"FileCreateContainer", FileCreateContainer, []string{"--file-create"}, true},
 		{"FileRenameContainer", FileRenameContainer, []string{"--file-rename"}, true},

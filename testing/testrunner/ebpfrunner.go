@@ -95,7 +95,7 @@ func (runner *Runner) runIORead() {
 
 func (runner *Runner) Start() {
 	err := runner.Cmd.Start()
-	require.NoError(runner.t, err)
+	require.NoError(runner.t, err, "error starting EventsTrace. You may need to run `make build` and `make package`")
 	stderrStream := bufio.NewScanner(runner.Stderr)
 	stdoutStream := bufio.NewScanner(runner.Stdout)
 
