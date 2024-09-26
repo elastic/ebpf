@@ -55,6 +55,22 @@ By default `run_tests.sh` will pass `-j$(nproc)` to `parallel` (i.e. spin up as
 many jobs as there are CPU cores). You can change this by passing
 `-j <number of jobs>` to `run-tests.sh`.
 
+## Running tests locally
+
+This test framework leverages the go stdlib test suite, so all ebpf tests can
+be run as normal go tests, outside of the bluebox VMs:
+
+```
+#compile the test in advance, so we don't need root to have a go environment
+go test -c
+# run all tests
+sudo ./testrunner.test
+# run a single test
+sudo ./testrunner.test -test.run TestEbpf/Tcpv6ConnectionClose
+# run in verbose mode 
+sudo ./testrunner.test -test.run TestEbpf/Tcpv6ConnectionClose -test.v
+```
+
 ## Building Kernels
 
 A dockerized setup is provided at `kernel_builder/` to build mainline kernel

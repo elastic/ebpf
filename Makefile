@@ -21,6 +21,9 @@ CONTAINER_LOCAL_TAG ?= ebpf-builder:${USER}-latest
 IMAGEPACK_REPOSITORY ?= ghcr.io/elastic/ebpf-imagepack
 IMAGEPACK_PULL_TAG ?= 20231006-0053
 
+TESTBIN_SRC = $(wildcard testing/test_bins/*.c)
+TESTBIN_PROGS = $(patsubst testing/test_bins/%.c,testing/test_bins/bin/${ARCH}/%,$(TESTBIN_SRC))
+
 ifdef BUILD_CONTAINER_IMAGE
 	CONTAINER_IMAGE = ${CONTAINER_LOCAL_TAG}
 else
@@ -170,5 +173,14 @@ endif
 	go install github.com/florianl/bluebox@b8590fb1850f56df6e6d7786931fcabdc1e9173d
 	cd testing && ./run_tests.sh ${ARCH} ${ARTIFACTS_PATH} ${PWD}/kernel-images/${IMG_FILTER}/${ARCH}/*
 
+testbins: testbinpath $(TESTBIN_PROGS)
+
+testbinpath: 
+	mkdir -p testing/test_bins/bin/${ARCH}
+
+testing/test_bins/bin/${ARCH}/%: testing/test_bins/%.c
+	$(CC) -g -static -o $@ $<
+
 clean:
 	${SUDO} rm -rf artifacts-*
+	rm -r testing/test_bins/bin/*

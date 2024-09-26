@@ -13,6 +13,7 @@ ctags
 cscope.out
 
 # Test results and other stuff in testing/
+testing/testrunner/testrunner.test
 testing/bpf-check-summary.txt
 testing/*.cpio
 testing/*.tar
