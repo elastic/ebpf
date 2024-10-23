@@ -240,7 +240,7 @@ int BPF_KPROBE(kprobe__taskstats_exit, const struct task_struct *task, int group
 // tracepoint/syscalls/sys_[enter/exit]_[name] tracepoints are not available
 // with BTF type information, so we must use a non-BTF tracepoint
 SEC("tracepoint/syscalls/sys_exit_setsid")
-int tracepoint_syscalls_sys_exit_setsid(struct trace_event_raw_sys_exit *args)
+int tracepoint_syscalls_sys_exit_setsid(struct syscall_trace_exit *args)
 {
     const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
@@ -365,7 +365,7 @@ out:
 }
 
 SEC("tracepoint/syscalls/sys_enter_shmget")
-int tracepoint_syscalls_sys_enter_shmget(struct trace_event_raw_sys_enter *ctx)
+int tracepoint_syscalls_sys_enter_shmget(struct syscall_trace_enter *ctx)
 {
     if (ebpf_events_is_trusted_pid())
         goto out;
@@ -404,7 +404,7 @@ out:
 }
 
 SEC("tracepoint/syscalls/sys_enter_memfd_create")
-int tracepoint_syscalls_sys_enter_memfd_create(struct trace_event_raw_sys_enter *ctx)
+int tracepoint_syscalls_sys_enter_memfd_create(struct syscall_trace_enter *ctx)
 {
     if (ebpf_events_is_trusted_pid())
         goto out;
