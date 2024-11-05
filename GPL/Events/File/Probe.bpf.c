@@ -123,7 +123,7 @@ static int vfs_unlink__exit(int ret)
     }
 
     event->hdr.type = EBPF_EVENT_FILE_DELETE;
-    event->hdr.ts   = bpf_ktime_get_ns();
+    event->hdr.ts   = bpf_ktime_get_boot_ns();
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_cred_info__fill(&event->creds, task);
 
@@ -228,7 +228,7 @@ static void prepare_and_send_file_event(struct file *f,
         return;
 
     event->hdr.type = type;
-    event->hdr.ts   = bpf_ktime_get_ns();
+    event->hdr.ts   = bpf_ktime_get_boot_ns();
 
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     struct path p            = BPF_CORE_READ(f, f_path);
@@ -483,7 +483,7 @@ static int vfs_rename__exit(int ret)
     struct dentry *de = (struct dentry *)state->rename.de;
 
     event->hdr.type = EBPF_EVENT_FILE_RENAME;
-    event->hdr.ts   = bpf_ktime_get_ns();
+    event->hdr.ts   = bpf_ktime_get_boot_ns();
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_cred_info__fill(&event->creds, task);
     event->mntns = mntns(task);
@@ -551,7 +551,7 @@ static void file_modify_event__emit(enum ebpf_file_change_type typ, struct path 
     }
 
     event->hdr.type    = EBPF_EVENT_FILE_MODIFY;
-    event->hdr.ts      = bpf_ktime_get_ns();
+    event->hdr.ts      = bpf_ktime_get_boot_ns();
     event->change_type = typ;
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_cred_info__fill(&event->creds, task);
