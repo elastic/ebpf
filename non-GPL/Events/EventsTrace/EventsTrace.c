@@ -152,6 +152,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
         break;
     case 'a':
         g_events_env = UINT64_MAX;
+        g_events_env &= ~cmdline_to_lib[PROCESS_TTY_WRITE];
         break;
     case 's':
         g_stats = 1;
