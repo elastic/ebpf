@@ -367,4 +367,12 @@ static int is_equal_prefix(const char *str1, const char *str2, int len)
     return !strncmp(str1, str2, len);
 }
 
+static u64 bpf_ktime_get_boot_ns_helper()
+{
+    if (bpf_core_enum_value_exists(enum bpf_func_id, BPF_FUNC_ktime_get_boot_ns))
+        return bpf_ktime_get_boot_ns();
+    else
+        return 0;
+}
+
 #endif // EBPF_EVENTPROBE_HELPERS_H
