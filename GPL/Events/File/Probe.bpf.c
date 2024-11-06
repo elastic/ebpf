@@ -122,7 +122,7 @@ static int vfs_unlink__exit(int ret)
         goto out;
     }
 
-    event->hdr.type = EBPF_EVENT_FILE_DELETE;
+    event->hdr.type    = EBPF_EVENT_FILE_DELETE;
     event->hdr.ts      = bpf_ktime_get_ns();
     event->hdr.ts_boot = bpf_ktime_get_boot_ns_helper();
     ebpf_pid_info__fill(&event->pids, task);

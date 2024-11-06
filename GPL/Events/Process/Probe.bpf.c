@@ -52,7 +52,7 @@ int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct 
     if (!event)
         goto out;
 
-    event->hdr.type = EBPF_EVENT_PROCESS_FORK;
+    event->hdr.type    = EBPF_EVENT_PROCESS_FORK;
     event->hdr.ts      = bpf_ktime_get_ns();
     event->hdr.ts_boot = bpf_ktime_get_boot_ns_helper();
     ebpf_pid_info__fill(&event->parent_pids, parent);
@@ -440,7 +440,7 @@ int tracepoint_syscalls_sys_enter_memfd_create(struct syscall_trace_enter *ctx)
     event->hdr.type    = EBPF_EVENT_PROCESS_MEMFD_CREATE;
     event->hdr.ts      = bpf_ktime_get_ns();
     event->hdr.ts_boot = bpf_ktime_get_boot_ns_helper();
-    event->flags    = ex_args->flags;
+    event->flags       = ex_args->flags;
 
     ebpf_pid_info__fill(&event->pids, task);
 
