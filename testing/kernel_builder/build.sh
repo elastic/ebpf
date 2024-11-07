@@ -18,30 +18,23 @@ readonly BUILD_ARCHES=(
 
 # We hit every minor release here, and grab a number of different patch
 # releases from each LTS series (e.g. 5.10, 5.15)
-readonly BUILD_VERSIONS_PAHOLE_120=(
-    "5.10.16" # Oldest we support
-    "5.10.130"
-    "5.11"
-    "5.12"
-    "5.13"
-    "5.14"
-    "5.15"
-    "5.15.133"
-    "5.16"
-    "5.17"
-    "5.18"
-    "5.19"
-    "6.0"
-    "6.1"
-    "6.1.55"
+BUILD_VERSIONS_PAHOLE_120=(
+   "5.10.16" # Oldest we support
+   "5.10.130"
+   "5.12"
+   "5.15.133"
+   "5.19"
+   "6.0"
+   "6.1.55"
+   "6.1.106"
+   "6.6.47"
+   "6.10.6"
 )
 
-readonly BUILD_VERSIONS_PAHOLE_SOURCE=(
-    "6.2"
-    "6.3"
-    "6.4"
-    "6.4.16"
-    "6.5"
+BUILD_VERSIONS_PAHOLE_SOURCE=(
+   "6.1.106"
+   "6.4.16"
+   "6.6.47"
 )
 
 exit_error() {
@@ -103,13 +96,45 @@ fetch_and_build() {
     done
 }
 
+# Check if a command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
 main() {
+    # Fetch all longterm stable kernel versions and build those kernels
+
+    # Check if required commands exist
+    if ! command_exists curl || ! command_exists jq; then
+	echo "Error: This script requires 'curl' and 'jq'. Please install them and try again."
+	exit 1
+    fi
+
+    # Fetch kernel.org releases json
+    json_data=$(curl -s https://www.kernel.org/releases.json)
+
+    # Extract the latest stable version
+    latest_stable=$(echo "$json_data" | jq -r '.latest_stable.version')
+
+    # Extract all longterm versions
+    longterm_versions=$(echo "$json_data" | jq -r '.releases[] | select(.moniker == "longterm") | .version')
+
+    # Combine stable and longterm versions
+    kernel_versions=("$latest_stable" $longterm_versions)
+
+    # Filter out old versions
+    filtered_versions=$(printf '%s\n' "${kernel_versions[@]}" | grep -vE '^[45]')
+
+    # Merge fetched versions into static arrays
+    BUILD_VERSIONS_PAHOLE_120=($(echo "${BUILD_VERSIONS_PAHOLE_120[@]}" "$filtered_versions" | tr ' ' '\n' | sort | uniq))
+    BUILD_VERSIONS_PAHOLE_SOURCE=($(echo "${BUILD_VERSIONS_PAHOLE_SOURCE[@]}" "$filtered_versions" | tr ' ' '\n' | sort | uniq))
+
     if [ "$(pahole --version)" = "v1.20" ]; then
-        for version in ${BUILD_VERSIONS_PAHOLE_120[@]}; do
+        for version in "${BUILD_VERSIONS_PAHOLE_120[@]}"; do
             fetch_and_build $version
         done
     else
-        for version in ${BUILD_VERSIONS_PAHOLE_SOURCE[@]}; do
+        for version in "${BUILD_VERSIONS_PAHOLE_SOURCE[@]}"; do
             fetch_and_build $version
         done
     fi
