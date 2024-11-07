@@ -24,6 +24,8 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
 #include <ar.h>
 #include <assert.h>
 #include <string.h>
@@ -32,6 +34,8 @@
 #include "_libelf.h"
 
 ELFTC_VCSID("$Id$");
+
+/*@ELFTC-DOWNSTREAM-VCSID@*/
 
 /*
  * Create an ELF descriptor for a memory image, optionally reporting

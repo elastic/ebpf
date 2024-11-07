@@ -24,6 +24,7 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -40,6 +41,8 @@
 #endif
 
 ELFTC_VCSID("$Id$");
+
+/*@ELFTC-DOWNSTREAM-VCSID@*/
 
 #define	_LIBELF_INITSIZE	(64*1024)
 
