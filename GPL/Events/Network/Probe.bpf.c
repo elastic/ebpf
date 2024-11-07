@@ -121,7 +121,8 @@ static int udp_skb_handle(struct sk_buff *skb, enum ebpf_net_udp_info evt_type)
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     ebpf_pid_info__fill(&event->pids, task);
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
-    event->hdr.ts = bpf_ktime_get_ns();
+    event->hdr.ts      = bpf_ktime_get_ns();
+    event->hdr.ts_boot = bpf_ktime_get_boot_ns_helper();
 
     // constrain the read size to make the verifier happy
     // see skb_headlen() in skbuff.h
