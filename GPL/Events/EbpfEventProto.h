@@ -157,6 +157,16 @@ struct ebpf_file_info {
     uint64_t ctime;
 } __attribute__((packed));
 
+struct ebpf_namespace_info {
+    uint32_t uts_inonum;
+    uint32_t ipc_inonum;
+    uint32_t mnt_inonum;
+    uint32_t net_inonum;
+    uint32_t cgroup_inonum;
+    uint32_t time_inonum;
+    uint32_t pid_inonum;
+} __attribute__((packed));
+
 // Full events follow
 struct ebpf_file_delete_event {
     struct ebpf_event_header hdr;
@@ -223,6 +233,7 @@ struct ebpf_process_fork_event {
     struct ebpf_cred_info creds;
     struct ebpf_tty_dev ctty;
     char comm[TASK_COMM_LEN];
+    struct ebpf_namespace_info ns;
 
     // Variable length fields: pids_ss_cgroup_path
     struct ebpf_varlen_fields_start vl_fields;
@@ -238,6 +249,7 @@ struct ebpf_process_exec_event {
     struct ebpf_cred_info creds;
     struct ebpf_tty_dev ctty;
     char comm[TASK_COMM_LEN];
+    struct ebpf_namespace_info ns;
     uint32_t inode_nlink;
     uint32_t flags;
 
@@ -251,6 +263,7 @@ struct ebpf_process_exit_event {
     struct ebpf_cred_info creds;
     struct ebpf_tty_dev ctty;
     char comm[TASK_COMM_LEN];
+    struct ebpf_namespace_info ns;
     int32_t exit_code;
 
     // Variable length fields: pids_ss_cgroup_path

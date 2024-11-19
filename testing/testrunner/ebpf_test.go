@@ -94,6 +94,11 @@ func ForkExit(t *testing.T, et *Runner) {
 	require.Equal(t, forkEvent.ChildPids.Sid, forkEvent.ParentPids.Sid)
 	require.Equal(t, forkEvent.ChildPids.Pgid, forkEvent.ParentPids.Pgid)
 	require.NotEqual(t, forkEvent.ChildPids.Tgid, forkEvent.ParentPids.Tgid)
+
+	// Check if all namespace values match /proc/self/ns/*
+	ns, err := FetchNsFromProc()
+	require.NoError(t, err)
+	require.Equal(t, forkEvent.Ns, ns)
 }
 
 func ForkExec(t *testing.T, et *Runner) {
@@ -154,7 +159,6 @@ func ForkExec(t *testing.T, et *Runner) {
 	require.Equal(t, execEvent.Env[0], "TEST_ENV_KEY1=TEST_ENV_VAL1")
 	require.Equal(t, execEvent.Env[1], "TEST_ENV_KEY2=TEST_ENV_VAL2")
 	require.Equal(t, execEvent.Cwd, "/")
-
 }
 
 func FileCreate(t *testing.T, et *Runner) {
@@ -185,7 +189,6 @@ func FileCreate(t *testing.T, et *Runner) {
 }
 
 func FileDelete(t *testing.T, et *Runner) {
-
 	var binOutput struct {
 		PidInfo      TestPidInfo `json:"pid_info"`
 		FileNameOrig string      `json:"filename_orig"`
@@ -426,7 +429,6 @@ func Tcpv4ConnectionAttempt(t *testing.T, et *Runner) {
 	require.Equal(t, ev.Net.DestPort, binOutput.ServerPort)
 	require.Equal(t, ev.Net.NetNs, binOutput.NetNs)
 	require.Equal(t, ev.Comm, "tcpv4_connect")
-
 }
 
 func Tcpv4ConnectionAccept(t *testing.T, et *Runner) {
@@ -665,5 +667,4 @@ func TestEbpf(t *testing.T) {
 			run.Stop()
 		})
 	}
-
 }

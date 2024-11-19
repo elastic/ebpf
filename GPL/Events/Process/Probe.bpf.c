@@ -60,6 +60,7 @@ int BPF_PROG(sched_process_fork, const struct task_struct *parent, const struct 
     ebpf_cred_info__fill(&event->creds, parent);
     ebpf_ctty__fill(&event->ctty, child);
     ebpf_comm__fill(event->comm, sizeof(event->comm), child);
+    ebpf_ns__fill(&event->ns, child);
 
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);
@@ -111,6 +112,7 @@ int BPF_PROG(sched_process_exec,
     ebpf_cred_info__fill(&event->creds, task);
     ebpf_ctty__fill(&event->ctty, task);
     ebpf_comm__fill(event->comm, sizeof(event->comm), task);
+    ebpf_ns__fill(&event->ns, task);
 
     // set setuid and setgid flags
     struct file *f        = BPF_CORE_READ(binprm, file);
@@ -211,6 +213,7 @@ static int taskstats_exit__enter(const struct task_struct *task, int group_dead)
     ebpf_cred_info__fill(&event->creds, task);
     ebpf_ctty__fill(&event->ctty, task);
     ebpf_comm__fill(event->comm, sizeof(event->comm), task);
+    ebpf_ns__fill(&event->ns, task);
 
     // Variable length fields
     ebpf_vl_fields__init(&event->vl_fields);

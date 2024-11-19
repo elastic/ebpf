@@ -31,11 +31,6 @@ DECL_FUNC_ARG_EXISTS(vfs_rename, rd);
 DECL_FUNC_ARG(do_truncate, filp);
 DECL_FUNC_RET(do_truncate);
 
-static int mntns(const struct task_struct *task)
-{
-    return BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
-}
-
 static int do_unlinkat__enter()
 {
     struct ebpf_events_state state = {};
@@ -129,9 +124,11 @@ static int vfs_unlink__exit(int ret)
     ebpf_cred_info__fill(&event->creds, task);
 
     struct path p;
-    p.dentry     = &state->unlink.de;
-    p.mnt        = state->unlink.mnt;
-    event->mntns = mntns(task);
+    p.dentry = &state->unlink.de;
+    p.mnt    = state->unlink.mnt;
+    struct ebpf_namespace_info ns;
+    ebpf_ns__fill(&ns, task);
+    event->mntns = ns.mnt_inonum;
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
     ebpf_file_info__fill(&event->finfo, p.dentry);
 
@@ -236,7 +233,9 @@ static void prepare_and_send_file_event(struct file *f,
     struct path p            = BPF_CORE_READ(f, f_path);
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_cred_info__fill(&event->creds, task);
-    event->mntns = mntns(task);
+    struct ebpf_namespace_info ns;
+    ebpf_ns__fill(&ns, task);
+    event->mntns = ns.mnt_inonum;
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
     ebpf_file_info__fill(&event->finfo, p.dentry);
 
@@ -489,7 +488,9 @@ static int vfs_rename__exit(int ret)
     event->hdr.ts_boot = bpf_ktime_get_boot_ns_helper();
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_cred_info__fill(&event->creds, task);
-    event->mntns = mntns(task);
+    struct ebpf_namespace_info ns;
+    ebpf_ns__fill(&ns, task);
+    event->mntns = ns.mnt_inonum;
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
     ebpf_file_info__fill(&event->finfo, de);
 
@@ -559,7 +560,9 @@ static void file_modify_event__emit(enum ebpf_file_change_type typ, struct path 
     event->change_type = typ;
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_cred_info__fill(&event->creds, task);
-    event->mntns = mntns(task);
+    struct ebpf_namespace_info ns;
+    ebpf_ns__fill(&ns, task);
+    event->mntns = ns.mnt_inonum;
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
     struct dentry *d = BPF_CORE_READ(path, dentry);
     ebpf_file_info__fill(&event->finfo, d);
