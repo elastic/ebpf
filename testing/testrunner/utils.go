@@ -18,6 +18,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -90,11 +91,22 @@ type FileInfo struct {
 	Ctime uint64 `json:"ctime"`
 }
 
+type NsInfo struct {
+	Uts    uint32 `json:"uts"`
+	Ipc    uint32 `json:"ipc"`
+	Mnt    uint32 `json:"mnt"`
+	Net    uint32 `json:"net"`
+	Cgroup uint32 `json:"cgroup"`
+	Time   uint32 `json:"time"`
+	Pid    uint32 `json:"pid"`
+}
+
 type ProcessForkEvent struct {
 	ParentPids PidInfo  `json:"parent_pids"`
 	ChildPids  PidInfo  `json:"child_pids"`
 	Creds      CredInfo `json:"creds"`
 	Ctty       TtyInfo  `json:"ctty"`
+	Ns         NsInfo   `json:"ns"`
 }
 
 type ProcessExecEvent struct {
@@ -195,8 +207,10 @@ var testBinaryPath = "/"
 var eventsTracePath = "/EventsTrace"
 
 // Path to the TC filter test binary and probe. This one is weird and lives outside the rest of the test binaries
-var tcTestPath = "/BPFTcFilterTests"
-var tcObjPath = "/TcFilter.bpf.o"
+var (
+	tcTestPath = "/BPFTcFilterTests"
+	tcObjPath  = "/TcFilter.bpf.o"
+)
 
 // init will run at startup and figure out if we're running in the bluebox test env or not,
 // and set paths for the binaries as needed
@@ -326,4 +340,50 @@ func PrintDebugOutputOnFail() {
 	fmt.Print("\n")
 
 	fmt.Println("BPF test failed, see errors and stacktrace above")
+}
+
+func FetchNsFromProc() (NsInfo, error) {
+	var ns NsInfo
+
+	fetch := func(name string, dst *uint32) error {
+		s, err := os.Readlink("/proc/self/ns/" + name)
+		if err != nil {
+			return err
+		}
+		start := strings.IndexByte(s, '[')
+		if start == -1 {
+			return fmt.Errorf("`[` not found for ns %s", name)
+		}
+		start++
+		end := strings.IndexByte(s, ']')
+		if end == -1 {
+			return fmt.Errorf("`]` not found for ns %s", name)
+		}
+		v, err := strconv.Atoi(s[start:end])
+		if err != nil {
+			return err
+		}
+		*dst = uint32(v)
+		return nil
+	}
+
+	calls := []struct {
+		name string
+		dst  *uint32
+	}{
+		{"uts", &ns.Uts},
+		{"ipc", &ns.Ipc},
+		{"mnt", &ns.Mnt},
+		{"net", &ns.Net},
+		{"cgroup", &ns.Cgroup},
+		{"time", &ns.Time},
+		{"pid", &ns.Pid},
+	}
+	for _, call := range calls {
+		if err := fetch(call.name, call.dst); err != nil {
+			return ns, err
+		}
+	}
+
+	return ns, nil
 }

@@ -414,6 +414,26 @@ static void out_file_info(const char *name, struct ebpf_file_info *finfo)
     out_object_end();
 }
 
+static void out_ns_info(const char *name, struct ebpf_namespace_info *ns)
+{
+    printf("\"%s\":", name);
+    out_object_start();
+    out_uint("uts", ns->uts_inonum);
+    out_comma();
+    out_uint("ipc", ns->ipc_inonum);
+    out_comma();
+    out_uint("mnt", ns->mnt_inonum);
+    out_comma();
+    out_uint("net", ns->net_inonum);
+    out_comma();
+    out_uint("cgroup", ns->cgroup_inonum);
+    out_comma();
+    out_uint("time", ns->time_inonum);
+    out_comma();
+    out_uint("pid", ns->pid_inonum);
+    out_object_end();
+}
+
 static void out_null_delimited_string_array(const char *name, char *buf, size_t buf_size)
 {
     // buf is an array (argv, env etc.) with multiple values delimited by a '\0'
@@ -768,6 +788,9 @@ static void out_process_fork(struct ebpf_process_fork_event *evt)
     out_comma();
 
     out_string("comm", evt->comm);
+    out_comma();
+
+    out_ns_info("ns", &evt->ns);
 
     struct ebpf_varlen_field *field;
     FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)

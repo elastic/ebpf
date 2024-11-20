@@ -306,6 +306,27 @@ static void ebpf_comm__fill(char *comm, size_t len, const struct task_struct *ta
     read_kernel_str_or_empty_str(comm, len, BPF_CORE_READ(task, comm));
 }
 
+static void ebpf_ns__fill(struct ebpf_namespace_info *nsi, const struct task_struct *task)
+{
+    struct pid *pid;
+    int pid_level;
+
+    nsi->uts_inonum    = BPF_CORE_READ(task, nsproxy, uts_ns, ns.inum);
+    nsi->ipc_inonum    = BPF_CORE_READ(task, nsproxy, ipc_ns, ns.inum);
+    nsi->mnt_inonum    = BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
+    nsi->net_inonum    = BPF_CORE_READ(task, nsproxy, net_ns, ns.inum);
+    nsi->cgroup_inonum = BPF_CORE_READ(task, nsproxy, cgroup_ns, ns.inum);
+    nsi->time_inonum   = BPF_CORE_READ(task, nsproxy, time_ns, ns.inum);
+
+    pid = BPF_CORE_READ(task, thread_pid);
+    if (pid == NULL) {
+        nsi->pid_inonum = 0;
+        return;
+    }
+    pid_level       = BPF_CORE_READ(pid, level);
+    nsi->pid_inonum = BPF_CORE_READ(pid, numbers[pid_level].ns, ns.inum);
+}
+
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
     __type(key, u32);
