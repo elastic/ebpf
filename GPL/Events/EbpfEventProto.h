@@ -11,6 +11,10 @@
 #define EBPF_EVENTPROBE_EBPFEVENTPROTO_H
 
 #define TASK_COMM_LEN 16
+// The theoretical max size of DNS packets over UDP is 512.
+// Like so many things in DNS this number probaby isn't 100% accurate.
+// DNS extensions in RFC2671 and RFC6891 mean the actual size can be larger.
+#define MAX_DNS_PACKET 1500
 
 #ifndef __KERNEL__
 #include <stdint.h>
@@ -19,30 +23,33 @@
 #endif
 
 enum ebpf_event_type {
-    EBPF_EVENT_PROCESS_FORK                 = (1 << 1),
-    EBPF_EVENT_PROCESS_EXEC                 = (1 << 2),
-    EBPF_EVENT_PROCESS_EXIT                 = (1 << 3),
-    EBPF_EVENT_PROCESS_SETSID               = (1 << 4),
-    EBPF_EVENT_PROCESS_SETUID               = (1 << 5),
-    EBPF_EVENT_PROCESS_SETGID               = (1 << 6),
-    EBPF_EVENT_PROCESS_TTY_WRITE            = (1 << 7),
-    EBPF_EVENT_FILE_DELETE                  = (1 << 8),
-    EBPF_EVENT_FILE_CREATE                  = (1 << 9),
-    EBPF_EVENT_FILE_RENAME                  = (1 << 10),
-    EBPF_EVENT_FILE_MODIFY                  = (1 << 11),
-    EBPF_EVENT_FILE_MEMFD_OPEN              = (1 << 12),
-    EBPF_EVENT_FILE_SHMEM_OPEN              = (1 << 13),
-    EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED  = (1 << 14),
-    EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED = (1 << 15),
-    EBPF_EVENT_NETWORK_CONNECTION_CLOSED    = (1 << 16),
-    EBPF_EVENT_PROCESS_MEMFD_CREATE         = (1 << 17),
-    EBPF_EVENT_PROCESS_SHMGET               = (1 << 18),
-    EBPF_EVENT_PROCESS_PTRACE               = (1 << 19),
-    EBPF_EVENT_PROCESS_LOAD_MODULE          = (1 << 20),
+    EBPF_EVENT_PROCESS_INVALID              = 0,
+    EBPF_EVENT_PROCESS_FORK                 = (1 << 0),
+    EBPF_EVENT_PROCESS_EXEC                 = (1 << 1),
+    EBPF_EVENT_PROCESS_EXIT                 = (1 << 2),
+    EBPF_EVENT_PROCESS_SETSID               = (1 << 3),
+    EBPF_EVENT_PROCESS_SETUID               = (1 << 4),
+    EBPF_EVENT_PROCESS_SETGID               = (1 << 5),
+    EBPF_EVENT_PROCESS_TTY_WRITE            = (1 << 6),
+    EBPF_EVENT_FILE_DELETE                  = (1 << 7),
+    EBPF_EVENT_FILE_CREATE                  = (1 << 8),
+    EBPF_EVENT_FILE_RENAME                  = (1 << 9),
+    EBPF_EVENT_FILE_MODIFY                  = (1 << 10),
+    EBPF_EVENT_FILE_MEMFD_OPEN              = (1 << 11),
+    EBPF_EVENT_FILE_SHMEM_OPEN              = (1 << 12),
+    EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED  = (1 << 13),
+    EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED = (1 << 14),
+    EBPF_EVENT_NETWORK_CONNECTION_CLOSED    = (1 << 15),
+    EBPF_EVENT_PROCESS_MEMFD_CREATE         = (1 << 16),
+    EBPF_EVENT_PROCESS_SHMGET               = (1 << 17),
+    EBPF_EVENT_PROCESS_PTRACE               = (1 << 18),
+    EBPF_EVENT_PROCESS_LOAD_MODULE          = (1 << 19),
+    EBPF_EVENT_NETWORK_DNS_PKT              = (1 << 20),
 };
 
 struct ebpf_event_header {
     uint64_t ts;
+    uint64_t ts_boot;
     uint64_t type;
 } __attribute__((packed));
 
@@ -65,6 +72,7 @@ enum ebpf_varlen_field_type {
     EBPF_VL_FIELD_SYMLINK_TARGET_PATH,
     EBPF_VL_FIELD_MOD_VERSION,
     EBPF_VL_FIELD_MOD_SRCVERSION,
+    EBPF_VL_FIELD_DNS_BODY,
 };
 
 // Convenience macro to iterate all the variable length fields in an event
@@ -149,6 +157,16 @@ struct ebpf_file_info {
     uint64_t ctime;
 } __attribute__((packed));
 
+struct ebpf_namespace_info {
+    uint32_t uts_inonum;
+    uint32_t ipc_inonum;
+    uint32_t mnt_inonum;
+    uint32_t net_inonum;
+    uint32_t cgroup_inonum;
+    uint32_t time_inonum;
+    uint32_t pid_inonum;
+} __attribute__((packed));
+
 // Full events follow
 struct ebpf_file_delete_event {
     struct ebpf_event_header hdr;
@@ -215,6 +233,7 @@ struct ebpf_process_fork_event {
     struct ebpf_cred_info creds;
     struct ebpf_tty_dev ctty;
     char comm[TASK_COMM_LEN];
+    struct ebpf_namespace_info ns;
 
     // Variable length fields: pids_ss_cgroup_path
     struct ebpf_varlen_fields_start vl_fields;
@@ -230,6 +249,7 @@ struct ebpf_process_exec_event {
     struct ebpf_cred_info creds;
     struct ebpf_tty_dev ctty;
     char comm[TASK_COMM_LEN];
+    struct ebpf_namespace_info ns;
     uint32_t inode_nlink;
     uint32_t flags;
 
@@ -241,8 +261,10 @@ struct ebpf_process_exit_event {
     struct ebpf_event_header hdr;
     struct ebpf_pid_info pids;
     struct ebpf_cred_info creds;
-    int32_t exit_code;
+    struct ebpf_tty_dev ctty;
     char comm[TASK_COMM_LEN];
+    struct ebpf_namespace_info ns;
+    int32_t exit_code;
 
     // Variable length fields: pids_ss_cgroup_path
     struct ebpf_varlen_fields_start vl_fields;
@@ -339,11 +361,17 @@ struct ebpf_process_load_module_event {
 
 enum ebpf_net_info_transport {
     EBPF_NETWORK_EVENT_TRANSPORT_TCP = 1,
+    EBPF_NETWORK_EVENT_TRANSPORT_UDP = 2,
 };
 
 enum ebpf_net_info_af {
     EBPF_NETWORK_EVENT_AF_INET  = 1,
     EBPF_NETWORK_EVENT_AF_INET6 = 2,
+};
+
+enum ebpf_net_udp_info {
+    EBPF_NETWORK_EVENT_SKB_CONSUME_UDP = 1,
+    EBPF_NETWORK_EVENT_IP_SEND_UDP     = 2,
 };
 
 struct ebpf_net_info_tcp_close {
@@ -376,5 +404,23 @@ struct ebpf_net_event {
     struct ebpf_net_info net;
     char comm[TASK_COMM_LEN];
 } __attribute__((packed));
+
+struct ebpf_dns_event {
+    struct ebpf_event_header hdr;
+    struct ebpf_pid_info pids;
+    struct ebpf_net_info net;
+    char comm[TASK_COMM_LEN];
+    enum ebpf_net_udp_info udp_evt;
+    uint64_t original_len;
+    // Variable length fields: dns body
+    struct ebpf_varlen_fields_start vl_fields;
+} __attribute__((packed));
+
+// Basic event statistics
+struct ebpf_event_stats {
+    uint64_t lost;          // lost events due to a full ringbuffer
+    uint64_t sent;          // events sent through the ringbuffer
+    uint64_t dns_zero_body; // indicates that the dns body of a sk_buff was unavailable
+};
 
 #endif // EBPF_EVENTPROBE_EBPFEVENTPROTO_H

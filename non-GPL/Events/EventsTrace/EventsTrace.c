@@ -35,7 +35,7 @@ const char argp_program_doc[] =
     "[--process-setgid] [--process-tty-write] [--process-memfd_create] [--process-shmget] "
     "[--process-ptrace] [--process-load_module]\n"
     "[--net-conn-accept] [--net-conn-attempt] [--net-conn-closed]\n"
-    "[--print-features-on-init] [--unbuffer-stdout] [--libbpf-verbose]\n";
+    "[--print-features-on-init] [--stats|-s] [--unbuffer-stdout] [--libbpf-verbose]\n";
 
 // Somewhat kludgy way of ensuring argp doesn't print the EBPF_* constants that
 // happen to be valid ASCII values as short options. We pass these enum values
@@ -63,6 +63,7 @@ enum cmdline_opts {
     NETWORK_CONNECTION_ATTEMPTED,
     NETWORK_CONNECTION_ACCEPTED,
     NETWORK_CONNECTION_CLOSED,
+    NETWORK_DNS_PKT,
     CMDLINE_MAX
 };
 
@@ -89,6 +90,7 @@ static uint64_t cmdline_to_lib[CMDLINE_MAX] = {
     x(NETWORK_CONNECTION_ATTEMPTED)
     x(NETWORK_CONNECTION_ACCEPTED)
     x(NETWORK_CONNECTION_CLOSED)
+    x(NETWORK_DNS_PKT)
 #undef x
     // clang-format on
 };
@@ -114,12 +116,14 @@ static const struct argp_option opts[] = {
     {"process-load-module", PROCESS_LOAD_MODULE, NULL, false, "Print kernel module load events", 0},
     {"net-conn-accept", NETWORK_CONNECTION_ACCEPTED, NULL, false,
      "Print network connection accepted events", 0},
+    {"net-conn-dns-pkt", NETWORK_DNS_PKT, NULL, false, "Print DNS events", 0},
     {"net-conn-attempt", NETWORK_CONNECTION_ATTEMPTED, NULL, false,
      "Print network connection attempted events", 0},
     {"net-conn-closed", NETWORK_CONNECTION_CLOSED, NULL, false,
      "Print network connection closed events", 0},
     {"print-features-on-init", 'i', NULL, false,
      "Print a message with feature information when probes have been successfully loaded", 1},
+    {"stats", 's', NULL, false, "Print event statistics", 0},
     {"unbuffer-stdout", 'u', NULL, false, "Disable userspace stdout buffering", 2},
     {"libbpf-verbose", 'v', NULL, false, "Log verbose libbpf logs to stderr", 2},
     {},
@@ -132,6 +136,7 @@ bool g_print_features_init = 0;
 bool g_features_printed    = 0;
 bool g_unbuffer_stdout     = 0;
 bool g_libbpf_verbose      = 0;
+bool g_stats               = 0;
 
 static error_t parse_arg(int key, char *arg, struct argp_state *state)
 {
@@ -147,6 +152,9 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
         break;
     case 'a':
         g_events_env = UINT64_MAX;
+        break;
+    case 's':
+        g_stats = 1;
         break;
     case FILE_DELETE:
     case FILE_CREATE:
@@ -168,6 +176,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case NETWORK_CONNECTION_ACCEPTED:
     case NETWORK_CONNECTION_ATTEMPTED:
     case NETWORK_CONNECTION_CLOSED:
+    case NETWORK_DNS_PKT:
         g_events_env |= cmdline_to_lib[key];
         break;
     case ARGP_KEY_ARG:
@@ -271,7 +280,10 @@ static void out_escaped_string(const char *value)
             break;
         default:
             if (!isascii(c) || iscntrl(c))
-                printf("\\x%02x", c);
+                // \x is not a valid escape character in json,
+                // and something like '\xff' will break a remarkable number of JSON parsers.
+                // we have to print as '0xff'
+                printf("0x%02x", (uint8_t)c);
             else
                 printf("%c", c);
         }
@@ -399,6 +411,26 @@ static void out_file_info(const char *name, struct ebpf_file_info *finfo)
     out_comma();
 
     out_uint("ctime", finfo->ctime);
+    out_object_end();
+}
+
+static void out_ns_info(const char *name, struct ebpf_namespace_info *ns)
+{
+    printf("\"%s\":", name);
+    out_object_start();
+    out_uint("uts", ns->uts_inonum);
+    out_comma();
+    out_uint("ipc", ns->ipc_inonum);
+    out_comma();
+    out_uint("mnt", ns->mnt_inonum);
+    out_comma();
+    out_uint("net", ns->net_inonum);
+    out_comma();
+    out_uint("cgroup", ns->cgroup_inonum);
+    out_comma();
+    out_uint("time", ns->time_inonum);
+    out_comma();
+    out_uint("pid", ns->pid_inonum);
     out_object_end();
 }
 
@@ -756,6 +788,9 @@ static void out_process_fork(struct ebpf_process_fork_event *evt)
     out_comma();
 
     out_string("comm", evt->comm);
+    out_comma();
+
+    out_ns_info("ns", &evt->ns);
 
     struct ebpf_varlen_field *field;
     FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)
@@ -764,6 +799,9 @@ static void out_process_fork(struct ebpf_process_fork_event *evt)
         switch (field->type) {
         case EBPF_VL_FIELD_PIDS_SS_CGROUP_PATH:
             out_string("pids_ss_cgroup_path", field->data);
+            break;
+        case EBPF_VL_FIELD_CWD:
+            out_string("cwd", field->data);
             break;
         default:
             fprintf(stderr, "Unexpected variable length field: %d\n", field->type);
@@ -917,6 +955,9 @@ static void out_process_exit(struct ebpf_process_exit_event *evt)
     out_pid_info("pids", &evt->pids);
     out_comma();
 
+    out_tty_dev("ctty", &evt->ctty);
+    out_comma();
+
     out_string("comm", evt->comm);
     out_comma();
 
@@ -954,9 +995,8 @@ static void out_ip6_addr(const char *name, const void *addr)
     printf("\"%s\":\"%s\"", name, buf);
 }
 
-static void out_net_info(const char *name, struct ebpf_net_event *evt)
+static void out_net_info(const char *name, struct ebpf_net_info *net, struct ebpf_event_header *hdr)
 {
-    struct ebpf_net_info *net = &evt->net;
 
     printf("\"%s\":", name);
     out_object_start();
@@ -964,6 +1004,10 @@ static void out_net_info(const char *name, struct ebpf_net_event *evt)
     switch (net->transport) {
     case EBPF_NETWORK_EVENT_TRANSPORT_TCP:
         out_string("transport", "TCP");
+        out_comma();
+        break;
+    case EBPF_NETWORK_EVENT_TRANSPORT_UDP:
+        out_string("transport", "UDP");
         out_comma();
         break;
     }
@@ -1004,7 +1048,7 @@ static void out_net_info(const char *name, struct ebpf_net_event *evt)
     out_comma();
     out_int("network_namespace", net->netns);
 
-    switch (evt->hdr.type) {
+    switch (hdr->type) {
     case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
         out_comma();
         out_uint("bytes_sent", net->tcp.close.bytes_sent);
@@ -1026,7 +1070,7 @@ static void out_network_event(const char *name, struct ebpf_net_event *evt)
     out_pid_info("pids", &evt->pids);
     out_comma();
 
-    out_net_info("net", evt);
+    out_net_info("net", &evt->net, &evt->hdr);
     out_comma();
 
     out_string("comm", (const char *)&evt->comm);
@@ -1038,6 +1082,40 @@ static void out_network_event(const char *name, struct ebpf_net_event *evt)
 static void out_network_connection_accepted_event(struct ebpf_net_event *evt)
 {
     out_network_event("NETWORK_CONNECTION_ACCEPTED", evt);
+}
+
+static void out_network_dns_event(struct ebpf_dns_event *event)
+{
+    out_object_start();
+    out_event_type("DNS_EVENT");
+    out_comma();
+
+    out_pid_info("pids", &event->pids);
+    out_comma();
+
+    out_net_info("net", &event->net, &event->hdr);
+    out_comma();
+
+    out_string("comm", (const char *)&event->comm);
+    out_comma();
+
+    printf("\"data\":");
+    out_array_start();
+    struct ebpf_varlen_field *field;
+    FOR_EACH_VARLEN_FIELD(event->vl_fields, field)
+    {
+        for (size_t i = 0; i < field->size; i++) {
+            uint8_t part = field->data[i];
+            printf("%d", part);
+            if (i < field->size - 1) {
+                printf(", ");
+            }
+        }
+    }
+    out_array_end();
+
+    out_object_end();
+    out_newline();
 }
 
 static void out_network_connection_attempted_event(struct ebpf_net_event *evt)
@@ -1119,6 +1197,9 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
     case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
         out_network_connection_closed_event((struct ebpf_net_event *)evt_hdr);
         break;
+    case EBPF_EVENT_NETWORK_DNS_PKT:
+        out_network_dns_event((struct ebpf_dns_event *)evt_hdr);
+        break;
     }
 
     return 0;
@@ -1172,6 +1253,14 @@ int main(int argc, char **argv)
         if (err < 0 && err != -EINTR) {
             fprintf(stderr, "Failed to poll event context %d: %s\n", err, strerror(-err));
             break;
+        }
+        if (g_stats) {
+            struct ebpf_event_stats ees;
+
+            if (ebpf_event_ctx__read_stats(ctx, &ees) == 0)
+                printf("sent %lu lost %lu\n", ees.sent, ees.lost);
+            else
+                fprintf(stderr, "Failed to read stats: %s\n", strerror(errno));
         }
     }
 

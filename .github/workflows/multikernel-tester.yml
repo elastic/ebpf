@@ -55,7 +55,7 @@ jobs:
     - name: Get Env
       run: echo "ELASTIC_EBPF_VERSION=$(cat VERSION)" >> $GITHUB_ENV && echo "PWD=$(pwd)" >> $GITHUB_ENV
     - name: Download Build Artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: elastic-ebpf-${{ inputs.architecture }}
         path: ${{ env.PWD }}/artifacts
@@ -64,7 +64,7 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v3
       with:
-        go-version: '1.17'
+        go-version: '1.22'
     - name: Run tests
       run: make run-multikernel-test IMG_FILTER=${{ matrix.kernel_flavor }} ARCH=${{ inputs.architecture }} ARTIFACTS_PATH=${PWD}/artifacts
     - name: Prepare for archival
@@ -74,15 +74,15 @@ jobs:
         mkdir -p logs && mv testing/results logs/${{ matrix.kernel_flavor }}-${{ inputs.architecture }}
     - name: Archive test summary
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: result-summary
+        name: result-summary-${{ matrix.kernel_flavor }}-${{ inputs.architecture }}.txt
         path: results-${{ matrix.kernel_flavor }}-${{ inputs.architecture }}.txt
     - name: Archive individual test results
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: logs
+        name: logs-${{ matrix.kernel_flavor }}-${{ inputs.architecture }}.txt
         path: logs
     - name: Print summary
       if: always()

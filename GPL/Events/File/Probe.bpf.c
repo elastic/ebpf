@@ -31,11 +31,6 @@ DECL_FUNC_ARG_EXISTS(vfs_rename, rd);
 DECL_FUNC_ARG(do_truncate, filp);
 DECL_FUNC_RET(do_truncate);
 
-static int mntns(const struct task_struct *task)
-{
-    return BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
-}
-
 static int do_unlinkat__enter()
 {
     struct ebpf_events_state state = {};
@@ -122,15 +117,18 @@ static int vfs_unlink__exit(int ret)
         goto out;
     }
 
-    event->hdr.type = EBPF_EVENT_FILE_DELETE;
-    event->hdr.ts   = bpf_ktime_get_ns();
+    event->hdr.type    = EBPF_EVENT_FILE_DELETE;
+    event->hdr.ts      = bpf_ktime_get_ns();
+    event->hdr.ts_boot = bpf_ktime_get_boot_ns_helper();
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_cred_info__fill(&event->creds, task);
 
     struct path p;
-    p.dentry     = &state->unlink.de;
-    p.mnt        = state->unlink.mnt;
-    event->mntns = mntns(task);
+    p.dentry = &state->unlink.de;
+    p.mnt    = state->unlink.mnt;
+    struct ebpf_namespace_info ns;
+    ebpf_ns__fill(&ns, task);
+    event->mntns = ns.mnt_inonum;
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
     ebpf_file_info__fill(&event->finfo, p.dentry);
 
@@ -155,7 +153,7 @@ static int vfs_unlink__exit(int ret)
     size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+    ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
 
     // Certain filesystems (eg. overlayfs) call vfs_unlink twice during the same
     // execution context.
@@ -227,14 +225,17 @@ static void prepare_and_send_file_event(struct file *f,
     if (!event)
         return;
 
-    event->hdr.type = type;
-    event->hdr.ts   = bpf_ktime_get_ns();
+    event->hdr.type    = type;
+    event->hdr.ts      = bpf_ktime_get_ns();
+    event->hdr.ts_boot = bpf_ktime_get_boot_ns_helper();
 
     struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     struct path p            = BPF_CORE_READ(f, f_path);
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_cred_info__fill(&event->creds, task);
-    event->mntns = mntns(task);
+    struct ebpf_namespace_info ns;
+    ebpf_ns__fill(&ns, task);
+    event->mntns = ns.mnt_inonum;
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
     ebpf_file_info__fill(&event->finfo, p.dentry);
 
@@ -263,10 +264,10 @@ static void prepare_and_send_file_event(struct file *f,
     if (path_prefix) {
         if ((path_prefix_len > 0) && (size >= path_prefix_len)) {
             if (is_equal_prefix(field->data, path_prefix, path_prefix_len))
-                bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+                ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
         }
     } else {
-        bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+        ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
     }
 }
 
@@ -482,11 +483,14 @@ static int vfs_rename__exit(int ret)
     // NOTE: this temp variable is necessary to keep the verifier happy
     struct dentry *de = (struct dentry *)state->rename.de;
 
-    event->hdr.type = EBPF_EVENT_FILE_RENAME;
-    event->hdr.ts   = bpf_ktime_get_ns();
+    event->hdr.type    = EBPF_EVENT_FILE_RENAME;
+    event->hdr.ts      = bpf_ktime_get_ns();
+    event->hdr.ts_boot = bpf_ktime_get_boot_ns_helper();
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_cred_info__fill(&event->creds, task);
-    event->mntns = mntns(task);
+    struct ebpf_namespace_info ns;
+    ebpf_ns__fill(&ns, task);
+    event->mntns = ns.mnt_inonum;
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
     ebpf_file_info__fill(&event->finfo, de);
 
@@ -516,7 +520,7 @@ static int vfs_rename__exit(int ret)
     size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+    ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
 
     // Certain filesystems (eg. overlayfs) call vfs_rename twice during the same
     // execution context.
@@ -552,10 +556,13 @@ static void file_modify_event__emit(enum ebpf_file_change_type typ, struct path 
 
     event->hdr.type    = EBPF_EVENT_FILE_MODIFY;
     event->hdr.ts      = bpf_ktime_get_ns();
+    event->hdr.ts_boot = bpf_ktime_get_boot_ns_helper();
     event->change_type = typ;
     ebpf_pid_info__fill(&event->pids, task);
     ebpf_cred_info__fill(&event->creds, task);
-    event->mntns = mntns(task);
+    struct ebpf_namespace_info ns;
+    ebpf_ns__fill(&ns, task);
+    event->mntns = ns.mnt_inonum;
     bpf_get_current_comm(event->comm, TASK_COMM_LEN);
     struct dentry *d = BPF_CORE_READ(path, dentry);
     ebpf_file_info__fill(&event->finfo, d);
@@ -588,7 +595,7 @@ static void file_modify_event__emit(enum ebpf_file_change_type typ, struct path 
     size  = ebpf_resolve_pids_ss_cgroup_path_to_string(field->data, task);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
-    bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
+    ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
 
 out:
     return;

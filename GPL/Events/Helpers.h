@@ -113,6 +113,7 @@ const volatile int consumer_pid = 0;
         ret;                                                                                       \
     })
 
+// value is replaced later by `probe_fill_relos()`
 #define DECL_FUNC_RET(func) const volatile int ret__##func##__ = 0;
 #define FUNC_RET_READ(type, func)                                                                  \
     ({                                                                                             \
@@ -229,11 +230,21 @@ static void ebpf_ctty__fill(struct ebpf_tty_dev *ctty, const struct task_struct 
 
 static void ebpf_pid_info__fill(struct ebpf_pid_info *pi, const struct task_struct *task)
 {
-    pi->tid  = BPF_CORE_READ(task, pid);
-    pi->tgid = BPF_CORE_READ(task, tgid);
-    pi->ppid = BPF_CORE_READ(task, group_leader, real_parent, tgid);
-    pi->pgid = BPF_CORE_READ(task, group_leader, signal, pids[PIDTYPE_PGID], numbers[0].nr);
-    pi->sid  = BPF_CORE_READ(task, group_leader, signal, pids[PIDTYPE_SID], numbers[0].nr);
+    int e_pgid, e_sid;
+
+    if (bpf_core_enum_value_exists(enum pid_type, PIDTYPE_PGID))
+        e_pgid = bpf_core_enum_value(enum pid_type, PIDTYPE_PGID);
+    else
+        e_pgid = PIDTYPE_PGID;
+    if (bpf_core_enum_value_exists(enum pid_type, PIDTYPE_SID))
+        e_sid = bpf_core_enum_value(enum pid_type, PIDTYPE_SID);
+    else
+        e_sid = PIDTYPE_SID;
+    pi->tid           = BPF_CORE_READ(task, pid);
+    pi->tgid          = BPF_CORE_READ(task, tgid);
+    pi->ppid          = BPF_CORE_READ(task, group_leader, real_parent, tgid);
+    pi->pgid          = BPF_CORE_READ(task, group_leader, signal, pids[e_pgid], numbers[0].nr);
+    pi->sid           = BPF_CORE_READ(task, group_leader, signal, pids[e_sid], numbers[0].nr);
     pi->start_time_ns = BPF_CORE_READ(task, group_leader, start_time);
 }
 
@@ -295,6 +306,48 @@ static void ebpf_comm__fill(char *comm, size_t len, const struct task_struct *ta
     read_kernel_str_or_empty_str(comm, len, BPF_CORE_READ(task, comm));
 }
 
+static void ebpf_ns__fill(struct ebpf_namespace_info *nsi, const struct task_struct *task)
+{
+    struct pid *pid;
+    int pid_level;
+
+    nsi->uts_inonum    = BPF_CORE_READ(task, nsproxy, uts_ns, ns.inum);
+    nsi->ipc_inonum    = BPF_CORE_READ(task, nsproxy, ipc_ns, ns.inum);
+    nsi->mnt_inonum    = BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
+    nsi->net_inonum    = BPF_CORE_READ(task, nsproxy, net_ns, ns.inum);
+    nsi->cgroup_inonum = BPF_CORE_READ(task, nsproxy, cgroup_ns, ns.inum);
+    nsi->time_inonum   = BPF_CORE_READ(task, nsproxy, time_ns, ns.inum);
+
+    pid = BPF_CORE_READ(task, thread_pid);
+    if (pid == NULL) {
+        nsi->pid_inonum = 0;
+        return;
+    }
+    pid_level       = BPF_CORE_READ(pid, level);
+    nsi->pid_inonum = BPF_CORE_READ(pid, numbers[pid_level].ns, ns.inum);
+}
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, u32);
+    __type(value, struct ebpf_event_stats);
+    __uint(max_entries, 1);
+} ringbuf_stats SEC(".maps");
+
+static long ebpf_ringbuf_write(void *ringbuf, void *data, u64 size, u64 flags)
+{
+    long r;
+    struct ebpf_event_stats *ees;
+    u32 zero = 0;
+
+    r   = bpf_ringbuf_output(ringbuf, data, size, flags);
+    ees = bpf_map_lookup_elem(&ringbuf_stats, &zero);
+    if (ees != NULL)
+        r == 0 ? ees->sent++ : ees->lost++;
+
+    return (r);
+}
+
 static bool is_kernel_thread(const struct task_struct *task)
 {
     // All kernel threads are children of kthreadd, which always has pid 2
@@ -333,6 +386,14 @@ static int strncmp(const char *s1, const char *s2, size_t n)
 static int is_equal_prefix(const char *str1, const char *str2, int len)
 {
     return !strncmp(str1, str2, len);
+}
+
+static u64 bpf_ktime_get_boot_ns_helper()
+{
+    if (bpf_core_enum_value_exists(enum bpf_func_id, BPF_FUNC_ktime_get_boot_ns))
+        return bpf_ktime_get_boot_ns();
+    else
+        return 0;
 }
 
 #endif // EBPF_EVENTPROBE_HELPERS_H

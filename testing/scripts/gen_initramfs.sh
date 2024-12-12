@@ -37,7 +37,7 @@ build_testrunner() {
     pushd testrunner > /dev/null
 
     go clean
-    GOARCH=$goarch go build
+    GOARCH=$goarch CGO_ENABLED=0 go test -c -o testrunner -ldflags '-extldflags "-static"'
 
     if [[ $? -ne 0 ]]
     then
@@ -56,7 +56,7 @@ build_testbins() {
     for c_src in *.c; do
         local bin_path=bin/$arch/$(basename $c_src .c)
 
-        ${arch}-linux-gnu-gcc -g -static $c_src -o $bin_path \
+        ${CC-${arch}-linux-gnu-gcc} -g -static $c_src -o $bin_path \
             || exit_error "compilation of $c_src for $arch failed (see above)"
     done
 
@@ -78,7 +78,7 @@ invoke_bluebox() {
 
     local cmd="bluebox"
     cmd+=" -a $goarch"
-    cmd+=" -e testrunner/testrunner"
+    cmd+=" -e testrunner/testrunner:-test.v"
     cmd+=" -r $eventstrace"
     cmd+=" -r $tcfiltertests"
     cmd+=" -r $tcfilterbpf"
