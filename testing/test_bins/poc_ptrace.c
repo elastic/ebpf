@@ -7,7 +7,7 @@
 #include "common.h"
 
 void child1() {
-    sleep(120);
+    sleep(30);
 }
 
 void child2(pid_t pid) {

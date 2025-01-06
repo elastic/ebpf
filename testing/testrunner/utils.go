@@ -110,17 +110,17 @@ type ProcessForkEvent struct {
 }
 
 type ProcessExecEvent struct {
-	Pids        PidInfo  `json:"pids"`
-	Creds       CredInfo `json:"creds"`
-	Ctty        TtyInfo  `json:"ctty"`
-	IsSetUid    bool     `json:"is_setuid"`
-	IsSetGid    bool     `json:"is_setgid"`
-	IsMemfd     bool     `json:"is_memfd"`
-	InodeNlink  uint64   `json:"inode_nlink"`
-	FileName    string   `json:"filename"`
-	Cwd         string   `json:"cwd"`
-	Argv        []string `json:"argv"`
-	Env         []string `json:"env"`
+	Pids       PidInfo  `json:"pids"`
+	Creds      CredInfo `json:"creds"`
+	Ctty       TtyInfo  `json:"ctty"`
+	IsSetUid   bool     `json:"is_setuid"`
+	IsSetGid   bool     `json:"is_setgid"`
+	IsMemfd    bool     `json:"is_memfd"`
+	InodeNlink uint64   `json:"inode_nlink"`
+	FileName   string   `json:"filename"`
+	Cwd        string   `json:"cwd"`
+	Argv       []string `json:"argv"`
+	Env        []string `json:"env"`
 }
 
 type ProcessKernelLoadModuleEvent struct {
@@ -131,10 +131,10 @@ type ProcessKernelLoadModuleEvent struct {
 }
 
 type ProcessShmgetEvent struct {
-	Pids          PidInfo `json:"pids"`
-	Key           uint32  `json:"key"`
-	Size          uint32  `json:"size"`
-	ShmFlg        int64   `json:"shmflg"`
+	Pids   PidInfo `json:"pids"`
+	Key    uint32  `json:"key"`
+	Size   uint32  `json:"size"`
+	ShmFlg int64   `json:"shmflg"`
 }
 
 type MemfdCreateEvent struct {
@@ -149,9 +149,9 @@ type MemfdCreateEvent struct {
 }
 
 type ProcessPtraceEvent struct {
-	Pids           PidInfo `json:"pids"`
-	ChildPid       int64   `json:"child_pid"`
-	Request        int64   `json:"request"`
+	Pids     PidInfo `json:"pids"`
+	ChildPid int64   `json:"child_pid"`
+	Request  int64   `json:"request"`
 }
 
 type FileCreateEvent struct {
@@ -227,6 +227,32 @@ type NetBinOut struct {
 	ClientPort int64       `json:"client_port"`
 	ServerPort int64       `json:"server_port"`
 	NetNs      int64       `json:"netns"`
+}
+
+type PtraceBinOut struct {
+	PtracePid int64 `json:"ptrace_pid"`
+	ChildPid  int64 `json:"child_pid"`
+	Request   int64 `json:"request"`
+}
+
+type ShmgetBinOut struct {
+	PidInfo TestPidInfo `json:"pid_info"`
+	Key     uint32      `json:"key"`
+	Size    uint32      `json:"size"`
+	ShmFlg  int64       `json:"shmflg"`
+}
+
+type MemfdBinOut struct {
+	PidInfo TestPidInfo `json:"pid_info"`
+	Flags   struct {
+		Value           uint32 `json:"value"`
+		MfdCloexec      bool   `json:"mfd_cloexec"`
+		MfdAllowSealing bool   `json:"mfd_allow_sealing"`
+		MfdHugetlb      bool   `json:"mfd_hugetlb"`
+		MfdNoexecSeal   bool   `json:"mfd_noexec_seal"`
+		MfdExec         bool   `json:"mfd_exec"`
+	} `json:"flags"`
+	FileName string `json:"filename"`
 }
 
 type NetConnCloseEvent struct {
@@ -342,18 +368,6 @@ func IsOverlayFsSupported(t *testing.T) bool {
 	require.NoError(t, err)
 
 	return false
-}
-
-func AssertUint32Equal(a, b uint32) {
-	if a != b {
-		TestFail(fmt.Sprintf("Test assertion failed 0x%08x != 0x%08x", a, b))
-	}
-}
-
-func AssertUint32NotEqual(a, b uint32) {
-	if a == b {
-		TestFail(fmt.Sprintf("Test assertion failed 0x%08x == 0x%08x", a, b))
-	}
 }
 
 func PrintBPFDebugOutput() {
