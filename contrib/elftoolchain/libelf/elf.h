@@ -1,5 +1,8 @@
+#ifndef	_ELF_H_
+#define	_ELF_H_
+
 /*-
- * Copyright (c) 2006,2008,2010 Joseph Koshy
+ * Copyright (c) 2024 Christiano Haesbaert
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,28 +25,12 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $Id$
  */
 
-#include <sys/cdefs.h>
+#ifdef ELASTIC
+#include <sys/elfdefinitions.h>
+#endif	/* ELASTIC */
 
-#include <libelf.h>
-
-#include "_libelf.h"
-
-ELFTC_VCSID("$Id$");
-
-/*@ELFTC-DOWNSTREAM-VCSID@*/
-
-Elf_Arhdr *
-elf_getarhdr(Elf *e)
-{
-	if (e == NULL) {
-		LIBELF_SET_ERROR(ARGUMENT, 0);
-		return (NULL);
-	}
-
-	if (e->e_flags & LIBELF_F_AR_HEADER)
-		return (e->e_hdr.e_arhdr);
-
-	return (_libelf_ar_gethdr(e));
-}
+#endif /* _ELF_H */
