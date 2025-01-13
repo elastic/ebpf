@@ -97,6 +97,7 @@ main() {
         # x86_64 uses ttyS0 for the first serial port
         bootparams+=" console=ttyS0"
         extra_args+=" -machine accel=kvm"
+        extra_args+=" -runas root"
     fi
 
     qemu-system-${arch} \
