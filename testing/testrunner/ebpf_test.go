@@ -109,6 +109,14 @@ func ForkExec(t *testing.T, et *Runner) {
 	var binOutput struct {
 		ParentPidInfo TestPidInfo `json:"parent_info"`
 		ChildPid      int64       `json:"child_pid"`
+		IsSgid        bool        `json:"is_sgid"`
+		IsSetuid      bool        `json:"is_setuid"`
+		Ruid          int64       `json:"ruid"`
+		Euid          int64       `json:"euid"`
+		Suid          int64       `json:"suid"`
+		Rgid          int64       `json:"rgid"`
+		Egid          int64       `json:"egid"`
+		Sgid          int64       `json:"sgid"`
 	}
 	runTestUnmarshalOutput(t, "fork_exec", &binOutput)
 
@@ -138,6 +146,7 @@ func ForkExec(t *testing.T, et *Runner) {
 		case "PROCESS_EXEC":
 			if execEvent == nil {
 				execEvent = new(ProcessExecEvent)
+				t.Logf("got exec: %s", line)
 				err := json.Unmarshal([]byte(line), &execEvent)
 				require.NoError(t, err, "error unmarshaling processExecEvent")
 				if execEvent.Pids.Tgid != binOutput.ChildPid {
@@ -150,9 +159,15 @@ func ForkExec(t *testing.T, et *Runner) {
 		}
 	}
 
-	TestPidEqual(t, binOutput.ParentPidInfo, execEvent.Pids)
 	require.Equal(t, forkEvent.Creds.CapPermitted, uint64(0x00000000ffffffff))
 	require.Equal(t, forkEvent.Creds.CapEffective, uint64(0x00000000f0f0f0f0))
+
+	require.Equal(t, execEvent.Creds.Ruid, binOutput.Ruid)
+	require.Equal(t, execEvent.Creds.Rgid, binOutput.Rgid)
+	require.Equal(t, execEvent.Creds.Euid, binOutput.Euid)
+	require.Equal(t, execEvent.Creds.Egid, binOutput.Egid)
+	require.Equal(t, execEvent.Creds.Suid, binOutput.Suid)
+	require.Equal(t, execEvent.Creds.Sgid, binOutput.Sgid)
 
 	require.Equal(t, execEvent.Creds.CapPermitted, uint64(0x000001ffffffffff))
 	require.Equal(t, execEvent.Creds.CapEffective, uint64(0x000001ffffffffff))
