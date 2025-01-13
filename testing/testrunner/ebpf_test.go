@@ -150,6 +150,7 @@ func ForkExec(t *testing.T, et *Runner) {
 		}
 	}
 
+	TestPidEqual(t, binOutput.ParentPidInfo, execEvent.Pids)
 	require.Equal(t, forkEvent.Creds.CapPermitted, uint64(0x00000000ffffffff))
 	require.Equal(t, forkEvent.Creds.CapEffective, uint64(0x00000000f0f0f0f0))
 
