@@ -96,9 +96,10 @@ main() {
     elif [[ $arch == "x86_64" ]]; then
         # x86_64 uses ttyS0 for the first serial port
         bootparams+=" console=ttyS0"
+        extra_args+=" -machine accel=kvm"
     fi
 
-    qemu-system-${arch} \
+    sudo qemu-system-${arch} \
         -nographic -m 1G \
         -smp 8 \
         -kernel $kernel \
