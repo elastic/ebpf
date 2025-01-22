@@ -837,8 +837,8 @@ static void out_process_exec(struct ebpf_process_exec_event *evt)
     out_comma();
     out_bool("is_memfd", evt->flags & EXEC_F_MEMFD);
     out_comma();
-    unsigned int nlinks = evt->inode_nlink;
-    out_uint("inode_nlinks", nlinks);
+    unsigned int nlink = evt->inode_nlink;
+    out_uint("inode_nlink", nlink);
 
     struct ebpf_varlen_field *field;
     FOR_EACH_VARLEN_FIELD(evt->vl_fields, field)

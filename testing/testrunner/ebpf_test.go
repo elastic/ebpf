@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -108,6 +109,14 @@ func ForkExec(t *testing.T, et *Runner) {
 	var binOutput struct {
 		ParentPidInfo TestPidInfo `json:"parent_info"`
 		ChildPid      int64       `json:"child_pid"`
+		IsSgid        bool        `json:"is_sgid"`
+		IsSetuid      bool        `json:"is_setuid"`
+		Ruid          int64       `json:"ruid"`
+		Euid          int64       `json:"euid"`
+		Suid          int64       `json:"suid"`
+		Rgid          int64       `json:"rgid"`
+		Egid          int64       `json:"egid"`
+		Sgid          int64       `json:"sgid"`
 	}
 	runTestUnmarshalOutput(t, "fork_exec", &binOutput)
 
@@ -137,6 +146,7 @@ func ForkExec(t *testing.T, et *Runner) {
 		case "PROCESS_EXEC":
 			if execEvent == nil {
 				execEvent = new(ProcessExecEvent)
+				t.Logf("got exec: %s", line)
 				err := json.Unmarshal([]byte(line), &execEvent)
 				require.NoError(t, err, "error unmarshaling processExecEvent")
 				if execEvent.Pids.Tgid != binOutput.ChildPid {
@@ -151,6 +161,13 @@ func ForkExec(t *testing.T, et *Runner) {
 
 	require.Equal(t, forkEvent.Creds.CapPermitted, uint64(0x00000000ffffffff))
 	require.Equal(t, forkEvent.Creds.CapEffective, uint64(0x00000000f0f0f0f0))
+
+	require.Equal(t, execEvent.Creds.Ruid, binOutput.Ruid)
+	require.Equal(t, execEvent.Creds.Rgid, binOutput.Rgid)
+	require.Equal(t, execEvent.Creds.Euid, binOutput.Euid)
+	require.Equal(t, execEvent.Creds.Egid, binOutput.Egid)
+	require.Equal(t, execEvent.Creds.Suid, binOutput.Suid)
+	require.Equal(t, execEvent.Creds.Sgid, binOutput.Sgid)
 
 	require.Equal(t, execEvent.Creds.CapPermitted, uint64(0x000001ffffffffff))
 	require.Equal(t, execEvent.Creds.CapEffective, uint64(0x000001ffffffffff))
@@ -431,6 +448,94 @@ func Tcpv4ConnectionAttempt(t *testing.T, et *Runner) {
 	require.Equal(t, ev.Comm, "tcpv4_connect")
 }
 
+func MemfdCreate(t *testing.T, et *Runner) {
+	binOutput := MemfdBinOut{}
+	runTestUnmarshalOutput(t, "poc_memfd_create_exec", &binOutput)
+
+	var memfdCreateEvent *MemfdCreateEvent
+	var execEvent *ProcessExecEvent
+
+	type baseEvent struct {
+		EventType string `json:"event_type"`
+	}
+
+	for memfdCreateEvent == nil || execEvent == nil {
+		line := et.GetNextEventOut("PROCESS_MEMFD_CREATE", "PROCESS_EXEC")
+		typeField := baseEvent{}
+		err := json.Unmarshal([]byte(line), &typeField)
+		require.NoError(t, err)
+
+		switch typeField.EventType {
+		case "PROCESS_MEMFD_CREATE":
+			if memfdCreateEvent != nil {
+				continue
+			}
+			memfdCreateEvent = new(MemfdCreateEvent)
+			err := json.Unmarshal([]byte(line), &memfdCreateEvent)
+			require.NoError(t, err)
+			if memfdCreateEvent.Pids.Tgid != binOutput.PidInfo.Tgid {
+				memfdCreateEvent = nil
+			}
+		case "PROCESS_EXEC":
+			if execEvent != nil {
+				continue
+			}
+			execEvent = new(ProcessExecEvent)
+			err := json.Unmarshal([]byte(line), &execEvent)
+			require.NoError(t, err)
+			if execEvent.Pids.Tgid != binOutput.PidInfo.Tgid || !strings.Contains(execEvent.Argv[0], "/proc") {
+				execEvent = nil
+			}
+		}
+	}
+
+	TestPidEqual(t, binOutput.PidInfo, memfdCreateEvent.Pids)
+	require.Equal(t, binOutput.Flags.Value, memfdCreateEvent.Flags)
+	require.Equal(t, binOutput.Flags.MfdCloexec, memfdCreateEvent.FlagCloexec)
+	require.Equal(t, binOutput.Flags.MfdAllowSealing, memfdCreateEvent.FlagAllowSeal)
+	require.Equal(t, binOutput.Flags.MfdHugetlb, memfdCreateEvent.FlagHugetlb)
+	require.Equal(t, binOutput.Flags.MfdNoexecSeal, memfdCreateEvent.FlagNoexecSeal)
+	require.Equal(t, binOutput.Flags.MfdExec, memfdCreateEvent.FlagExec)
+	require.Equal(t, binOutput.FileName, memfdCreateEvent.FileName)
+	require.True(t, execEvent.IsMemfd)
+	require.False(t, execEvent.IsSetUid)
+	require.False(t, execEvent.IsSetGid)
+	require.True(t, execEvent.InodeNlink == 0)
+}
+
+func Shmget(t *testing.T, et *Runner) {
+	binOutput := ShmgetBinOut{}
+	runTestUnmarshalOutput(t, "poc_shmget", &binOutput)
+
+	var ev *ProcessShmgetEvent
+	for {
+		et.UnmarshalNextEvent(&ev, "PROCESS_SHMGET")
+		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
+			break
+		}
+	}
+
+	require.Equal(t, ev.Key, binOutput.Key)
+	require.Equal(t, ev.Size, binOutput.Size)
+	require.Equal(t, ev.ShmFlg, binOutput.ShmFlg)
+}
+
+func Ptrace(t *testing.T, et *Runner) {
+	binOutput := PtraceBinOut{}
+	runTestUnmarshalOutput(t, "poc_ptrace", &binOutput)
+	var ev ProcessPtraceEvent
+	for {
+		et.UnmarshalNextEvent(&ev, "PROCESS_PTRACE")
+		if ev.Pids.Tgid == binOutput.PtracePid {
+			break
+		}
+	}
+
+	require.Equal(t, ev.Pids.Tgid, binOutput.PtracePid)
+	require.Equal(t, ev.Request, binOutput.Request)
+	require.Equal(t, ev.ChildPid, binOutput.ChildPid)
+}
+
 func Tcpv4ConnectionAccept(t *testing.T, et *Runner) {
 	binOutput := NetBinOut{}
 	runTestUnmarshalOutput(t, "tcpv4_connect", &binOutput)
@@ -626,6 +731,9 @@ func TestEbpf(t *testing.T) {
 		{"Tcpv6ConnectionAccept", Tcpv6ConnectionAccept, []string{"--net-conn-accept"}, false},
 		{"Tcpv6ConnectionClose", Tcpv6ConnectionClose, []string{"--net-conn-close"}, false},
 		{"DNSMonitor", DNSMonitor, []string{"--net-conn-dns-pkt"}, false},
+		{"Ptrace", Ptrace, []string{"--process-ptrace"}, false},
+		{"Shmget", Shmget, []string{"--process-shmget"}, false},
+		{"MemfdCreate", MemfdCreate, []string{"--process-memfd-create", "--process-exec"}, false},
 
 		{"TcFilter", TcFilter, []string{}, false},
 

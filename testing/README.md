@@ -25,6 +25,8 @@ process is repeated on several different kernels run in QEMU.
 Before running tests, you will need to have built all artifacts in the repo
 with `make build ARCH=<arch>`, then package them with `make package`.
 
+You'll also need to compile the test binaries, with `make testbins`.
+
 To run tests, you will need to have a directory containing all the kernel
 images you want to test. Then invoke:
 
@@ -61,7 +63,8 @@ This test framework leverages the go stdlib test suite, so all ebpf tests can
 be run as normal go tests, outside of the bluebox VMs:
 
 ```
-#compile the test in advance, so we don't need root to have a go environment
+# compile the test in advance, so we don't need root to have a go environment
+cd testing/testrunner
 go test -c
 # run all tests
 sudo ./testrunner.test
