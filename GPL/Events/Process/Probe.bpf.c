@@ -195,12 +195,26 @@ out:
 // as true once, which signifies the last thread in a thread group exiting.
 static int taskstats_exit__enter(const struct task_struct *task, int group_dead)
 {
-    if (!group_dead || is_kernel_thread(task))
-        goto out;
+    struct ebpf_events_state state = {};
 
-    struct ebpf_process_exit_event *event = get_event_buffer();
-    if (!event)
-        goto out;
+    if (!group_dead || is_kernel_thread(task))
+        return 0;
+
+    ebpf_events_state__set(EBPF_EVENTS_STATE_GROUP_DEAD, &state);
+
+    return 0;
+}
+
+static int do_exit(const struct task_struct *task)
+{
+    struct ebpf_process_exit_event *event;
+
+    if (ebpf_events_state__get(EBPF_EVENTS_STATE_GROUP_DEAD) == NULL)
+        return 0;
+
+    event = get_event_buffer();
+    if (event == NULL)
+        return 0;
 
     event->hdr.type    = EBPF_EVENT_PROCESS_EXIT;
     event->hdr.ts      = bpf_ktime_get_ns();
@@ -227,7 +241,6 @@ static int taskstats_exit__enter(const struct task_struct *task, int group_dead)
 
     ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
 
-out:
     return 0;
 }
 
@@ -241,6 +254,18 @@ SEC("kprobe/taskstats_exit")
 int BPF_KPROBE(kprobe__taskstats_exit, const struct task_struct *task, int group_dead)
 {
     return taskstats_exit__enter(task, group_dead);
+}
+
+SEC("kprobe/proc_exit_connector")
+int BPF_KPROBE(kprobe__proc_exit_connector, const struct task_struct *task)
+{
+    return do_exit(task);
+}
+
+SEC("fentry/proc_exit_connector")
+int BPF_PROG(fentry__proc_exit_connector, const struct task_struct *task)
+{
+    return do_exit(task);
 }
 
 // tracepoint/syscalls/sys_[enter/exit]_[name] tracepoints are not available
