@@ -205,7 +205,8 @@ static int taskstats_exit__enter(const struct task_struct *task, int group_dead)
     return 0;
 }
 
-static int do_exit(const struct task_struct *task)
+SEC("tp_btf/sched_process_exit")
+int BPF_PROG(sched_process_exit, const struct task_struct *task)
 {
     struct ebpf_process_exit_event *event;
 
@@ -254,18 +255,6 @@ SEC("kprobe/taskstats_exit")
 int BPF_KPROBE(kprobe__taskstats_exit, const struct task_struct *task, int group_dead)
 {
     return taskstats_exit__enter(task, group_dead);
-}
-
-SEC("kprobe/proc_exit_connector")
-int BPF_KPROBE(kprobe__proc_exit_connector, const struct task_struct *task)
-{
-    return do_exit(task);
-}
-
-SEC("fentry/proc_exit_connector")
-int BPF_PROG(fentry__proc_exit_connector, const struct task_struct *task)
-{
-    return do_exit(task);
 }
 
 // tracepoint/syscalls/sys_[enter/exit]_[name] tracepoints are not available

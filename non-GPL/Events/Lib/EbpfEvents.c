@@ -373,7 +373,6 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__vfs_rename, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__vfs_rename, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__taskstats_exit, false);
-        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__proc_exit_connector, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__commit_creds, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__inet_csk_accept, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tcp_v4_connect, false);
@@ -398,7 +397,6 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__vfs_rename, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__vfs_rename, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__taskstats_exit, false);
-        err = err ?: bpf_program__set_autoload(obj->progs.fentry__proc_exit_connector, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__commit_creds, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__inet_csk_accept, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__tcp_v4_connect, false);
