@@ -177,13 +177,11 @@ out:
 
 // Process exit probe
 //
-// Note that we aren't using the sched_process_exit tracepoint here as it's
-// prone to race conditions. We want to emit an exit event when every single
-// thread in a thread group has exited. If we were to try to detect that by
-// checking task->signal->live == 0 (i.e. check that there are now 0 running
-// threads in the thread group), we would race with a thread exit on another
-// CPU decrementing task->signal->live before the BPF program can check if it
-// is equal to 0.
+// We want to emit an exit event when every single thread in a thread group has
+// exited. If we were to try to detect that by checking task->signal->live == 0
+// (i.e. check that there are now 0 running threads in the thread group), we
+// would race with a thread exit on another CPU decrementing task->signal->live
+// before the BPF program can check if it is equal to 0.
 //
 // Checking group_dead on taskstats_exit to determine if every thread in a
 // thread group has exited instead is free of race conditions. taskstats_exit
@@ -193,6 +191,10 @@ out:
 // group_dead is the result of an atomic decrement and test operation on
 // task->signal->live, so is guaranteed to only be passed into taskstats_exit
 // as true once, which signifies the last thread in a thread group exiting.
+//
+// The problem is taskstats_exit__enter happens before file descriptors are
+// closed in exit_files(), so instead of emiting the event here, record that we
+// saw group_dead and delay emiting the event until sched_process_exit().
 static int taskstats_exit__enter(const struct task_struct *task, int group_dead)
 {
     struct ebpf_events_state state = {};
