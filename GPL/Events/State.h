@@ -21,6 +21,7 @@ enum ebpf_events_state_op {
     EBPF_EVENTS_STATE_WRITE          = 7,
     EBPF_EVENTS_STATE_WRITEV         = 8,
     EBPF_EVENTS_STATE_CHOWN          = 9,
+    EBPF_EVENTS_STATE_GROUP_DEAD     = 10,
 };
 
 struct ebpf_events_key {
@@ -91,6 +92,7 @@ struct ebpf_events_state {
         struct ebpf_events_write_state write;
         struct ebpf_events_writev_state writev;
         struct ebpf_events_chown_state chown;
+        /* struct ebpf_events_group_dead group_dead; nada */
     };
 };
 
