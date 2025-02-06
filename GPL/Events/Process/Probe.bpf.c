@@ -390,22 +390,18 @@ out:
 }
 
 SEC("tracepoint/syscalls/sys_enter_shmget")
-int tracepoint_syscalls_sys_enter_shmget(struct syscall_trace_enter *ctx)
+int tracepoint_syscalls_sys_enter_shmget(struct trace_event_raw_sys_enter *ctx)
 {
     if (ebpf_events_is_trusted_pid())
         goto out;
 
     struct shmget_args {
-        short common_type;
-        char common_flags;
-        char common_preempt_count;
-        int common_pid;
-        int __syscall_nr;
         long key;
         size_t size;
         long shmflg;
     };
-    struct shmget_args *ex_args    = (struct shmget_args *)ctx;
+
+    struct shmget_args *ex_args    = (struct shmget_args *)BPF_CORE_READ(ctx, args);
     const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 
     if (is_kernel_thread(task))
@@ -430,24 +426,18 @@ out:
 }
 
 SEC("tracepoint/syscalls/sys_enter_memfd_create")
-int tracepoint_syscalls_sys_enter_memfd_create(struct syscall_trace_enter *ctx)
+int tracepoint_syscalls_sys_enter_memfd_create(struct trace_event_raw_sys_enter *ctx)
 {
     if (ebpf_events_is_trusted_pid())
         goto out;
 
     // from: /sys/kernel/debug/tracing/events/syscalls/sys_enter_memfd_create/format
     struct memfd_create_args {
-        short common_type;
-        char common_flags;
-        char common_preempt_count;
-        int common_pid;
-        int __syscall_nr;
         const char *uname;
         unsigned long flags;
     };
-    struct memfd_create_args *ex_args = (struct memfd_create_args *)ctx;
-
-    const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    struct memfd_create_args *ex_args = (struct memfd_create_args *)BPF_CORE_READ(ctx, args);
+    const struct task_struct *task    = (struct task_struct *)bpf_get_current_task();
 
     if (is_kernel_thread(task))
         goto out;
