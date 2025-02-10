@@ -21,6 +21,14 @@
 
 DECL_FUNC_RET(inet_csk_accept);
 
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 131072);
+    __type(key, struct sock *);
+    __type(value, u32);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} sk_to_tgid SEC(".maps");
+
 static int inet_csk_accept__exit(struct sock *sk)
 {
     if (!sk)
@@ -36,6 +44,8 @@ static int inet_csk_accept__exit(struct sock *sk)
         bpf_ringbuf_discard(event, 0);
         goto out;
     }
+    // Record this socket so we can emit a close
+    (void)bpf_map_update_elem(&sk_to_tgid, &sk, &event->pids.tgid, BPF_ANY);
 
     event->hdr.type = EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED;
     bpf_ringbuf_submit(event, 0);
@@ -233,6 +243,9 @@ static int tcp_connect(struct sock *sk, int ret)
         goto out;
     }
 
+    // Record this socket so we can emit a close
+    (void)bpf_map_update_elem(&sk_to_tgid, &sk, &event->pids.tgid, BPF_ANY);
+
     event->hdr.type = EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED;
     bpf_ringbuf_submit(event, 0);
 
@@ -303,21 +316,20 @@ static int tcp_close__enter(struct sock *sk)
     if (ebpf_events_is_trusted_pid())
         goto out;
 
+    struct tcp_sock *tp = (struct tcp_sock *)sk;
+    u64 bytes_sent      = BPF_CORE_READ(tp, bytes_sent);
+    u64 bytes_received  = BPF_CORE_READ(tp, bytes_received);
+
+    // Only process sockets we added, but since storage is limited, fall back to
+    // looking at bytes if we're full
+    if (bpf_map_delete_elem(&sk_to_tgid, &sk) != 0 && bytes_sent == 0 && bytes_received == 0)
+        goto out;
+
     struct ebpf_net_event *event = bpf_ringbuf_reserve(&ringbuf, sizeof(*event), 0);
     if (!event)
         goto out;
 
     if (ebpf_network_event__fill(event, sk)) {
-        bpf_ringbuf_discard(event, 0);
-        goto out;
-    }
-
-    struct tcp_sock *tp = (struct tcp_sock *)sk;
-    u64 bytes_sent      = BPF_CORE_READ(tp, bytes_sent);
-    u64 bytes_received  = BPF_CORE_READ(tp, bytes_received);
-
-    if (!bytes_sent && !bytes_received) {
-        // Uninteresting event, most likely unbound or unconnected socket.
         bpf_ringbuf_discard(event, 0);
         goto out;
     }
