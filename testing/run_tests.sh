@@ -36,7 +36,7 @@ run_tests() {
 
     parallel \
         -k -j${jobs} \
-        ./scripts/invoke_qemu.sh $arch $initramfs {} ">" $RESULTS_DIR/{/}.txt ::: $@
+        ./scripts/invoke_qemu.sh -k $arch $initramfs {} ">" $RESULTS_DIR/{/}.txt ::: $@
 
     echo "BPF-check run for $# $arch kernel(s) at $(date)" > $SUMMARY_FILE
     for f in $RESULTS_DIR/*; do

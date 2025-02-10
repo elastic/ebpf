@@ -42,7 +42,7 @@ EOF
 main() {
     local debug
     local kvm_requested
-    while getopts "d" opt; do
+    while getopts "dk" opt; do
         case ${opt} in
             d ) debug="1"
                 ;;
