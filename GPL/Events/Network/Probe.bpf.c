@@ -45,7 +45,8 @@ static int inet_csk_accept__exit(struct sock *sk)
         goto out;
     }
     // Record this socket so we can emit a close
-    (void)bpf_map_update_elem(&sk_to_tgid, &sk, &event->pids.tgid, BPF_ANY);
+    u32 tgid = event->pids.tgid;
+    (void)bpf_map_update_elem(&sk_to_tgid, &sk, &tgid, BPF_ANY);
 
     event->hdr.type = EBPF_EVENT_NETWORK_CONNECTION_ACCEPTED;
     bpf_ringbuf_submit(event, 0);
@@ -244,7 +245,8 @@ static int tcp_connect(struct sock *sk, int ret)
     }
 
     // Record this socket so we can emit a close
-    (void)bpf_map_update_elem(&sk_to_tgid, &sk, &event->pids.tgid, BPF_ANY);
+    u32 tgid = event->pids.tgid;
+    (void)bpf_map_update_elem(&sk_to_tgid, &sk, &tgid, BPF_ANY);
 
     event->hdr.type = EBPF_EVENT_NETWORK_CONNECTION_ATTEMPTED;
     bpf_ringbuf_submit(event, 0);

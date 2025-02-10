@@ -75,8 +75,8 @@ int main()
 
     // The order of these two closes is important, see
     // comments in Go test code
-    close(acceptfd);
     close(connectfd);
+    close(acceptfd);
 
     close(listenfd);
 
