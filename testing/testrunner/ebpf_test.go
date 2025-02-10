@@ -563,43 +563,39 @@ func Tcpv4ConnectionClose(t *testing.T, et *Runner) {
 	binOutput := NetBinOut{}
 	runTestUnmarshalOutput(t, "tcpv4_connect", &binOutput)
 
-	var ev NetConnCloseEvent
+	var evs []NetConnCloseEvent
 	for {
+		var ev NetConnCloseEvent
 		et.UnmarshalNextEvent(&ev, "NETWORK_CONNECTION_CLOSED")
-		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
+		if ev.Pids.Tgid != binOutput.PidInfo.Tgid {
+			continue
+		}
+		evs = append(evs, ev)
+		if len(evs) == 2 {
 			break
 		}
 	}
 
-	// NETWORK_CONNECTION_CLOSED is an interesting case.
-	//
-	// While NETWORK_CONNECTION_ATTEMPTED is generated exclusively on the
-	// client-side via a connect(...) and NETWORK_CONNECTION_ACCEPTED is
-	// generated exclusively on the server side via an accept(...)
-	// NETWORK_CONNECTION_CLOSED may be generated on either side upon a
-	// close(...) of a socket fd. This means that the source and desination
-	// ports might be "flipped" depending on what side the connection is on
-	// (server/client) for a close event.
-	//
-	// Our tcpv4_connect binary creates a server and client socket on the same
-	// machine, so what port is reported as the source and destination port
-	// will vary depending on which socket is closed first (client / server).
-	//
-	// The test binary closes the server socket first, which counterintuitively
-	// results in the _client_ socket being torn down first in the kernel.
-	// Thus, our BPF probes report the source/dest ports from the client
-	// socket's point of view for the close event. The SourcePort and DestPort
-	// assertions below verify this is correct.
+	TestPidEqual(t, binOutput.PidInfo, evs[0].Pids)
+	require.Equal(t, evs[0].Net.Transport, "TCP")
+	require.Equal(t, evs[0].Net.Family, "AF_INET")
+	require.Equal(t, evs[0].Net.SourceAddr, "127.0.0.1")
+	require.Equal(t, evs[0].Net.SourcePort, binOutput.ClientPort)
+	require.Equal(t, evs[0].Net.DestAddr, "127.0.0.1")
+	require.Equal(t, evs[0].Net.DestPort, binOutput.ServerPort)
+	require.Equal(t, evs[0].Net.NetNs, binOutput.NetNs)
+	require.Equal(t, evs[0].Comm, "tcpv4_connect")
 
-	TestPidEqual(t, binOutput.PidInfo, ev.Pids)
-	require.Equal(t, ev.Net.Transport, "TCP")
-	require.Equal(t, ev.Net.Family, "AF_INET")
-	require.Equal(t, ev.Net.SourceAddr, "127.0.0.1")
-	require.Equal(t, ev.Net.SourcePort, binOutput.ClientPort)
-	require.Equal(t, ev.Net.DestAddr, "127.0.0.1")
-	require.Equal(t, ev.Net.DestPort, binOutput.ServerPort)
-	require.Equal(t, ev.Net.NetNs, binOutput.NetNs)
-	require.Equal(t, ev.Comm, "tcpv4_connect")
+	TestPidEqual(t, binOutput.PidInfo, evs[1].Pids)
+	require.Equal(t, evs[1].Net.Transport, "TCP")
+	require.Equal(t, evs[1].Net.Family, "AF_INET")
+	require.Equal(t, evs[1].Net.SourceAddr, "127.0.0.1")
+	require.Equal(t, evs[1].Net.SourcePort, binOutput.ServerPort)
+	require.Equal(t, evs[1].Net.DestAddr, "127.0.0.1")
+	require.Equal(t, evs[1].Net.DestPort, binOutput.ClientPort)
+	require.Equal(t, evs[1].Net.NetNs, binOutput.NetNs)
+	require.Equal(t, evs[1].Comm, "tcpv4_connect")
+
 }
 
 func Tcpv6ConnectionAttempt(t *testing.T, et *Runner) {
@@ -652,23 +648,39 @@ func Tcpv6ConnectionClose(t *testing.T, et *Runner) {
 	binOutput := NetBinOut{}
 	runTestUnmarshalOutput(t, "tcpv6_connect", &binOutput)
 
-	var ev NetConnCloseEvent
+	var evs []NetConnCloseEvent
 	for {
+		var ev NetConnCloseEvent
 		et.UnmarshalNextEvent(&ev, "NETWORK_CONNECTION_CLOSED")
-		if ev.Pids.Tgid == binOutput.PidInfo.Tgid {
+		if ev.Pids.Tgid != binOutput.PidInfo.Tgid {
+			continue
+		}
+		evs = append(evs, ev)
+		if len(evs) == 2 {
 			break
 		}
 	}
 
-	TestPidEqual(t, binOutput.PidInfo, ev.Pids)
-	require.Equal(t, ev.Net.Transport, "TCP")
-	require.Equal(t, ev.Net.Family, "AF_INET6")
-	require.Equal(t, ev.Net.SourceAddr, "::1")
-	require.Equal(t, ev.Net.SourcePort, binOutput.ClientPort)
-	require.Equal(t, ev.Net.DestAddr, "::1")
-	require.Equal(t, ev.Net.DestPort, binOutput.ServerPort)
-	require.Equal(t, ev.Net.NetNs, binOutput.NetNs)
-	require.Equal(t, ev.Comm, "tcpv6_connect")
+	TestPidEqual(t, binOutput.PidInfo, evs[0].Pids)
+	require.Equal(t, evs[0].Net.Transport, "TCP")
+	require.Equal(t, evs[0].Net.Family, "AF_INET6")
+	require.Equal(t, evs[0].Net.SourceAddr, "::1")
+	require.Equal(t, evs[0].Net.SourcePort, binOutput.ClientPort)
+	require.Equal(t, evs[0].Net.DestAddr, "::1")
+	require.Equal(t, evs[0].Net.DestPort, binOutput.ServerPort)
+	require.Equal(t, evs[0].Net.NetNs, binOutput.NetNs)
+	require.Equal(t, evs[0].Comm, "tcpv6_connect")
+
+	TestPidEqual(t, binOutput.PidInfo, evs[1].Pids)
+	require.Equal(t, evs[1].Net.Transport, "TCP")
+	require.Equal(t, evs[1].Net.Family, "AF_INET6")
+	require.Equal(t, evs[1].Net.SourceAddr, "::1")
+	require.Equal(t, evs[1].Net.SourcePort, binOutput.ServerPort)
+	require.Equal(t, evs[1].Net.DestAddr, "::1")
+	require.Equal(t, evs[1].Net.DestPort, binOutput.ClientPort)
+	require.Equal(t, evs[1].Net.NetNs, binOutput.NetNs)
+	require.Equal(t, evs[1].Comm, "tcpv6_connect")
+
 }
 
 func DNSMonitor(t *testing.T, et *Runner) {
