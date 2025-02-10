@@ -73,8 +73,7 @@ int main()
 
     dump_info(ntohs(acceptaddr.sin6_port), BOUND_PORT);
 
-    // The order of these two closes is important, see
-    // comments in Go test code
+    // The order of these two closes is important, must match the order in ebpf_test.go
     close(connectfd);
     close(acceptfd);
 
