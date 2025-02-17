@@ -1087,16 +1087,19 @@ static void out_network_connection_accepted_event(struct ebpf_net_event *evt)
 static void out_network_dns_event(struct ebpf_dns_event *event)
 {
     out_object_start();
-    out_event_type("DNS_EVENT");
+    out_event_type("DNS_PKT");
     out_comma();
 
-    out_pid_info("pids", &event->pids);
+    out_int("tgid", event->tgid);
     out_comma();
 
-    out_net_info("net", &event->net, &event->hdr);
+    out_int("cap_len", event->cap_len);
     out_comma();
 
-    out_string("comm", (const char *)&event->comm);
+    out_int("orig_len", event->cap_len);
+    out_comma();
+
+    out_string("direction", event->direction == EBPF_NETWORK_DIR_INGRESS ? "in" : "out");
     out_comma();
 
     printf("\"data\":");
