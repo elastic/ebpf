@@ -424,33 +424,32 @@ static int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj, uint6
 
 static int probe_attach_cgroup(struct EventProbe_bpf *obj)
 {
-	int	r, cgroup_fd;
+    int r, cgroup_fd;
 
-	r = 0;
-	cgroup_fd = open("/sys/fs/cgroup", O_RDONLY);
-	if (cgroup_fd == -1)
-		return (-1);
+    r         = 0;
+    cgroup_fd = open("/sys/fs/cgroup", O_RDONLY);
+    if (cgroup_fd == -1)
+        return (-1);
 
-#define ATTACH_OR_FAIL(_program)				\
-	if (bpf_program__attach_cgroup(obj->progs._program,	\
-	    cgroup_fd) == NULL) {				\
-		r = -1;						\
-		goto fail;					\
-	}
+#define ATTACH_OR_FAIL(_program)                                                                   \
+    if (bpf_program__attach_cgroup(obj->progs._program, cgroup_fd) == NULL) {                      \
+        r = -1;                                                                                    \
+        goto fail;                                                                                 \
+    }
 
-	ATTACH_OR_FAIL(skb_egress);
-	ATTACH_OR_FAIL(skb_ingress);
-	ATTACH_OR_FAIL(sock_create);
-	ATTACH_OR_FAIL(sock_release);
-	ATTACH_OR_FAIL(sendmsg4);
-	ATTACH_OR_FAIL(connect4);
-	ATTACH_OR_FAIL(recvmsg4);
+    ATTACH_OR_FAIL(skb_egress);
+    ATTACH_OR_FAIL(skb_ingress);
+    ATTACH_OR_FAIL(sock_create);
+    ATTACH_OR_FAIL(sock_release);
+    ATTACH_OR_FAIL(sendmsg4);
+    ATTACH_OR_FAIL(connect4);
+    ATTACH_OR_FAIL(recvmsg4);
 #undef ATTACH_OR_FAIL
 
 fail:
-	close(cgroup_fd);
+    close(cgroup_fd);
 
-	return (r);
+    return (r);
 }
 
 static bool system_has_bpf_tramp(void)
@@ -784,8 +783,8 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx, ebpf_event_handler_fn cb, u
 
     err = probe_attach_cgroup(probe);
     if (err != 0) {
-	    verbose("probe_attach_cgroup: %d\n", err);
-	    goto out_destroy_probe;
+        verbose("probe_attach_cgroup: %d\n", err);
+        goto out_destroy_probe;
     }
 
     if (!ctx)

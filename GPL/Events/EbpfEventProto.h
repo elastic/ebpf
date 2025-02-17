@@ -375,8 +375,8 @@ enum ebpf_net_udp_info {
 };
 
 enum ebpf_net_packet_direction {
-	EBPF_NETWORK_DIR_EGRESS = 1,
-	EBPF_NETWORK_DIR_INGRESS = 2,
+    EBPF_NETWORK_DIR_EGRESS  = 1,
+    EBPF_NETWORK_DIR_INGRESS = 2,
 };
 
 struct ebpf_net_info_tcp_close {
@@ -422,12 +422,12 @@ struct ebpf_dns_event {
 } __attribute__((packed));
 
 struct ebpf_dns_event2 {
-	struct ebpf_event_header hdr;
-	uint32_t tgid;
-	uint32_t cap_len;
-	uint32_t orig_len;
-	enum ebpf_net_packet_direction direction;
-	struct ebpf_varlen_fields_start vl_fields;
+    struct ebpf_event_header hdr;
+    uint32_t tgid;
+    uint32_t cap_len;
+    uint32_t orig_len;
+    enum ebpf_net_packet_direction direction;
+    struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 
 // Basic event statistics
