@@ -419,7 +419,10 @@ int skb_in_or_egress(struct __sk_buff *skb, int ingress)
 		}
 		if (ip.protocol != IPPROTO_UDP)
 			goto ignore;
-	} else if (sk->family == AF_INET6) {
+	} else
+		goto ignore;
+#ifdef notyet
+	else if (sk->family == AF_INET6) {
 		int t_off;
 
 		t_off = skb_peel_nexthdr(skb, NEXTHDR_UDP);
@@ -431,6 +434,7 @@ int skb_in_or_egress(struct __sk_buff *skb, int ingress)
 			goto ignore;
 		}
 	}
+#endif
 
 	if (bpf_ntohs(udp.dest) != 53 && bpf_ntohs(udp.source) != 53)
 		goto ignore;
