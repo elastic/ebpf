@@ -1084,19 +1084,13 @@ static void out_network_connection_accepted_event(struct ebpf_net_event *evt)
     out_network_event("NETWORK_CONNECTION_ACCEPTED", evt);
 }
 
-static void out_network_dns_event(struct ebpf_dns_event *event)
+static void out_network_dns_event(struct ebpf_dns_event2 *event)
 {
     out_object_start();
-    out_event_type("DNS_EVENT");
+    out_event_type("DNS_PKT");
     out_comma();
 
-    out_pid_info("pids", &event->pids);
-    out_comma();
-
-    out_net_info("net", &event->net, &event->hdr);
-    out_comma();
-
-    out_string("comm", (const char *)&event->comm);
+    out_int("tgid", event->tgid);
     out_comma();
 
     printf("\"data\":");
@@ -1198,7 +1192,7 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         out_network_connection_closed_event((struct ebpf_net_event *)evt_hdr);
         break;
     case EBPF_EVENT_NETWORK_DNS_PKT:
-        out_network_dns_event((struct ebpf_dns_event *)evt_hdr);
+        out_network_dns_event((struct ebpf_dns_event2 *)evt_hdr);
         break;
     }
 
