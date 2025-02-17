@@ -49,10 +49,10 @@ const volatile int consumer_pid = 0;
 #define TMPFS_STRING "tmpfs"
 #define DEVSHM_STRING "/dev/shm"
 
-/* #if BPF_DEBUG_TRACE == 0 */
-/* #undef bpf_printk */
-/* #define bpf_printk(fmt, ...) */
-/* #endif */
+#if BPF_DEBUG_TRACE == 0
+#undef bpf_printk
+#define bpf_printk(fmt, ...)
+#endif
 
 // Compiler barrier, used to prevent compile-time insns reordering and optimizations.
 #define barrier() asm volatile("" ::: "memory")

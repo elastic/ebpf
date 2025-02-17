@@ -423,9 +423,9 @@ struct ebpf_dns_event {
 
 struct ebpf_dns_event2 {
 	struct ebpf_event_header hdr;
-	u32 tgid;
-	u32 cap_len;
-	u32 orig_len;
+	uint32_t tgid;
+	uint32_t cap_len;
+	uint32_t orig_len;
 	enum ebpf_net_packet_direction direction;
 	struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));

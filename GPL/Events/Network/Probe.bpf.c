@@ -469,7 +469,7 @@ int skb_in_or_egress(struct __sk_buff *skb, int ingress)
 
 	ebpf_vl_fields__init(&event->vl_fields);
 	field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_DNS_BODY);
-	if (bpf_skb_load_bytes(skb, 0, field->data, cap_len))
+	if (bpf_skb_load_bytes(skb, 0, field->data, MAX_DNS_PACKET))
 		goto ignore;
 	ebpf_vl_field__set_size(&event->vl_fields, field, cap_len);
 
