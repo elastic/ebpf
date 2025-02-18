@@ -711,6 +711,9 @@ func TcFilter(t *testing.T, et *Runner) {
 func TestEbpf(t *testing.T) {
 	hasOverlayFS := IsOverlayFsSupported(t)
 
+	// XXX
+	require.NoError(t, syscall.Mount("", "/sys/fs/cgroup", "cgroup2", 0, ""))
+
 	testCases := []struct {
 		name             string
 		handle           func(t *testing.T, et *Runner)
