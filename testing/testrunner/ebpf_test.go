@@ -687,24 +687,15 @@ func DNSMonitor(t *testing.T, et *Runner) {
 	binOutput := NetBinOut{}
 	runTestUnmarshalOutput(t, "udp_send", &binOutput)
 	type dnsOutput struct {
+		Tgid int64 `json:"pids"`
 		Data []uint8 `json:"data"`
-		Pids PidInfo `json:"pids"`
-		Net  NetInfo `json:"net"`
-		Comm string  `json:"comm"`
 	}
 	runTestBin(t, "udp_send")
 
 	lineData := dnsOutput{}
-	et.UnmarshalNextEvent(&lineData, "DNS_EVENT")
+	et.UnmarshalNextEvent(&lineData, "DNS_PKT")
 
-	require.Equal(t, lineData.Net.DestAddr, "127.0.0.1")
-	require.Equal(t, lineData.Net.SourceAddr, "127.0.0.1")
-	TestPidEqual(t, binOutput.PidInfo, lineData.Pids)
-	require.Equal(t, lineData.Net.Transport, "UDP")
-	require.Equal(t, lineData.Net.Family, "AF_INET")
-
-	require.NotZero(t, lineData.Data[0])
-	require.NotZero(t, lineData.Data[1])
+	require.Equal(t, binOutput.PidInfo.Tgid, lineData.Tgid)
 }
 
 func TcFilter(t *testing.T, et *Runner) {
@@ -719,6 +710,9 @@ func TcFilter(t *testing.T, et *Runner) {
 
 func TestEbpf(t *testing.T) {
 	hasOverlayFS := IsOverlayFsSupported(t)
+
+	// XXX
+	require.NoError(t, syscall.Mount("", "/sys/fs/cgroup", "cgroup2", 0, ""))
 
 	testCases := []struct {
 		name             string

@@ -357,3 +357,186 @@ int BPF_KPROBE(kprobe__tcp_close, struct sock *sk, long timeout)
 {
     return tcp_close__enter(sk);
 }
+
+/* XXX naive, only handles ROUTING and DEST, untested */
+int skb_peel_nexthdr(struct __sk_buff *skb, u8 wanted)
+{
+    struct ipv6hdr ip6;
+    int off;
+    u16 next;
+
+    off = 0;
+    if (bpf_skb_load_bytes(skb, off, &ip6, sizeof(ip6)))
+        return (-1);
+    off += sizeof(ip6);
+    next = ip6.nexthdr;
+
+    for (;;) {
+        if (next == wanted)
+            return (off);
+        switch (next) {
+        case NEXTHDR_ROUTING: /* FALLTHROUGH */
+        case NEXTHDR_DEST:
+            if (bpf_skb_load_bytes(skb, off, &next, sizeof(next)))
+                return (-1);
+            off += (next >> 8) + 1;
+            next = next & 0xff;
+        default:
+            return (-1);
+        }
+    }
+}
+
+int skb_in_or_egress(struct __sk_buff *skb, int ingress)
+{
+    struct udphdr udp;
+    struct bpf_sock *sk, *sk2;
+    u32 *tgid, cap_len;
+    struct ebpf_dns_event2 *event;
+    struct ebpf_varlen_field *field;
+
+    if (skb->family != AF_INET && skb->family != AF_INET6)
+        goto ignore;
+    if ((sk = skb->sk) == NULL)
+        goto ignore;
+    if ((sk = bpf_sk_fullsock(sk)) == NULL)
+        goto ignore;
+    if (sk->family != AF_INET && sk->family != AF_INET6)
+        goto ignore;
+    if (sk->protocol != IPPROTO_UDP)
+        goto ignore;
+
+    if (sk->family == AF_INET) {
+        struct iphdr ip;
+
+        if (bpf_skb_load_bytes(skb, 0, &ip, sizeof(ip))) {
+            bpf_printk("copy error 1");
+            goto ignore;
+        }
+        if (bpf_skb_load_bytes(skb, ip.ihl << 2, &udp, sizeof(udp))) {
+            bpf_printk("copy error 2");
+            goto ignore;
+        }
+        if (ip.protocol != IPPROTO_UDP)
+            goto ignore;
+    } else
+        goto ignore;
+#ifdef notyet
+    else if (sk->family == AF_INET6)
+    {
+        int t_off;
+
+        t_off = skb_peel_nexthdr(skb, NEXTHDR_UDP);
+        if (t_off == -1)
+            goto ignore;
+
+        if (bpf_skb_load_bytes(skb, t_off, &udp, sizeof(udp))) {
+            bpf_printk("copy error 4");
+            goto ignore;
+        }
+    }
+#endif
+
+    if (bpf_ntohs(udp.dest) != 53 && bpf_ntohs(udp.source) != 53)
+        goto ignore;
+
+    sk2  = sk;
+    tgid = bpf_map_lookup_elem(&sk_to_tgid, &sk2);
+    if (tgid == NULL) {
+        bpf_printk("udp egress not found");
+        goto ignore;
+    }
+    bpf_printk("%d: udp src=%d dst=%d len=%d", tgid == NULL ? 0 : *tgid, bpf_ntohs(udp.source),
+               bpf_ntohs(udp.dest), bpf_ntohs(udp.len));
+
+    cap_len = skb->len;
+    /*
+     * verifier will complain, even with a skb->len
+     * check at the beginning.
+     */
+    if (cap_len == 0)
+        goto ignore;
+    else if (cap_len > MAX_DNS_PACKET)
+        cap_len = MAX_DNS_PACKET;
+
+    event = get_event_buffer();
+    if (event == NULL)
+        goto ignore;
+
+    event->hdr.type    = EBPF_EVENT_NETWORK_DNS_PKT;
+    event->hdr.ts      = bpf_ktime_get_ns();
+    event->hdr.ts_boot = bpf_ktime_get_boot_ns_helper();
+    event->tgid        = *tgid;
+    event->cap_len     = cap_len;
+    event->orig_len    = skb->len;
+    event->direction   = ingress ? EBPF_NETWORK_DIR_INGRESS : EBPF_NETWORK_DIR_EGRESS;
+
+    ebpf_vl_fields__init(&event->vl_fields);
+    field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_DNS_BODY);
+    if (bpf_skb_load_bytes(skb, 0, field->data, MAX_DNS_PACKET))
+        goto ignore;
+    ebpf_vl_field__set_size(&event->vl_fields, field, cap_len);
+
+    ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);
+
+ignore:
+    return (1);
+}
+
+SEC("cgroup_skb/egress")
+int skb_egress(struct __sk_buff *skb)
+{
+    return skb_in_or_egress(skb, 0);
+}
+
+SEC("cgroup_skb/ingress")
+int skb_ingress(struct __sk_buff *skb)
+{
+    return skb_in_or_egress(skb, 1);
+}
+
+int sk_maybe_save_tgid(struct bpf_sock *sk)
+{
+    u32 tgid;
+
+    if (sk->protocol != IPPROTO_UDP)
+        return (1);
+
+    tgid = bpf_get_current_pid_tgid() >> 32;
+
+    (void)bpf_map_update_elem(&sk_to_tgid, &sk, &tgid, BPF_ANY);
+
+    return (1);
+}
+
+SEC("cgroup/sendmsg4")
+int sendmsg4(struct bpf_sock_addr *sa)
+{
+    return sk_maybe_save_tgid(sa->sk);
+}
+
+SEC("cgroup/recvmsg4")
+int recvmsg4(struct bpf_sock_addr *sa)
+{
+    return sk_maybe_save_tgid(sa->sk);
+}
+
+SEC("cgroup/connect4")
+int connect4(struct bpf_sock_addr *sa)
+{
+    return sk_maybe_save_tgid(sa->sk);
+}
+
+SEC("cgroup/sock_create")
+int sock_create(struct bpf_sock *sk)
+{
+    return sk_maybe_save_tgid(sk);
+}
+
+SEC("cgroup/sock_release")
+int sock_release(struct bpf_sock *sk)
+{
+    (void)bpf_map_delete_elem(&sk_to_tgid, &sk);
+
+    return (1);
+}

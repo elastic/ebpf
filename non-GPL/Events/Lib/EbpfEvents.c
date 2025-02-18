@@ -13,6 +13,7 @@
 #include <bpf/btf.h>
 #include <bpf/libbpf.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/resource.h>
@@ -315,7 +316,7 @@ static int probe_resize_maps(struct EventProbe_bpf *obj)
 
 /* Some programs in the skeleton are mutually exclusive, based on local kernel features.
  */
-static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj, uint64_t features)
+static int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj, uint64_t features)
 {
     int err            = 0;
     bool has_bpf_tramp = features & EBPF_FEATURE_BPF_TRAMP;
@@ -386,8 +387,8 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__vfs_write, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__chown_common, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__chown_common, false);
-        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__ip_send_udp, false);
-        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__skb_consume_udp, false);
+        /* err = err ?: bpf_program__set_autoload(obj->progs.kprobe__ip_send_udp, false); */
+        /* err = err ?: bpf_program__set_autoload(obj->progs.kprobe__skb_consume_udp, false); */
     } else {
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_unlinkat, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__mnt_want_write, false);
@@ -405,11 +406,50 @@ static inline int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__do_truncate, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__vfs_write, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__chown_common, false);
-        err = err ?: bpf_program__set_autoload(obj->progs.fentry__ip_send_skb, false);
-        err = err ?: bpf_program__set_autoload(obj->progs.fentry__skb_consume_udp, false);
+        /* err = err ?: bpf_program__set_autoload(obj->progs.fentry__ip_send_skb, false); */
+        /* err = err ?: bpf_program__set_autoload(obj->progs.fentry__skb_consume_udp, false); */
+    }
+#if 0
+    // cgroup probes
+    err = err ?: bpf_program__set_autoload(obj->progs.skb_egress, 1);
+    err = err ?: bpf_program__set_autoload(obj->progs.skb_ingress, 1);
+    err = err ?: bpf_program__set_autoload(obj->progs.sock_create, 1);
+    err = err ?: bpf_program__set_autoload(obj->progs.sock_release, 1);
+    err = err ?: bpf_program__set_autoload(obj->progs.sendmsg4, 1);
+    err = err ?: bpf_program__set_autoload(obj->progs.connect4, 1);
+    err = err ?: bpf_program__set_autoload(obj->progs.recvmsg4, 1);
+#endif
+    return err;
+}
+
+static int probe_attach_cgroup(struct EventProbe_bpf *obj)
+{
+    int r, cgroup_fd;
+
+    r         = 0;
+    cgroup_fd = open("/sys/fs/cgroup", O_RDONLY);
+    if (cgroup_fd == -1)
+        return (-1);
+
+#define ATTACH_OR_FAIL(_program)                                                                   \
+    if (bpf_program__attach_cgroup(obj->progs._program, cgroup_fd) == NULL) {                      \
+        r = -1;                                                                                    \
+        goto fail;                                                                                 \
     }
 
-    return err;
+    ATTACH_OR_FAIL(skb_egress);
+    ATTACH_OR_FAIL(skb_ingress);
+    ATTACH_OR_FAIL(sock_create);
+    ATTACH_OR_FAIL(sock_release);
+    ATTACH_OR_FAIL(sendmsg4);
+    ATTACH_OR_FAIL(connect4);
+    ATTACH_OR_FAIL(recvmsg4);
+#undef ATTACH_OR_FAIL
+
+fail:
+    close(cgroup_fd);
+
+    return (r);
 }
 
 static bool system_has_bpf_tramp(void)
@@ -738,6 +778,12 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx, ebpf_event_handler_fn cb, u
     err = EventProbe_bpf__attach(probe);
     if (err != 0) {
         verbose("EventProbe_bpf__attach: %d\n", err);
+        goto out_destroy_probe;
+    }
+
+    err = probe_attach_cgroup(probe);
+    if (err != 0) {
+        verbose("probe_attach_cgroup: %d\n", err);
         goto out_destroy_probe;
     }
 
