@@ -24,6 +24,8 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
 #include <libelf.h>
 #include <stdio.h>
 #include <string.h>
@@ -31,6 +33,8 @@
 #include "_libelf.h"
 
 ELFTC_VCSID("$Id$");
+
+/*@ELFTC-DOWNSTREAM-VCSID@*/
 
 /*
  * Retrieve a human readable translation for an error message.
