@@ -1096,7 +1096,7 @@ static void out_network_dns_event(struct ebpf_dns_event *event)
     out_int("cap_len", event->cap_len);
     out_comma();
 
-    out_int("orig_len", event->cap_len);
+    out_int("orig_len", event->orig_len);
     out_comma();
 
     out_string("direction", event->direction == EBPF_NETWORK_DIR_INGRESS ? "in" : "out");
