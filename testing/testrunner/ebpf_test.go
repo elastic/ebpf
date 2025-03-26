@@ -692,6 +692,7 @@ func DNSMonitor(t *testing.T, et *Runner) {
 
 	conn, err := net.DialUDP("udp", nil, addr)
 	require.NoError(t, err)
+	defer conn.Close()
 
 	pattern := []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
 	n, err := conn.Write(pattern)
