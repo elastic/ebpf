@@ -688,6 +688,7 @@ func DNSMonitor(t *testing.T, et *Runner) {
 
 	listen, err := net.ListenUDP("udp", addr)
 	require.NoError(t, err)
+	defer listen.Close()
 
 	conn, err := net.DialUDP("udp", nil, addr)
 	require.NoError(t, err)
