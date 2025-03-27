@@ -220,14 +220,18 @@ int skb_peel_nexthdr(struct __sk_buff *skb, u8 wanted)
         case NEXTHDR_DEST:
             if (bpf_skb_load_bytes(skb, off, &next, sizeof(next)))
                 return (-1);
-            off += (next >> 8) + 1;
+            off += ((next >> 8) + 1) * 8;
             next = next & 0xff;
+            continue;
         default:
             return (-1);
         }
     }
+
+    return (-1);		/* NOTREACHED */
 }
 #endif
+
 int skb_in_or_egress(struct __sk_buff *skb, int ingress)
 {
     struct udphdr udp;
@@ -249,16 +253,12 @@ int skb_in_or_egress(struct __sk_buff *skb, int ingress)
     if (sk->family == AF_INET) {
         struct iphdr ip;
 
-        if (bpf_skb_load_bytes(skb, 0, &ip, sizeof(ip))) {
-            bpf_printk("copy error 1");
+        if (bpf_skb_load_bytes(skb, 0, &ip, sizeof(ip)))
             goto ignore;
-        }
         if (ip.protocol != IPPROTO_UDP)
             goto ignore;
-        if (bpf_skb_load_bytes(skb, ip.ihl << 2, &udp, sizeof(udp))) {
-            bpf_printk("copy error 2");
+        if (bpf_skb_load_bytes(skb, ip.ihl << 2, &udp, sizeof(udp)))
             goto ignore;
-        }
     } else {
         goto ignore;
     }
@@ -271,10 +271,8 @@ int skb_in_or_egress(struct __sk_buff *skb, int ingress)
         if (t_off == -1)
             goto ignore;
 
-        if (bpf_skb_load_bytes(skb, t_off, &udp, sizeof(udp))) {
-            bpf_printk("copy error 4");
+        if (bpf_skb_load_bytes(skb, t_off, &udp, sizeof(udp)))
             goto ignore;
-        }
     }
 #endif
 
@@ -290,12 +288,8 @@ int skb_in_or_egress(struct __sk_buff *skb, int ingress)
         goto ignore;
     *sk_addr = (u64)sk;
     tgid     = bpf_map_lookup_elem(&sk_to_tgid, sk_addr);
-    if (tgid == NULL) {
-        bpf_printk("udp egress not found");
+    if (tgid == NULL)
         goto ignore;
-    }
-    bpf_printk("%d: udp src=%d dst=%d len=%d", tgid == NULL ? 0 : *tgid, bpf_ntohs(udp.source),
-               bpf_ntohs(udp.dest), bpf_ntohs(udp.len));
 
     cap_len = skb->len;
     /*
@@ -372,8 +366,7 @@ int sk_maybe_save_tgid(struct bpf_sock *sk)
     if (sk_addr == NULL)
         return (1);
     *sk_addr = (u64)sk;
-    if (bpf_map_update_elem(&sk_to_tgid, sk_addr, &tgid, BPF_ANY) == 0)
-        bpf_printk("sk %p saved", sk);
+    bpf_map_update_elem(&sk_to_tgid, sk_addr, &tgid, BPF_ANY);
 
     return (1);
 }
@@ -419,8 +412,7 @@ int sock_release(struct bpf_sock *sk)
     if (sk_addr == NULL)
         return (1);
     *sk_addr = (u64)sk;
-    if (bpf_map_delete_elem(&sk_to_tgid, sk_addr) == 0)
-        bpf_printk("%p deleted", sk);
+    bpf_map_delete_elem(&sk_to_tgid, sk_addr);
 
     return (1);
 }
