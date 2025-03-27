@@ -228,7 +228,7 @@ int skb_peel_nexthdr(struct __sk_buff *skb, u8 wanted)
         }
     }
 
-    return (-1);		/* NOTREACHED */
+    return (-1); /* NOTREACHED */
 }
 #endif
 
