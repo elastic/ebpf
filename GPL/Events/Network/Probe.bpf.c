@@ -199,7 +199,10 @@ int BPF_KPROBE(kprobe__tcp_close, struct sock *sk, long timeout)
 }
 
 #ifdef notyet
-/* XXX naive, only handles ROUTING and DEST, untested */
+/*
+ * XXX naive, only handles ROUTING and DEST, untested, ipv6 needs more work to
+ * be enabled.
+ */
 int skb_peel_nexthdr(struct __sk_buff *skb, u8 wanted)
 {
     struct ipv6hdr ip6;
@@ -262,7 +265,7 @@ int skb_in_or_egress(struct __sk_buff *skb, int ingress)
     } else {
         goto ignore;
     }
-#ifdef notyet
+#ifdef notyet /* ipv6 needs further work */
     else if (sk->family == AF_INET6)
     {
         int t_off;
@@ -371,6 +374,10 @@ int sk_maybe_save_tgid(struct bpf_sock *sk)
     return (1);
 }
 
+/*
+ * We save tgid again in send/recv/connect as the file descriptor might have
+ * been passed to another process.
+ */
 SEC("cgroup/sendmsg4")
 int sendmsg4(struct bpf_sock_addr *sa)
 {

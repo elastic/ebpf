@@ -413,6 +413,9 @@ static int probe_attach_cgroup(struct EventProbe_bpf *obj)
 {
     int cgroup_fd;
 
+    /*
+     * Hardcoded for now, consider making the path an argument.
+     */
     cgroup_fd = open("/sys/fs/cgroup", O_RDONLY);
     if (cgroup_fd == -1)
         return -1;
