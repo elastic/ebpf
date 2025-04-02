@@ -14,7 +14,7 @@
 // The theoretical max size of DNS packets over UDP is 512.
 // Like so many things in DNS this number probaby isn't 100% accurate.
 // DNS extensions in RFC2671 and RFC6891 mean the actual size can be larger.
-#define MAX_DNS_PACKET 1500
+#define MAX_DNS_PACKET 4096
 
 #ifndef __KERNEL__
 #include <stdint.h>
@@ -374,6 +374,11 @@ enum ebpf_net_udp_info {
     EBPF_NETWORK_EVENT_IP_SEND_UDP     = 2,
 };
 
+enum ebpf_net_packet_direction {
+    EBPF_NETWORK_DIR_EGRESS  = 1,
+    EBPF_NETWORK_DIR_INGRESS = 2,
+};
+
 struct ebpf_net_info_tcp_close {
     uint64_t bytes_sent;
     uint64_t bytes_received;
@@ -407,12 +412,10 @@ struct ebpf_net_event {
 
 struct ebpf_dns_event {
     struct ebpf_event_header hdr;
-    struct ebpf_pid_info pids;
-    struct ebpf_net_info net;
-    char comm[TASK_COMM_LEN];
-    enum ebpf_net_udp_info udp_evt;
-    uint64_t original_len;
-    // Variable length fields: dns body
+    uint32_t tgid;
+    uint32_t cap_len;
+    uint32_t orig_len;
+    enum ebpf_net_packet_direction direction;
     struct ebpf_varlen_fields_start vl_fields;
 } __attribute__((packed));
 

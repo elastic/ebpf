@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"strings"
@@ -595,7 +596,6 @@ func Tcpv4ConnectionClose(t *testing.T, et *Runner) {
 	require.Equal(t, evs[1].Net.DestPort, binOutput.ClientPort)
 	require.Equal(t, evs[1].Net.NetNs, binOutput.NetNs)
 	require.Equal(t, evs[1].Comm, "tcpv4_connect")
-
 }
 
 func Tcpv6ConnectionAttempt(t *testing.T, et *Runner) {
@@ -680,31 +680,55 @@ func Tcpv6ConnectionClose(t *testing.T, et *Runner) {
 	require.Equal(t, evs[1].Net.DestPort, binOutput.ClientPort)
 	require.Equal(t, evs[1].Net.NetNs, binOutput.NetNs)
 	require.Equal(t, evs[1].Comm, "tcpv6_connect")
-
 }
 
 func DNSMonitor(t *testing.T, et *Runner) {
-	binOutput := NetBinOut{}
-	runTestUnmarshalOutput(t, "udp_send", &binOutput)
+	addr, err := net.ResolveUDPAddr("udp", "127.0.0.1:53")
+	require.NoError(t, err)
+
+	listen, err := net.ListenUDP("udp", addr)
+	require.NoError(t, err)
+	defer listen.Close()
+
+	conn, err := net.DialUDP("udp", nil, addr)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	pattern := []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
+	n, err := conn.Write(pattern)
+	require.NoError(t, err)
+	require.Equal(t, n, len(pattern))
+
+	var buf [256]byte
+	n, _, err = listen.ReadFromUDP(buf[:])
+	require.NoError(t, err)
+	require.Equal(t, n, len(pattern))
+
 	type dnsOutput struct {
-		Data []uint8 `json:"data"`
-		Pids PidInfo `json:"pids"`
-		Net  NetInfo `json:"net"`
-		Comm string  `json:"comm"`
+		Tgid    int64   `json:"tgid"`
+		CapLen  int     `json:"cap_len"`
+		OrigLen int     `json:"orig_len"`
+		Dir     string  `json:"direction"`
+		Data    []uint8 `json:"data"`
 	}
-	runTestBin(t, "udp_send")
-
+	// out
 	lineData := dnsOutput{}
-	et.UnmarshalNextEvent(&lineData, "DNS_EVENT")
+	et.UnmarshalNextEvent(&lineData, "DNS_PKT")
+	require.Equal(t, int64(os.Getpid()), lineData.Tgid)
+	require.Equal(t, 90, lineData.CapLen)
+	require.Equal(t, 90, lineData.OrigLen)
+	require.Equal(t, "out", lineData.Dir)
+	require.Equal(t, pattern, lineData.Data[28:])
 
-	require.Equal(t, lineData.Net.DestAddr, "127.0.0.1")
-	require.Equal(t, lineData.Net.SourceAddr, "127.0.0.1")
-	TestPidEqual(t, binOutput.PidInfo, lineData.Pids)
-	require.Equal(t, lineData.Net.Transport, "UDP")
-	require.Equal(t, lineData.Net.Family, "AF_INET")
+	// in
+	lineData = dnsOutput{}
+	et.UnmarshalNextEvent(&lineData, "DNS_PKT")
+	require.Equal(t, int64(os.Getpid()), lineData.Tgid)
+	require.Equal(t, 90, lineData.CapLen)
+	require.Equal(t, 90, lineData.OrigLen)
+	require.Equal(t, "in", lineData.Dir)
+	require.Equal(t, pattern, lineData.Data[28:])
 
-	require.NotZero(t, lineData.Data[0])
-	require.NotZero(t, lineData.Data[1])
 }
 
 func TcFilter(t *testing.T, et *Runner) {
@@ -719,6 +743,9 @@ func TcFilter(t *testing.T, et *Runner) {
 
 func TestEbpf(t *testing.T) {
 	hasOverlayFS := IsOverlayFsSupported(t)
+
+	// XXX until bluebox does itself
+	require.NoError(t, syscall.Mount("", "/sys/fs/cgroup", "cgroup2", 0, ""))
 
 	testCases := []struct {
 		name             string
