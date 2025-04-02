@@ -62,7 +62,14 @@ static int ebpf_sock_info__fill(struct ebpf_net_info *net, struct sock *sk)
     net->dport             = bpf_ntohs(dport);
     net->netns             = BPF_CORE_READ(sk, __sk_common.skc_net.net, ns.inum);
 
+    /*
+     * Old kernels, 4.18x have a bitmap for sk_protocol, in that case it's a
+     * 32bit, we read it on a short, and the protocol is the byte on the upper
+     * half.
+     */
     u16 proto = BPF_CORE_READ(sk, sk_protocol);
+    if (bpf_core_field_size(sk->sk_protocol) == 4)
+        proto >>= 8;
     switch (proto) {
     case IPPROTO_TCP:
         net->transport = EBPF_NETWORK_EVENT_TRANSPORT_TCP;
