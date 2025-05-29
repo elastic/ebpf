@@ -6,7 +6,7 @@
 
 ebpf_static_library(EbpfHostIsolation
     SOURCES TcLoader.c KprobeLoader.c UpdateMaps.c Common.c
-    LINK TcFilter KprobeConnectHook libbpf
+    LINK TcFilter KprobeConnectHook libbpf_headers
     PUBLIC_HEADERS TcLoader.h KprobeLoader.h UpdateMaps.h Common.h
     INSTALL
 )

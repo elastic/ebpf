@@ -32,3 +32,10 @@ set_property(TARGET libbpf PROPERTY IMPORTED_LOCATION ${LIBBPF_LIB})
 set_property(TARGET libbpf PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${EBPF_INSTALL_DIR}/include ${LIBBPF_UAPI_INCLUDE_DIR})
 set_property(TARGET libbpf PROPERTY INTERFACE_LINK_LIBRARIES libelf libz)
 add_dependencies(libbpf libbpf-external)
+
+add_library(libbpf_headers INTERFACE)
+target_include_directories(libbpf_headers INTERFACE
+	${EBPF_INSTALL_DIR}/include
+	${LIBBPF_UAPI_INCLUDE_DIR}
+)
+
