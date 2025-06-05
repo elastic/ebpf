@@ -101,7 +101,7 @@ __attribute__((always_inline)) static int allow_udp_pkt_egress(struct udphdr *ud
     }
 }
 
-int classifier(struct __sk_buff *skb)
+__section("classifer") int tc_filter(struct __sk_buff *skb)
 {
     struct ethhdr *eth = NULL;
     struct iphdr *ip   = NULL;
