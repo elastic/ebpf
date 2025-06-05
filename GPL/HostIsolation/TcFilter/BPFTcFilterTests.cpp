@@ -21,7 +21,7 @@
 
 #define OBJECT_PATH_ENV_VAR "ELASTIC_EBPF_TC_FILTER_OBJ_PATH"
 #define DEFAULT_OBJECT_PATH "TcFilter.bpf.o"
-#define CLASSIFIER_SECTION_NAME "classifier"
+#define CLASSIFIER_PROGRAM_NAME "tc_filter"
 
 #define MAGIC_BYTES 123
 #define __packed __attribute__((__packed__))
@@ -63,7 +63,7 @@ class BPFTcFilterTests : public ::testing::Test
                    << OBJECT_PATH_ENV_VAR << " environment variable";
         }
 
-        prog = bpf_object__find_program_by_name(m_obj, CLASSIFIER_SECTION_NAME);
+        prog = bpf_object__find_program_by_name(m_obj, CLASSIFIER_PROGRAM_NAME);
         ASSERT_FALSE(prog == NULL);
 
         bpf_program__set_type(prog, BPF_PROG_TYPE_SCHED_CLS);
