@@ -32,6 +32,8 @@
 
 ELFTC_VCSID("$Id$");
 
+/*@ELFTC-DOWNSTREAM-VCSID@*/
+
 struct align {
 	unsigned int a32;
 	unsigned int a64;
@@ -50,6 +52,10 @@ struct align {
 		.a32 = __alignof__(int32_t),			\
 		.a64 = __alignof__(int64_t)			\
 	    }
+#elif defined(__lint__)
+#define MALIGN(N)	{ .a32 = 0, .a64 = 0 }
+#define MALIGN64(N)	{ .a32 = 0, .a64 = 0 }
+#define MALIGN_WORD(N)	{ .a32 = 0, .a64 = 0 }
 #else
 #error	Need the __alignof__ builtin.
 #endif

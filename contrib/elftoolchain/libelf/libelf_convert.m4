@@ -24,6 +24,8 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
 #include <assert.h>
 #include <libelf.h>
 #include <string.h>
@@ -31,6 +33,8 @@
 #include "_libelf.h"
 
 ELFTC_VCSID("$Id$");
+
+/*@ELFTC-DOWNSTREAM-VCSID@*/
 
 /* WARNING: GENERATED FROM __file__. */
 
@@ -530,14 +534,14 @@ divert(0)
  * C macros to byte swap integral quantities.
  */
 
-#define	SWAP_BYTE(X)	do { (void) (X); } while (0)
-#define	SWAP_IDENT(X)	do { (void) (X); } while (0)
+#define	SWAP_BYTE(X)	do { (void) (X); } while (/*CONSTCOND*/0)
+#define	SWAP_IDENT(X)	do { (void) (X); } while (/*CONSTCOND*/0)
 #define	SWAP_HALF(X)	do {						\
 		uint16_t _x = (uint16_t) (X);				\
 		uint32_t _t = _x & 0xFFU;				\
 		_t <<= 8U; _x >>= 8U; _t |= _x & 0xFFU;			\
 		(X) = (uint16_t) _t;					\
-	} while (0)
+	} while (/*CONSTCOND*/0)
 #define	_SWAP_WORD(X, T) do {						\
 		uint32_t _x = (uint32_t) (X);				\
 		uint32_t _t = _x & 0xFF;				\
@@ -545,7 +549,7 @@ divert(0)
 		_t <<= 8; _x >>= 8; _t |= _x & 0xFF;			\
 		_t <<= 8; _x >>= 8; _t |= _x & 0xFF;			\
 		(X) = (T) _t;						\
-	} while (0)
+	} while (/*CONSTCOND*/0)
 #define	SWAP_ADDR32(X)	_SWAP_WORD(X, Elf32_Addr)
 #define	SWAP_OFF32(X)	_SWAP_WORD(X, Elf32_Off)
 #define	SWAP_SWORD(X)	_SWAP_WORD(X, Elf32_Sword)
@@ -561,7 +565,7 @@ divert(0)
 		_t <<= 8; _x >>= 8; _t |= _x & 0xFF;			\
 		_t <<= 8; _x >>= 8; _t |= _x & 0xFF;			\
 		(X) = (T) _t;						\
-	} while (0)
+	} while (/*CONSTCOND*/0)
 #define	SWAP_ADDR64(X)	_SWAP_WORD64(X, Elf64_Addr)
 #define	SWAP_LWORD(X)	_SWAP_WORD64(X, Elf64_Lword)
 #define	SWAP_OFF64(X)	_SWAP_WORD64(X, Elf64_Off)
@@ -580,7 +584,7 @@ divert(0)
 		unsigned char *const _p = (unsigned char *) (P);	\
 		_p[0]		= (unsigned char) (X);			\
 		(P)		= _p + 1;				\
-	} while (0)
+	} while (/*CONSTCOND*/0)
 #define	WRITE_HALF(P,X)	do {						\
 		uint16_t _t	= (X);					\
 		unsigned char *const _p	= (unsigned char *) (P);	\
@@ -588,7 +592,7 @@ divert(0)
 		_p[0]		= _q[0];				\
 		_p[1]		= _q[1];				\
 		(P)		= _p + 2;				\
-	} while (0)
+	} while (/*CONSTCOND*/0)
 #define	WRITE_WORD(P,X) do {						\
 		uint32_t _t	= (uint32_t) (X);			\
 		unsigned char *const _p	= (unsigned char *) (P);	\
@@ -598,7 +602,7 @@ divert(0)
 		_p[2]		= _q[2];				\
 		_p[3]		= _q[3];				\
 		(P)		= _p + 4;				\
-	} while (0)
+	} while (/*CONSTCOND*/0)
 #define	WRITE_ADDR32(P,X)	WRITE_WORD(P,X)
 #define	WRITE_OFF32(P,X)	WRITE_WORD(P,X)
 #define	WRITE_SWORD(P,X)	WRITE_WORD(P,X)
@@ -615,7 +619,7 @@ divert(0)
 		_p[6]		= _q[6];				\
 		_p[7]		= _q[7];				\
 		(P)		= _p + 8;				\
-	} while (0)
+	} while (/*CONSTCOND*/0)
 #define	WRITE_ADDR64(P,X)	WRITE_WORD64(P,X)
 #define	WRITE_LWORD(P,X)	WRITE_WORD64(P,X)
 #define	WRITE_OFF64(P,X)	WRITE_WORD64(P,X)
@@ -624,7 +628,7 @@ divert(0)
 #define	WRITE_IDENT(P,X)	do {					\
 		(void) memcpy((P), (X), sizeof((X)));			\
 		(P)		= (P) + EI_NIDENT;			\
-	} while (0)
+	} while (/*CONSTCOND*/0)
 
 /*
  * C macros to read in various integral values.
@@ -640,7 +644,7 @@ divert(0)
 			(const unsigned char *) (P);			\
 		(X)		= _p[0];				\
 		(P)		= (P) + 1;				\
-	} while (0)
+	} while (/*CONSTCOND*/0)
 #define	READ_HALF(P,X)	do {						\
 		uint16_t _t;						\
 		unsigned char *const _q = (unsigned char *) &_t;	\
@@ -650,7 +654,7 @@ divert(0)
 		_q[1]		= _p[1];				\
 		(P)		= (P) + 2;				\
 		(X)		= _t;					\
-	} while (0)
+	} while (/*CONSTCOND*/0)
 #define	_READ_WORD(P,X,T) do {						\
 		uint32_t _t;						\
 		unsigned char *const _q = (unsigned char *) &_t;	\
@@ -662,7 +666,7 @@ divert(0)
 		_q[3]		= _p[3];				\
 		(P)		= (P) + 4;				\
 		(X)		= (T) _t;				\
-	} while (0)
+	} while (/*CONSTCOND*/0)
 #define	READ_ADDR32(P,X)	_READ_WORD(P, X, Elf32_Addr)
 #define	READ_OFF32(P,X)		_READ_WORD(P, X, Elf32_Off)
 #define	READ_SWORD(P,X)		_READ_WORD(P, X, Elf32_Sword)
@@ -682,7 +686,7 @@ divert(0)
 		_q[7]		= _p[7];				\
 		(P)		= (P) + 8;				\
 		(X)		= (T) _t;				\
-	} while (0)
+	} while (/*CONSTCOND*/0)
 #define	READ_ADDR64(P,X)	_READ_WORD64(P, X, Elf64_Addr)
 #define	READ_LWORD(P,X)		_READ_WORD64(P, X, Elf64_Lword)
 #define	READ_OFF64(P,X)		_READ_WORD64(P, X, Elf64_Off)
@@ -691,7 +695,7 @@ divert(0)
 #define	READ_IDENT(P,X)		do {					\
 		(void) memcpy((X), (P), sizeof((X)));			\
 		(P)		= (P) + EI_NIDENT;			\
-	} while (0)
+	} while (/*CONSTCOND*/0)
 
 #define	ROUNDUP2(V,N)	(V) = ((((V) + (N) - 1)) & ~((N) - 1))
 
