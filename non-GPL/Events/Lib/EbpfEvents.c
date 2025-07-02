@@ -320,6 +320,7 @@ static int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj, uint6
 {
     int err            = 0;
     bool has_bpf_tramp = features & EBPF_FEATURE_BPF_TRAMP;
+    bool has_ipv6      = features & EBPF_FEATURE_IPV6;
 
     // do_renameat2 kprobe and fentry probe are mutually exclusive.
     // disable auto-loading of kprobe if `do_renameat2` exists in BTF and
@@ -333,10 +334,16 @@ static int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj, uint6
     // tcp_v6_connect kprobes and fexit probe are mutually exclusive.
     // disable auto-loading of kprobes if `tcp_v6_connect` exists in BTF and
     // if bpf trampolines are supported on the current arch, and vice-versa.
-    if (has_bpf_tramp && BTF_FUNC_EXISTS(btf, tcp_v6_connect)) {
+    if (has_ipv6) {
+        if (has_bpf_tramp && BTF_FUNC_EXISTS(btf, tcp_v6_connect)) {
+            err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tcp_v6_connect, false);
+            err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__tcp_v6_connect, false);
+        } else {
+            err = err ?: bpf_program__set_autoload(obj->progs.fexit__tcp_v6_connect, false);
+        }
+    } else {
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tcp_v6_connect, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__tcp_v6_connect, false);
-    } else {
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__tcp_v6_connect, false);
     }
 
@@ -531,12 +538,29 @@ out:
     return ret;
 }
 
+static bool system_has_ipv6(void)
+{
+    FILE *fp;
+    bool ret = false;
+
+    fp = fopen("/proc/sys/net/ipv6", "r");
+    if (fp != NULL) {
+        ret = true;
+        fclose(fp);
+    }
+
+    return ret;
+}
+
 static uint64_t detect_system_features(void)
 {
     uint64_t features = 0;
 
     if (system_has_bpf_tramp())
         features |= EBPF_FEATURE_BPF_TRAMP;
+
+    if (system_has_ipv6())
+        features |= EBPF_FEATURE_IPV6;
 
     return features;
 }
