@@ -42,6 +42,7 @@ type InitMsg struct {
 	InitSuccess bool `json:"probes_initialized"`
 	Features    struct {
 		BpfTramp bool `json:"bpf_tramp"`
+		IPv6 	 bool `json:"ipv6"`
 	} `json:"features"`
 }
 

@@ -70,6 +70,13 @@ func FeaturesCorrect(t *testing.T, et *Runner) {
 	default:
 		t.Fatalf("unknown arch %s, please add to the TestFeaturesCorrect test", arch)
 	}
+
+	// test for IPv6 support feature
+	if _, err := os.Stat("/proc/sys/net/ipv6"); err == nil {
+		require.True(t, et.InitMsg.Features.IPv6)
+	} else {
+		require.False(t, et.InitMsg.Features.IPv6)
+	}
 }
 
 func ForkExit(t *testing.T, et *Runner) {
@@ -766,19 +773,31 @@ func TestEbpf(t *testing.T) {
 		{"Tcpv4ConnectionAttempt", Tcpv4ConnectionAttempt, []string{"--net-conn-attempt"}, false},
 		{"Tcpv4ConnectionAccept", Tcpv4ConnectionAccept, []string{"--net-conn-accept"}, false},
 		{"Tcpv4ConnectionClose", Tcpv4ConnectionClose, []string{"--net-conn-close"}, false},
-		{"Tcpv6ConnectionAttempt", Tcpv6ConnectionAttempt, []string{"--net-conn-attempt"}, false},
-		{"Tcpv6ConnectionAccept", Tcpv6ConnectionAccept, []string{"--net-conn-accept"}, false},
-		{"Tcpv6ConnectionClose", Tcpv6ConnectionClose, []string{"--net-conn-close"}, false},
 		{"DNSMonitor", DNSMonitor, []string{"--net-conn-dns-pkt"}, false},
 		{"Ptrace", Ptrace, []string{"--process-ptrace"}, false},
 		{"Shmget", Shmget, []string{"--process-shmget"}, false},
 		{"MemfdCreate", MemfdCreate, []string{"--process-memfd-create", "--process-exec"}, false},
-
 		{"TcFilter", TcFilter, []string{}, false},
-
 		{"FileCreateContainer", FileCreateContainer, []string{"--file-create"}, true},
 		{"FileRenameContainer", FileRenameContainer, []string{"--file-rename"}, true},
 		{"FileDeleteContainer", FileDeleteContainer, []string{"--file-delete"}, true},
+	}
+
+	// Conditionally add IPv6 tests if IPv6 is supported
+	if _, err := os.Stat("/proc/sys/net/ipv6"); err == nil {
+		// Add all IPv6 test cases
+		ipv6Tests := []struct {
+			name             string
+			handle           func(t *testing.T, et *Runner)
+			args             []string
+			requireOverlayFS bool
+		}{
+			{"Tcpv6ConnectionAttempt", Tcpv6ConnectionAttempt, []string{"--net-conn-attempt"}, false},
+			{"Tcpv6ConnectionAccept", Tcpv6ConnectionAccept, []string{"--net-conn-accept"}, false},
+			{"Tcpv6ConnectionClose", Tcpv6ConnectionClose, []string{"--net-conn-close"}, false},
+		}
+
+		testCases = append(testCases, ipv6Tests...)
 	}
 
 	failed := false
