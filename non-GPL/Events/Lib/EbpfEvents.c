@@ -17,6 +17,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/resource.h>
+#include <sys/socket.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 
@@ -540,16 +541,13 @@ out:
 
 static bool system_has_ipv6(void)
 {
-    FILE *fp;
-    bool ret = false;
-
-    fp = fopen("/proc/sys/net/ipv6", "r");
-    if (fp != NULL) {
-        ret = true;
-        fclose(fp);
+    int fd;
+    bool supported = false;
+    if ((fd = socket(AF_INET6, SOCK_STREAM, 0)) != -1) {
+        close(fd);
+        supported = true;
     }
-
-    return ret;
+    return supported;
 }
 
 static uint64_t detect_system_features(void)
