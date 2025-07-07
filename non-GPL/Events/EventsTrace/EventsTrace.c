@@ -1211,7 +1211,8 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
 static void print_init_msg(uint64_t features)
 {
     printf("{\"probes_initialized\": true, \"features\": {");
-    printf("\"bpf_tramp\": %s", (features & EBPF_FEATURE_BPF_TRAMP) ? "true" : "false");
+    printf("\"bpf_tramp\": %s,", (features & EBPF_FEATURE_BPF_TRAMP) ? "true" : "false");
+    printf("\"ipv6\": %s", (features & EBPF_FEATURE_IPV6) ? "true" : "false");
     printf("}}\n");
 }
 

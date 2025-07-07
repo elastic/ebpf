@@ -17,6 +17,7 @@
 
 enum ebpf_kernel_feature {
     EBPF_FEATURE_BPF_TRAMP = (1 << 0),
+    EBPF_FEATURE_IPV6      = (1 << 1),
 };
 
 /* Opaque context */
