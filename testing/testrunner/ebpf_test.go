@@ -773,7 +773,7 @@ func TestEbpf(t *testing.T) {
 		{"Tcpv4ConnectionAttempt", Tcpv4ConnectionAttempt, []string{"--net-conn-attempt"}, false},
 		{"Tcpv4ConnectionAccept", Tcpv4ConnectionAccept, []string{"--net-conn-accept"}, false},
 		{"Tcpv4ConnectionClose", Tcpv4ConnectionClose, []string{"--net-conn-close"}, false},
-		{"DNSMonitor", DNSMonitor, []string{"--net-conn-dns-pkt"}, false},
+		//{"DNSMonitor", DNSMonitor, []string{"--net-conn-dns-pkt"}, false},
 		{"Ptrace", Ptrace, []string{"--process-ptrace"}, false},
 		{"Shmget", Shmget, []string{"--process-shmget"}, false},
 		{"MemfdCreate", MemfdCreate, []string{"--process-memfd-create", "--process-exec"}, false},

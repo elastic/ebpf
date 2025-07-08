@@ -417,6 +417,7 @@ static int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj, uint6
     return err;
 }
 
+#if 0 // Do not load DNS probes
 static int probe_attach_cgroup(struct EventProbe_bpf *obj)
 {
     int cgroup_fd;
@@ -446,6 +447,7 @@ static int probe_attach_cgroup(struct EventProbe_bpf *obj)
 
     return 0;
 }
+#endif
 
 static bool system_has_bpf_tramp(void)
 {
@@ -790,11 +792,13 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx, ebpf_event_handler_fn cb, u
         goto out_destroy_probe;
     }
 
+#if 0 // Do not load DNS probes
     err = probe_attach_cgroup(probe);
     if (err != 0) {
         verbose("probe_attach_cgroup: %d\n", err);
         goto out_destroy_probe;
     }
+#endif
 
     if (!ctx)
         goto out_destroy_probe;
