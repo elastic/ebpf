@@ -24,6 +24,8 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
 #include <assert.h>
 #include <libelf.h>
 #include <stdlib.h>
@@ -35,6 +37,8 @@
 #endif
 
 ELFTC_VCSID("$Id$");
+
+/*@ELFTC-DOWNSTREAM-VCSID@*/
 
 int
 elf_end(Elf *e)

@@ -24,18 +24,23 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
 #include <libelf.h>
 
 #include "_libelf.h"
 
 ELFTC_VCSID("$Id$");
 
+/*@ELFTC-DOWNSTREAM-VCSID@*/
+
+#ifdef ELASTIC
 /*
  * Extension API: open a file for reading, ignoring parse errors.
  */
 
 Elf *
-elf_open(int fd)
+elftoolchain_elf_open(int fd)
 {
 	if (LIBELF_PRIVATE(version) == EV_NONE) {
 		LIBELF_SET_ERROR(SEQUENCE, 0);
@@ -51,7 +56,7 @@ elf_open(int fd)
  */
 
 Elf *
-elf_openmemory(char *image, size_t sz)
+elftoolchain_elf_openmemory(char *image, size_t sz)
 {
 	if (LIBELF_PRIVATE(version) == EV_NONE) {
 		LIBELF_SET_ERROR(SEQUENCE, 0);
@@ -65,3 +70,5 @@ elf_openmemory(char *image, size_t sz)
 
 	return (_libelf_memory((unsigned char *) image, sz, 0));
 }
+
+#endif	/* ELASTIC */

@@ -24,6 +24,7 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #include <sys/param.h>
 #include <sys/stat.h>
 
@@ -42,6 +43,8 @@
 #endif
 
 ELFTC_VCSID("$Id$");
+
+/*@ELFTC-DOWNSTREAM-VCSID@*/
 
 /*
  * Layout strategy:
@@ -590,7 +593,7 @@ _libelf_resync_elf(Elf *e, struct _Elf_Extent_List *extents)
 			(size_t) 1));					\
 		(E)->e_shentsize = (uint16_t) _libelf_fsize(ELF_T_SHDR,	\
 		    (EC), _version, (size_t) 1);			\
-	} while (0)
+	} while (/* CONSTCOND */ 0)
 
 	if (ec == ELFCLASS32)
 		INITIALIZE_EHDR(eh32, ec, eh_version);
@@ -754,7 +757,6 @@ _libelf_write_scn(Elf *e, unsigned char *nf, struct _Elf_Extent *ex)
 	assert(sh_off % _libelf_falign(elftype, ec) == 0);
 
 	em = _libelf_elfmachine(e);
-	assert(em >= EM_NONE && em < EM__LAST__);
 
 	/*
 	 * If the section has a `rawdata' descriptor, and the section

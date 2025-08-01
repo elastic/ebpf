@@ -63,7 +63,7 @@ extern struct _libelf_globals _libelf;
 
 #define	LIBELF_SET_ERROR(E, O) do {					\
 		LIBELF_PRIVATE(error) = LIBELF_ERROR(ELF_E_##E, (O));	\
-	} while (0)
+	} while (/* CONSTCOND */ 0)
 
 #define	LIBELF_ADJUST_AR_SIZE(S)	(((S) + 1U) & ~1U)
 
@@ -178,7 +178,7 @@ enum {
 			return (0);				\
 		}						\
 		(DST)->NAME = (SRC)->NAME & 0xFFFFFFFFU;	\
-	} while (0)
+	} while (/* CONSTCOND */ 0)
 
 #define	LIBELF_COPY_S32(DST, SRC, NAME)	do {			\
 		if ((SRC)->NAME > INT32_MAX ||			\
@@ -187,7 +187,7 @@ enum {
 			return (0);				\
 		}						\
 		(DST)->NAME = (int32_t) (SRC)->NAME;		\
-	} while (0)
+	} while (/* CONSTCOND */ 0)
 
 
 /*

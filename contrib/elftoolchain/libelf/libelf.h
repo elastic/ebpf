@@ -30,8 +30,7 @@
 #define	_LIBELF_H_
 
 #include <sys/types.h>
-
-#include <elfdefinitions.h>
+#include <sys/elfdefinitions.h>
 
 /* Library private data structures */
 typedef struct _Elf Elf;
@@ -206,6 +205,7 @@ int		elf_getshdrnum(Elf *_elf, size_t *_dst);
 int		elf_getshnum(Elf *_elf, size_t *_dst);	/* Deprecated */
 int		elf_getshdrstrndx(Elf *_elf, size_t *_dst);
 int		elf_getshstrndx(Elf *_elf, size_t *_dst); /* Deprecated */
+unsigned int	elf_getversion(Elf *_elf);
 unsigned long	elf_hash(const char *_name);
 Elf_Kind	elf_kind(Elf *_elf);
 Elf		*elf_memory(char *_image, size_t _size);
@@ -214,8 +214,10 @@ Elf_Data	*elf_newdata(Elf_Scn *_scn);
 Elf_Scn		*elf_newscn(Elf *_elf);
 Elf_Scn		*elf_nextscn(Elf *_elf, Elf_Scn *_scn);
 Elf_Cmd		elf_next(Elf *_elf);
-Elf		*elf_open(int _fd);
-Elf		*elf_openmemory(char *_image, size_t _size);
+#ifdef ELASTIC
+Elf		*elftoolchain_elf_open(int _fd);
+Elf		*elftoolchain_elf_openmemory(char *_image, size_t _size);
+#endif	/* ELASTIC */
 off_t		elf_rand(Elf *_elf, off_t _off);
 Elf_Data	*elf_rawdata(Elf_Scn *_scn, Elf_Data *_data);
 char		*elf_rawfile(Elf *_elf, size_t *_size);
