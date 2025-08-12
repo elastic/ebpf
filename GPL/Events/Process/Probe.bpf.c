@@ -166,7 +166,7 @@ int BPF_PROG(sched_process_exec,
 
     // filename
     field = ebpf_vl_field__add(&event->vl_fields, EBPF_VL_FIELD_FILENAME);
-    size  = read_kernel_str_or_empty_str(field->data, PATH_MAX, binprm->filename);
+    size  = ebpf_resolve_path_to_string(field->data, &p, task);
     ebpf_vl_field__set_size(&event->vl_fields, field, size);
 
     ebpf_ringbuf_write(&ringbuf, event, EVENT_SIZE(event), 0);

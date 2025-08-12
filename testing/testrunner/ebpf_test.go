@@ -179,7 +179,7 @@ func ForkExec(t *testing.T, et *Runner) {
 
 	require.Equal(t, execEvent.Creds.CapPermitted, uint64(0x000001ffffffffff))
 	require.Equal(t, execEvent.Creds.CapEffective, uint64(0x000001ffffffffff))
-	require.Equal(t, execEvent.FileName, "./do_nothing")
+	require.Equal(t, execEvent.FileName, "/do_nothing")
 	require.Equal(t, execEvent.Argv[0], "./do_nothing")
 	require.Equal(t, execEvent.Env[0], "TEST_ENV_KEY1=TEST_ENV_VAL1")
 	require.Equal(t, execEvent.Env[1], "TEST_ENV_KEY2=TEST_ENV_VAL2")
