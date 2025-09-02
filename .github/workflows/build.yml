@@ -26,6 +26,8 @@ jobs:
     runs-on: ${{ inputs.runner }}
     steps:
       - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
       - name: Configure System
         run: |
           sudo apt-get update -y
