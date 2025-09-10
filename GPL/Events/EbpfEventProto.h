@@ -11,10 +11,6 @@
 #define EBPF_EVENTPROBE_EBPFEVENTPROTO_H
 
 #define TASK_COMM_LEN 16
-// The theoretical max size of DNS packets over UDP is 512.
-// Like so many things in DNS this number probaby isn't 100% accurate.
-// DNS extensions in RFC2671 and RFC6891 mean the actual size can be larger.
-#define MAX_DNS_PACKET 4096
 
 #ifndef __KERNEL__
 #include <stdint.h>
@@ -44,7 +40,6 @@ enum ebpf_event_type {
     EBPF_EVENT_PROCESS_SHMGET               = (1 << 17),
     EBPF_EVENT_PROCESS_PTRACE               = (1 << 18),
     EBPF_EVENT_PROCESS_LOAD_MODULE          = (1 << 19),
-    EBPF_EVENT_NETWORK_DNS_PKT              = (1 << 20),
 };
 
 struct ebpf_event_header {
@@ -72,7 +67,6 @@ enum ebpf_varlen_field_type {
     EBPF_VL_FIELD_SYMLINK_TARGET_PATH,
     EBPF_VL_FIELD_MOD_VERSION,
     EBPF_VL_FIELD_MOD_SRCVERSION,
-    EBPF_VL_FIELD_DNS_BODY,
 };
 
 // Convenience macro to iterate all the variable length fields in an event
@@ -374,11 +368,6 @@ enum ebpf_net_udp_info {
     EBPF_NETWORK_EVENT_IP_SEND_UDP     = 2,
 };
 
-enum ebpf_net_packet_direction {
-    EBPF_NETWORK_DIR_EGRESS  = 1,
-    EBPF_NETWORK_DIR_INGRESS = 2,
-};
-
 struct ebpf_net_info_tcp_close {
     uint64_t bytes_sent;
     uint64_t bytes_received;
@@ -410,20 +399,10 @@ struct ebpf_net_event {
     char comm[TASK_COMM_LEN];
 } __attribute__((packed));
 
-struct ebpf_dns_event {
-    struct ebpf_event_header hdr;
-    uint32_t tgid;
-    uint32_t cap_len;
-    uint32_t orig_len;
-    enum ebpf_net_packet_direction direction;
-    struct ebpf_varlen_fields_start vl_fields;
-} __attribute__((packed));
-
 // Basic event statistics
 struct ebpf_event_stats {
-    uint64_t lost;          // lost events due to a full ringbuffer
-    uint64_t sent;          // events sent through the ringbuffer
-    uint64_t dns_zero_body; // indicates that the dns body of a sk_buff was unavailable
+    uint64_t lost; // lost events due to a full ringbuffer
+    uint64_t sent; // events sent through the ringbuffer
 };
 
 #endif // EBPF_EVENTPROBE_EBPFEVENTPROTO_H

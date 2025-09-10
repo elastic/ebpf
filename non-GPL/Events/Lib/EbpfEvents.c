@@ -2,7 +2,7 @@
 
 /*
  * Copyright 2021 Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under
- * one or more contributor license agreements. Licensed under the Elastic
+
  * License 2.0; you may not use this file except in compliance with the Elastic
  * License 2.0.
  */
@@ -417,38 +417,6 @@ static int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj, uint6
     return err;
 }
 
-#if 0 // Do not load DNS probes
-static int probe_attach_cgroup(struct EventProbe_bpf *obj)
-{
-    int cgroup_fd;
-
-    /*
-     * Hardcoded for now, consider making the path an argument.
-     */
-    cgroup_fd = open("/sys/fs/cgroup", O_RDONLY);
-    if (cgroup_fd == -1)
-        return -1;
-
-#define ATTACH_OR_FAIL(_program)                                                                   \
-    if (bpf_program__attach_cgroup(obj->progs._program, cgroup_fd) == NULL) {                      \
-        close(cgroup_fd);                                                                          \
-        return -1;                                                                                 \
-    }
-    ATTACH_OR_FAIL(skb_egress);
-    ATTACH_OR_FAIL(skb_ingress);
-    ATTACH_OR_FAIL(sock_create);
-    ATTACH_OR_FAIL(sock_release);
-    ATTACH_OR_FAIL(sendmsg4);
-    ATTACH_OR_FAIL(connect4);
-    ATTACH_OR_FAIL(recvmsg4);
-#undef ATTACH_OR_FAIL
-
-    close(cgroup_fd);
-
-    return 0;
-}
-#endif
-
 static bool system_has_bpf_tramp(void)
 {
     /*
@@ -792,14 +760,6 @@ int ebpf_event_ctx__new(struct ebpf_event_ctx **ctx, ebpf_event_handler_fn cb, u
         goto out_destroy_probe;
     }
 
-#if 0 // Do not load DNS probes
-    err = probe_attach_cgroup(probe);
-    if (err != 0) {
-        verbose("probe_attach_cgroup: %d\n", err);
-        goto out_destroy_probe;
-    }
-#endif
-
     if (!ctx)
         goto out_destroy_probe;
 
@@ -879,7 +839,6 @@ int ebpf_event_ctx__read_stats(struct ebpf_event_ctx *ctx, struct ebpf_event_sta
     for (i = 0; i < libbpf_num_possible_cpus(); i++) {
         ees->lost += pcpu_ees[i].lost;
         ees->sent += pcpu_ees[i].sent;
-        ees->dns_zero_body += pcpu_ees[i].dns_zero_body;
     }
 
     return 0;

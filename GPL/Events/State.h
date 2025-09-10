@@ -174,14 +174,6 @@ static long ebpf_events_scratch_space__set(enum ebpf_events_state_op op,
     return bpf_map_update_elem(&elastic_ebpf_events_scratch_space, &key, ss, BPF_ANY);
 }
 
-/* Scratch 64bits as an array, as bpf_get_current_pid_tgid is not always available */
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __type(key, u32);
-    __type(value, u64);
-    __uint(max_entries, 1);
-} scratch64 SEC(".maps");
-
 /* Trusted Apps - list of trusted pids */
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
