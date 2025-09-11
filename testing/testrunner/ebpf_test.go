@@ -13,7 +13,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"strings"
@@ -689,55 +688,6 @@ func Tcpv6ConnectionClose(t *testing.T, et *Runner) {
 	require.Equal(t, evs[1].Comm, "tcpv6_connect")
 }
 
-func DNSMonitor(t *testing.T, et *Runner) {
-	addr, err := net.ResolveUDPAddr("udp", "127.0.0.1:53")
-	require.NoError(t, err)
-
-	listen, err := net.ListenUDP("udp", addr)
-	require.NoError(t, err)
-	defer listen.Close()
-
-	conn, err := net.DialUDP("udp", nil, addr)
-	require.NoError(t, err)
-	defer conn.Close()
-
-	pattern := []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
-	n, err := conn.Write(pattern)
-	require.NoError(t, err)
-	require.Equal(t, n, len(pattern))
-
-	var buf [256]byte
-	n, _, err = listen.ReadFromUDP(buf[:])
-	require.NoError(t, err)
-	require.Equal(t, n, len(pattern))
-
-	type dnsOutput struct {
-		Tgid    int64   `json:"tgid"`
-		CapLen  int     `json:"cap_len"`
-		OrigLen int     `json:"orig_len"`
-		Dir     string  `json:"direction"`
-		Data    []uint8 `json:"data"`
-	}
-	// out
-	lineData := dnsOutput{}
-	et.UnmarshalNextEvent(&lineData, "DNS_PKT")
-	require.Equal(t, int64(os.Getpid()), lineData.Tgid)
-	require.Equal(t, 90, lineData.CapLen)
-	require.Equal(t, 90, lineData.OrigLen)
-	require.Equal(t, "out", lineData.Dir)
-	require.Equal(t, pattern, lineData.Data[28:])
-
-	// in
-	lineData = dnsOutput{}
-	et.UnmarshalNextEvent(&lineData, "DNS_PKT")
-	require.Equal(t, int64(os.Getpid()), lineData.Tgid)
-	require.Equal(t, 90, lineData.CapLen)
-	require.Equal(t, 90, lineData.OrigLen)
-	require.Equal(t, "in", lineData.Dir)
-	require.Equal(t, pattern, lineData.Data[28:])
-
-}
-
 func TcFilter(t *testing.T, et *Runner) {
 	// TC test is weird, and doesn't actually use the
 	// return-json-and-check-eventsTrace-output the other tests use
@@ -773,7 +723,6 @@ func TestEbpf(t *testing.T) {
 		{"Tcpv4ConnectionAttempt", Tcpv4ConnectionAttempt, []string{"--net-conn-attempt"}, false},
 		{"Tcpv4ConnectionAccept", Tcpv4ConnectionAccept, []string{"--net-conn-accept"}, false},
 		{"Tcpv4ConnectionClose", Tcpv4ConnectionClose, []string{"--net-conn-close"}, false},
-		//{"DNSMonitor", DNSMonitor, []string{"--net-conn-dns-pkt"}, false},
 		{"Ptrace", Ptrace, []string{"--process-ptrace"}, false},
 		{"Shmget", Shmget, []string{"--process-shmget"}, false},
 		{"MemfdCreate", MemfdCreate, []string{"--process-memfd-create", "--process-exec"}, false},

@@ -63,7 +63,6 @@ enum cmdline_opts {
     NETWORK_CONNECTION_ATTEMPTED,
     NETWORK_CONNECTION_ACCEPTED,
     NETWORK_CONNECTION_CLOSED,
-    NETWORK_DNS_PKT,
     CMDLINE_MAX
 };
 
@@ -90,7 +89,6 @@ static uint64_t cmdline_to_lib[CMDLINE_MAX] = {
     x(NETWORK_CONNECTION_ATTEMPTED)
     x(NETWORK_CONNECTION_ACCEPTED)
     x(NETWORK_CONNECTION_CLOSED)
-    x(NETWORK_DNS_PKT)
 #undef x
     // clang-format on
 };
@@ -116,7 +114,6 @@ static const struct argp_option opts[] = {
     {"process-load-module", PROCESS_LOAD_MODULE, NULL, false, "Print kernel module load events", 0},
     {"net-conn-accept", NETWORK_CONNECTION_ACCEPTED, NULL, false,
      "Print network connection accepted events", 0},
-    {"net-conn-dns-pkt", NETWORK_DNS_PKT, NULL, false, "Print DNS events", 0},
     {"net-conn-attempt", NETWORK_CONNECTION_ATTEMPTED, NULL, false,
      "Print network connection attempted events", 0},
     {"net-conn-closed", NETWORK_CONNECTION_CLOSED, NULL, false,
@@ -176,7 +173,6 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
     case NETWORK_CONNECTION_ACCEPTED:
     case NETWORK_CONNECTION_ATTEMPTED:
     case NETWORK_CONNECTION_CLOSED:
-    case NETWORK_DNS_PKT:
         g_events_env |= cmdline_to_lib[key];
         break;
     case ARGP_KEY_ARG:
@@ -1084,43 +1080,6 @@ static void out_network_connection_accepted_event(struct ebpf_net_event *evt)
     out_network_event("NETWORK_CONNECTION_ACCEPTED", evt);
 }
 
-static void out_network_dns_event(struct ebpf_dns_event *event)
-{
-    out_object_start();
-    out_event_type("DNS_PKT");
-    out_comma();
-
-    out_int("tgid", event->tgid);
-    out_comma();
-
-    out_int("cap_len", event->cap_len);
-    out_comma();
-
-    out_int("orig_len", event->orig_len);
-    out_comma();
-
-    out_string("direction", event->direction == EBPF_NETWORK_DIR_INGRESS ? "in" : "out");
-    out_comma();
-
-    printf("\"data\":");
-    out_array_start();
-    struct ebpf_varlen_field *field;
-    FOR_EACH_VARLEN_FIELD(event->vl_fields, field)
-    {
-        for (size_t i = 0; i < field->size; i++) {
-            uint8_t part = field->data[i];
-            printf("%d", part);
-            if (i < field->size - 1) {
-                printf(", ");
-            }
-        }
-    }
-    out_array_end();
-
-    out_object_end();
-    out_newline();
-}
-
 static void out_network_connection_attempted_event(struct ebpf_net_event *evt)
 {
     out_network_event("NETWORK_CONNECTION_ATTEMPTED", evt);
@@ -1199,9 +1158,6 @@ static int event_ctx_callback(struct ebpf_event_header *evt_hdr)
         break;
     case EBPF_EVENT_NETWORK_CONNECTION_CLOSED:
         out_network_connection_closed_event((struct ebpf_net_event *)evt_hdr);
-        break;
-    case EBPF_EVENT_NETWORK_DNS_PKT:
-        out_network_dns_event((struct ebpf_dns_event *)evt_hdr);
         break;
     }
 
