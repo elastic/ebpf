@@ -381,7 +381,7 @@ static int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj, uint6
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__do_filp_open, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__vfs_rename, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__vfs_rename, false);
-        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__taskstats_exit, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__disassociate_ctty, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__commit_creds, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__inet_csk_accept, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__tcp_v4_connect, false);
@@ -403,7 +403,7 @@ static int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj, uint6
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__do_filp_open, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__vfs_rename, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__vfs_rename, false);
-        err = err ?: bpf_program__set_autoload(obj->progs.fentry__taskstats_exit, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.fentry__disassociate_ctty, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__commit_creds, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__inet_csk_accept, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__tcp_v4_connect, false);
@@ -473,7 +473,7 @@ static bool system_has_bpf_tramp(void)
         {.code = BPF_EXIT | BPF_JMP, .dst_reg = 0, .src_reg = 0, .off = 0, .imm = 0}};
     int insns_cnt = 2;
 
-    btf_id = btf__find_by_name(btf, "taskstats_exit");
+    btf_id = btf__find_by_name(btf, "disassociate_ctty");
     LIBBPF_OPTS(bpf_prog_load_opts, opts, .log_buf = NULL, .log_level = 0,
                 .expected_attach_type = BPF_TRACE_FENTRY, .attach_btf_id = btf_id);
     prog_fd = bpf_prog_load(BPF_PROG_TYPE_TRACING, NULL, "GPL", insns, insns_cnt, &opts);
