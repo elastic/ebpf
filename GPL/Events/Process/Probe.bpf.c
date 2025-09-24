@@ -195,24 +195,20 @@ out:
 // The problem is taskstats_exit__enter happens before file descriptors are
 // closed in exit_files(), so instead of emiting the event here, record that we
 // saw group_dead and delay emiting the event until sched_process_exit().
-static int taskstats_exit__enter(const struct task_struct *task, int group_dead)
+//
+// UPDATE: taskstats_exit can be compiled out of the kernel based on
+// configuration. So, instead we use disassociate_ctty (guarded by CONFIG_TTY),
+// which is hopefully less common of being compiled out. disassociate_ctty is
+// called from do_exit() only when group_dead is true, and in that case,
+// the parameter, on_exit, is set to true, and we can use current to populate
+// event data. Finally, sched_process_exit() is not called after exit_files,
+// but disassociate_ctty is.
+static int disassociate_ctty__enter(int on_exit)
 {
-    struct ebpf_events_state state = {};
-
-    if (!group_dead || is_kernel_thread(task))
-        return 0;
-
-    ebpf_events_state__set(EBPF_EVENTS_STATE_GROUP_DEAD, &state);
-
-    return 0;
-}
-
-SEC("tp_btf/sched_process_exit")
-int BPF_PROG(sched_process_exit, const struct task_struct *task)
-{
+    const struct task_struct *task = (struct task_struct *)bpf_get_current_task();
     struct ebpf_process_exit_event *event;
 
-    if (ebpf_events_state__get(EBPF_EVENTS_STATE_GROUP_DEAD) == NULL)
+    if (!on_exit || is_kernel_thread(task))
         return 0;
 
     event = get_event_buffer();
@@ -247,16 +243,16 @@ int BPF_PROG(sched_process_exit, const struct task_struct *task)
     return 0;
 }
 
-SEC("fentry/taskstats_exit")
-int BPF_PROG(fentry__taskstats_exit, const struct task_struct *task, int group_dead)
+SEC("fentry/disassociate_ctty")
+int BPF_PROG(fentry__disassociate_ctty, int on_exit)
 {
-    return taskstats_exit__enter(task, group_dead);
+    return disassociate_ctty__enter(on_exit);
 }
 
-SEC("kprobe/taskstats_exit")
-int BPF_KPROBE(kprobe__taskstats_exit, const struct task_struct *task, int group_dead)
+SEC("kprobe/disassociate_ctty")
+int BPF_KPROBE(kprobe__disassociate_ctty, int on_exit)
 {
-    return taskstats_exit__enter(task, group_dead);
+    return disassociate_ctty__enter(on_exit);
 }
 
 // tracepoint/syscalls/sys_[enter/exit]_[name] tracepoints are not available
