@@ -18,6 +18,7 @@
 
 /* maximum netlink message size */
 #define MAX_MSG 16384
+#define ELASTIC_TC_FILTER_MARKER "TcFilter.bpf.o"
 
 struct rtnetlink_handle {
     int fd;
@@ -81,4 +82,13 @@ int netlink_filter_add_begin(struct netlink_ctx *ctx, const char *ifname);
  * @return Error value (0 for success)
  */
 int netlink_filter_add_end(int fd, struct netlink_ctx *ctx, const char *ebpf_obj_filename);
+
+/**
+ * @brief Check if an interface has our eBPF tc filter attached
+ *
+ * @param[in] ifname Network interface name
+ * @param[in] marker_name Substring to match against TCA_BPF_NAME
+ * @return 1 if found, 0 if not found, -1 on error
+ */
+int netlink_filter_exists(const char *ifname, const char *marker_name);
 #endif
