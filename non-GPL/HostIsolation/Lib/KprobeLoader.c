@@ -166,28 +166,6 @@ out:
     return code;
 }
 
-struct bpf_object *ebpf_open_object_file(const char *file_path)
-{
-    struct bpf_object *obj = NULL;
-
-    if (!file_path) {
-        ebpf_log("error: file path is NULL\n");
-        obj = NULL;
-        goto cleanup;
-    }
-
-    obj = bpf_object__open_file(file_path, NULL);
-    if (!obj || libbpf_get_error(obj)) {
-        ebpf_log("failed to open BPF object\n");
-        bpf_object__close(obj);
-        obj = NULL;
-        goto cleanup;
-    }
-
-cleanup:
-    return obj;
-}
-
 int ebpf_map_set_pin_path(struct bpf_object *obj, const char *map_name, const char *map_path)
 {
     struct bpf_map *map = NULL;
@@ -217,13 +195,16 @@ cleanup:
     return rv;
 }
 
-struct bpf_link *ebpf_load_and_attach_kprobe(struct bpf_object *obj,
-                                             const char *program_name,
-                                             enum ebpf_load_method load_method)
+int ebpf_object_set_kernel_version(struct bpf_object *obj, enum ebpf_load_method load_method)
 {
-    struct bpf_program *prog    = NULL;
-    struct bpf_link *link       = NULL;
+    int rv                      = 0;
     unsigned int kernel_version = 0;
+
+    if (!obj) {
+        ebpf_log("ebpf_object_set_kernel_version error: NULL parameter\n");
+        rv = -1;
+        goto cleanup;
+    }
 
     // Load may fail if an incorrect kernel version number was passed to the
     // bpf() syscall (old Linux kernels verify that, while newer kernels ignore
@@ -234,30 +215,11 @@ struct bpf_link *ebpf_load_and_attach_kprobe(struct bpf_object *obj,
         ebpf_log("got kernel_version=%d according to method=%d\n", kernel_version, load_method);
         if (bpf_object__set_kversion(obj, kernel_version) != 0) {
             ebpf_log("failed to set kversion\n");
+            rv = -1;
+            goto cleanup;
         }
     }
 
-    if (bpf_object__load(obj) < 0) {
-        ebpf_log("failed to load BPF program\n");
-        link = NULL;
-        goto cleanup;
-    }
-
-    prog = bpf_object__find_program_by_name(obj, program_name);
-    if (!prog || libbpf_get_error(prog)) {
-        ebpf_log("failed to find BPF program by name\n");
-        link = NULL;
-        goto cleanup;
-    }
-
-    link = bpf_program__attach(prog);
-    if (!link || libbpf_get_error(link)) {
-        ebpf_log("failed to attach BPF program\n");
-        bpf_link__destroy(link);
-        link = NULL;
-        goto cleanup;
-    }
-
 cleanup:
-    return link;
+    return rv;
 }
