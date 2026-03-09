@@ -30,9 +30,6 @@
 #include "TcLoader.h"
 #include "TcFilter.skel.h"
 
-/* UPDATE ACCORDINGLY */
-#define IFNAME_TO_ATTACH_TO "ens33"
-
 int main(int argc, char **argv)
 {
     struct netlink_ctx nl_ctx;
@@ -44,34 +41,57 @@ int main(int argc, char **argv)
     char buf[256]            = {0};
     int prog_fd_dupd         = 0;
     int rv                   = -1;
+    const char *ifname       = NULL;
+    bool unload_only         = false;
 
     memset(&nl_ctx, 0, sizeof(nl_ctx));
 
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <interface> [unload]\n", argv[0]);
+        return -1;
+    }
+
+    ifname = argv[1];
+    if (argc >= 3) {
+        if (!strcmp(argv[2], "unload")) {
+            unload_only = true;
+        } else {
+            fprintf(stderr, "Unknown argument: %s\n", argv[2]);
+            fprintf(stderr, "Usage: %s <interface> [unload]\n", argv[0]);
+            return -1;
+        }
+    }
+    if (argc > 3) {
+        fprintf(stderr, "Too many arguments\n");
+        fprintf(stderr, "Usage: %s <interface> [unload]\n", argv[0]);
+        return -1;
+    }
+
     /* do the same things as 'tc qdisc del dev <iface> clsact' */
-    if (netlink_qdisc_del(IFNAME_TO_ATTACH_TO) != 0) {
+    if (netlink_qdisc_del(ifname) != 0) {
         fprintf(stderr, "failed to del qdisc\n");
     } else {
-        printf("DELETED QDISC\n");
+        printf("DELETED QDISC (%s)\n", ifname);
     }
 
     /* if 'unload' is passed as arg, only delete qdisc */
-    if ((argc > 1) && !strcmp(argv[1], "unload")) {
+    if (unload_only) {
         rv = 0;
         goto out;
     }
 
     /* 'tc qdisc add dev <iface> clsact' */
-    if (netlink_qdisc_add(IFNAME_TO_ATTACH_TO) != 0) {
+    if (netlink_qdisc_add(ifname) != 0) {
         fprintf(stderr, "failed to add qdisc\n");
         rv = -1;
         goto out;
     }
 
-    printf("ADDED QDISC\n");
+    printf("ADDED QDISC (%s)\n", ifname);
 
     /* 'tc filter add dev <iface> egress bpf da obj <ebpf_file> sec .text' */
     /* finished when netlink_filter_add_end() is called */
-    if (netlink_filter_add_begin(&nl_ctx, IFNAME_TO_ATTACH_TO) != 0) {
+    if (netlink_filter_add_begin(&nl_ctx, ifname) != 0) {
         fprintf(stderr, "filter_add_begin() failed\n");
         rv = -1;
         goto out;

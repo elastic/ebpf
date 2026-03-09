@@ -22,13 +22,13 @@ These binaries can be used to demo/test host isolation locally as follows:
 
 1. Build the repository
 2. Run `cd <build directory>/target/ebpf`
-3. Run `sudo ../../non-GPL/TcLoader/TcLoaderDemo` - packet filter is now attached to ens33
+3. Run `sudo ../../non-GPL/TcLoader/TcLoaderDemo <iface>` - packet filter is now attached to `<iface>` (e.g. `ens33`)
 4. Run `sudo ../../non-GPL/HostIsolation/KprobeConnectHook/KprobeConnectHookDemo` - connect hook is attached
 5. Run `firefox` in another tab - verify that all internet access is blocked
 6. Run `pgrep firefox` to get the PID of the browser
 7. Run `sudo ../../non-GPL/HostIsolationMapsUtil/UpdatePidsDemo <firefox PID>`
 8. Verify that firefox connects to any page
-9. Quit KprobeConnectHook with Ctrl+C and run `sudo ../../non-GPL/TcLoader/TcLoaderDemo unload` to detach both eBPF programs
+9. Quit KprobeConnectHook with Ctrl+C and run `sudo ../../non-GPL/TcLoader/TcLoaderDemo <iface> unload` to detach both eBPF programs
 
 ## Tests
 
