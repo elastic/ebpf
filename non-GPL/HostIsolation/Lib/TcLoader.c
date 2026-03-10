@@ -473,9 +473,9 @@ out:
 
 int netlink_filter_add_end(int fd, struct netlink_ctx *ctx)
 {
-    struct nlmsghdr *nl = NULL;
+    struct nlmsghdr *nl       = NULL;
     struct bpf_prog_info info = {};
-    unsigned int info_len = sizeof(info);
+    unsigned int info_len     = sizeof(info);
     char buf[128];
     int rv  = -1;
     int len = 0;

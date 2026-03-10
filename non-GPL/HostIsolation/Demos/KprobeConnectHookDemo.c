@@ -21,8 +21,8 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "KprobeLoader.h"
 #include "KprobeConnectHook.skel.h"
+#include "KprobeLoader.h"
 
 // try to load and attach an eBPF kprobe program with a specified load_method
 static int try_load_ebpf_kprobe(enum ebpf_load_method load_method,

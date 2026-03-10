@@ -27,8 +27,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "TcLoader.h"
 #include "TcFilter.skel.h"
+#include "TcLoader.h"
 
 int main(int argc, char **argv)
 {
