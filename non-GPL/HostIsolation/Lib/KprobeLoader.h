@@ -20,14 +20,6 @@ enum ebpf_load_method {
 };
 
 /**
- * @brief Open eBPF object file
- *
- * @param[in] file_path Path to the eBPF object file
- * @returns eBPF object handle to be passed to other functions
- */
-struct bpf_object *ebpf_open_object_file(const char *file_path);
-
-/**
  * @brief Pin eBPF map by name and path
  *
  * @param[in] obj eBPF object handle
@@ -38,14 +30,12 @@ struct bpf_object *ebpf_open_object_file(const char *file_path);
 int ebpf_map_set_pin_path(struct bpf_object *obj, const char *map_name, const char *map_path);
 
 /**
- * @brief Load and attach eBPF program to a kprobe
+ * @brief Set kernel version override for a specific load method
  *
  * @param[in] obj eBPF object handle
- * @param[in] program_name eBPF program name
- * @returns eBPF link handle to be passed to other functions
+ * @param[in] load_method Method used to derive kernel version
+ * @return Error value (0 for success)
  */
-struct bpf_link *ebpf_load_and_attach_kprobe(struct bpf_object *obj,
-                                             const char *program_name,
-                                             enum ebpf_load_method load_method);
+int ebpf_object_set_kernel_version(struct bpf_object *obj, enum ebpf_load_method load_method);
 
 #endif

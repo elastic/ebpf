@@ -27,51 +27,71 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "TcFilter.skel.h"
 #include "TcLoader.h"
-
-/* UPDATE ACCORDINGLY */
-#define IFNAME_TO_ATTACH_TO "ens33"
-#define EBPF_OBJ_FILE_NAME "TcFilter.bpf.o"
 
 int main(int argc, char **argv)
 {
     struct netlink_ctx nl_ctx;
     struct bpf_program *prog = NULL;
     struct bpf_program *p    = NULL;
-    struct bpf_object *obj   = NULL;
+    struct TcFilter_bpf *ctx = NULL;
     struct bpf_map *map      = NULL;
     const char *map_name     = NULL;
     char buf[256]            = {0};
     int prog_fd_dupd         = 0;
     int rv                   = -1;
+    const char *ifname       = NULL;
+    bool unload_only         = false;
 
     memset(&nl_ctx, 0, sizeof(nl_ctx));
 
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <interface> [unload]\n", argv[0]);
+        return -1;
+    }
+
+    ifname = argv[1];
+    if (argc >= 3) {
+        if (!strcmp(argv[2], "unload")) {
+            unload_only = true;
+        } else {
+            fprintf(stderr, "Unknown argument: %s\n", argv[2]);
+            fprintf(stderr, "Usage: %s <interface> [unload]\n", argv[0]);
+            return -1;
+        }
+    }
+    if (argc > 3) {
+        fprintf(stderr, "Too many arguments\n");
+        fprintf(stderr, "Usage: %s <interface> [unload]\n", argv[0]);
+        return -1;
+    }
+
     /* do the same things as 'tc qdisc del dev <iface> clsact' */
-    if (netlink_qdisc_del(IFNAME_TO_ATTACH_TO) != 0) {
+    if (netlink_qdisc_del(ifname) != 0) {
         fprintf(stderr, "failed to del qdisc\n");
     } else {
-        printf("DELETED QDISC\n");
+        printf("DELETED QDISC (%s)\n", ifname);
     }
 
     /* if 'unload' is passed as arg, only delete qdisc */
-    if ((argc > 1) && !strcmp(argv[1], "unload")) {
+    if (unload_only) {
         rv = 0;
         goto out;
     }
 
     /* 'tc qdisc add dev <iface> clsact' */
-    if (netlink_qdisc_add(IFNAME_TO_ATTACH_TO) != 0) {
+    if (netlink_qdisc_add(ifname) != 0) {
         fprintf(stderr, "failed to add qdisc\n");
         rv = -1;
         goto out;
     }
 
-    printf("ADDED QDISC\n");
+    printf("ADDED QDISC (%s)\n", ifname);
 
     /* 'tc filter add dev <iface> egress bpf da obj <ebpf_file> sec .text' */
     /* finished when netlink_filter_add_end() is called */
-    if (netlink_filter_add_begin(&nl_ctx, IFNAME_TO_ATTACH_TO) != 0) {
+    if (netlink_filter_add_begin(&nl_ctx, ifname) != 0) {
         fprintf(stderr, "filter_add_begin() failed\n");
         rv = -1;
         goto out;
@@ -95,16 +115,16 @@ int main(int argc, char **argv)
     DECLARE_LIBBPF_OPTS(bpf_object_open_opts, open_opts, .relaxed_maps = true,
                         .pin_root_path = EBPF_MAP_DIRECTORY, );
 
-    obj = bpf_object__open_file(EBPF_OBJ_FILE_NAME, &open_opts);
-    if (!obj || libbpf_get_error(obj)) {
-        fprintf(stderr, "failed to open BPF object\n");
-        bpf_object__close(obj);
+    ctx = TcFilter_bpf__open_opts(&open_opts);
+    if (!ctx || !ctx->obj || libbpf_get_error(ctx->obj)) {
+        fprintf(stderr, "failed to open BPF skeleton\n");
+        TcFilter_bpf__destroy(ctx);
         rv = -1;
         goto out;
     }
-    printf("BPF FILE OPENED\n");
+    printf("BPF SKELETON OPENED\n");
 
-    bpf_object__for_each_program(p, obj)
+    bpf_object__for_each_program(p, ctx->obj)
     {
         bpf_program__set_type(p, BPF_PROG_TYPE_SCHED_CLS);
         bpf_program__set_ifindex(p, 0); //?
@@ -112,7 +132,7 @@ int main(int argc, char **argv)
             prog = p;
         }
     }
-    bpf_object__for_each_map(map, obj)
+    bpf_object__for_each_map(map, ctx->obj)
     {
         bpf_map__set_ifindex(map, 0); //?
         map_name = bpf_map__name(map);
@@ -127,10 +147,10 @@ int main(int argc, char **argv)
         }
     }
 
-    rv = bpf_object__load(obj);
+    rv = TcFilter_bpf__load(ctx);
     if (rv) {
         fprintf(stderr, "failed to load BPF program\n");
-        bpf_object__close(obj);
+        TcFilter_bpf__destroy(ctx);
         rv = -1;
         goto out;
     }
@@ -139,16 +159,16 @@ int main(int argc, char **argv)
     prog_fd_dupd = fcntl(bpf_program__fd(prog), F_DUPFD_CLOEXEC, 1);
     if (prog_fd_dupd < 0) {
         perror("bad prog_fd_dupd");
-        bpf_object__close(obj);
+        TcFilter_bpf__destroy(ctx);
         rv = -1;
         goto out;
     }
 
-    bpf_object__close(obj);
-    obj = NULL;
+    TcFilter_bpf__destroy(ctx);
+    ctx = NULL;
 
     /* tc filter add continued */
-    if (netlink_filter_add_end(prog_fd_dupd, &nl_ctx, EBPF_OBJ_FILE_NAME) != 0) {
+    if (netlink_filter_add_end(prog_fd_dupd, &nl_ctx) != 0) {
         fprintf(stderr, "filter_add_end() failed\n");
         close(prog_fd_dupd);
         rv = -1;

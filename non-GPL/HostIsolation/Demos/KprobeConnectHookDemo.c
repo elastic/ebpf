@@ -21,28 +21,26 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "KprobeConnectHook.skel.h"
 #include "KprobeLoader.h"
 
 // try to load and attach an eBPF kprobe program with a specified load_method
-static int try_load_ebpf_kprobe(const char *ebpf_file,
-                                enum ebpf_load_method load_method,
-                                struct bpf_object **bpf_obj,
-                                struct bpf_link **bpf_link)
+static int try_load_ebpf_kprobe(enum ebpf_load_method load_method,
+                                struct KprobeConnectHook_bpf **ctx_out)
 {
-    struct bpf_object *obj = NULL;
-    struct bpf_link *link  = NULL;
-    int rv                 = 0;
+    struct KprobeConnectHook_bpf *ctx = NULL;
+    int rv                            = 0;
 
-    obj = ebpf_open_object_file(ebpf_file);
-    if (!obj) {
-        printf("failed to open BPF object\n");
+    ctx = KprobeConnectHook_bpf__open();
+    if (!ctx || !ctx->obj || libbpf_get_error(ctx->obj)) {
+        printf("failed to open BPF skeleton\n");
         rv = -1;
         goto cleanup;
     }
-    printf("BPF FILE OPENED\n");
+    printf("BPF SKELETON OPENED\n");
 
     // pin allowed_IPs map when program is loaded
-    rv = ebpf_map_set_pin_path(obj, EBPF_ALLOWED_IPS_MAP_NAME, EBPF_ALLOWED_IPS_MAP_PATH);
+    rv = ebpf_map_set_pin_path(ctx->obj, EBPF_ALLOWED_IPS_MAP_NAME, EBPF_ALLOWED_IPS_MAP_PATH);
     if (rv) {
         printf("failed to init " EBPF_ALLOWED_IPS_MAP_NAME " BPF map\n");
         rv = -1;
@@ -51,7 +49,7 @@ static int try_load_ebpf_kprobe(const char *ebpf_file,
     printf("BPF ALLOWED_IPS MAP LOADED\n");
 
     // pin allowed_pids map when program is loaded
-    rv = ebpf_map_set_pin_path(obj, EBPF_ALLOWED_PIDS_MAP_NAME, EBPF_ALLOWED_PIDS_MAP_PATH);
+    rv = ebpf_map_set_pin_path(ctx->obj, EBPF_ALLOWED_PIDS_MAP_NAME, EBPF_ALLOWED_PIDS_MAP_PATH);
     if (rv) {
         printf("failed to init " EBPF_ALLOWED_PIDS_MAP_NAME " BPF map\n");
         rv = -1;
@@ -71,9 +69,23 @@ static int try_load_ebpf_kprobe(const char *ebpf_file,
         goto cleanup;
     }
 
-    link = ebpf_load_and_attach_kprobe(obj, "tcp_v4_connect", load_method);
-    if (!link) {
-        printf("failed to load and attach kprobe\n");
+    rv = ebpf_object_set_kernel_version(ctx->obj, load_method);
+    if (rv != 0) {
+        printf("failed to set kernel version\n");
+        rv = -1;
+        goto cleanup;
+    }
+
+    rv = KprobeConnectHook_bpf__load(ctx);
+    if (rv != 0) {
+        printf("failed to load kprobe skeleton\n");
+        rv = -1;
+        goto cleanup;
+    }
+
+    rv = KprobeConnectHook_bpf__attach(ctx);
+    if (rv != 0) {
+        printf("failed to attach kprobe skeleton\n");
         rv = -1;
         goto cleanup;
     }
@@ -83,19 +95,16 @@ static int try_load_ebpf_kprobe(const char *ebpf_file,
 
 cleanup:
     if (rv) {
-        bpf_object__close(obj);
-        bpf_link__destroy(link);
+        KprobeConnectHook_bpf__destroy(ctx);
     } else {
-        *bpf_obj  = obj;
-        *bpf_link = link;
+        *ctx_out = ctx;
     }
     return rv;
 }
 
 int main(int argc, char **argv)
 {
-    struct bpf_object *obj            = NULL;
-    struct bpf_link *link             = NULL;
+    struct KprobeConnectHook_bpf *ctx = NULL;
     enum ebpf_load_method load_method = EBPF_METHOD_NO_OVERRIDE;
     struct rlimit rl                  = {};
     int rv                            = -1;
@@ -123,7 +132,7 @@ int main(int argc, char **argv)
     rv = -1;
     while (rv && load_method < EBPF_MAX_LOAD_METHODS) {
         printf("trying loading method %d\n", load_method);
-        rv = try_load_ebpf_kprobe("./KprobeConnectHook.bpf.o", load_method, &obj, &link);
+        rv = try_load_ebpf_kprobe(load_method, &ctx);
         load_method++;
     }
 
@@ -137,7 +146,6 @@ int main(int argc, char **argv)
 
 cleanup:
     // release libbpf resources
-    bpf_object__close(obj);
-    bpf_link__destroy(link);
+    KprobeConnectHook_bpf__destroy(ctx);
     return rv;
 }
