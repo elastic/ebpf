@@ -414,7 +414,7 @@ out:
 
 int netlink_qdisc_add(const char *ifname)
 {
-    return netlink_qdisc(RTM_NEWQDISC, NLM_F_EXCL | NLM_F_CREATE, ifname);
+    return netlink_qdisc(RTM_NEWQDISC, NLM_F_CREATE, ifname);
 }
 
 int netlink_qdisc_del(const char *ifname)
