@@ -37,6 +37,7 @@
 #define TC_H_MAKE(maj, min) (((maj)&TC_H_MAJ_MASK) | ((min)&TC_H_MIN_MASK))
 #define TC_H_INGRESS (0xFFFFFFF1U)
 #define TC_H_CLSACT TC_H_INGRESS
+#define TC_H_MIN_INGRESS 0xFFF2U
 #define TC_H_MIN_EGRESS 0xFFF3U
 #define TCA_BPF_FLAG_ACT_DIRECT (1 << 0)
 
@@ -57,6 +58,22 @@ enum {
 };
 
 #define NLMSG_TAIL(nmsg) ((struct rtattr *)(((char *)(nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
+
+static void parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta, int len)
+{
+    memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
+    while (RTA_OK(rta, len)) {
+        if (rta->rta_type <= max) {
+            tb[rta->rta_type] = rta;
+        }
+        rta = RTA_NEXT(rta, len);
+    }
+}
+
+static void parse_rtattr_nested(struct rtattr **tb, int max, struct rtattr *rta)
+{
+    parse_rtattr(tb, max, (struct rtattr *)RTA_DATA(rta), RTA_PAYLOAD(rta));
+}
 
 static int attr_put(struct nlmsghdr *n, size_t max, int type, const void *buf, size_t attr_len)
 {
@@ -521,4 +538,335 @@ out:
         rtnetlink_close(&ctx->filter_rth);
     }
     return rv;
+}
+
+static int netlink_filter_exists_on_parent(
+    const char *ifname,
+    __u32 parent,
+    const char *marker_name)
+{
+    int rv                            = -1;
+    int found                         = 0;
+    struct rtnetlink_handle filter_rth = {.fd = -1};
+    struct netlink_msg req            = {
+                   .n.nlmsg_len   = NLMSG_LENGTH(sizeof(struct tcmsg)),
+                   .n.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP,
+                   .n.nlmsg_type  = RTM_GETTFILTER,
+                   .t.tcm_family  = AF_UNSPEC,
+    };
+    struct sockaddr_nl nladdr = {.nl_family = AF_NETLINK};
+    struct iovec iov         = {.iov_base = &req.n, .iov_len = req.n.nlmsg_len};
+    struct msghdr msg        = {
+        .msg_name    = &nladdr,
+        .msg_namelen = sizeof(nladdr),
+        .msg_iov     = &iov,
+        .msg_iovlen  = 1,
+    };
+    unsigned int seq = 0;
+    int done         = 0;
+
+    if (!ifname || !marker_name) {
+        ebpf_log("netlink_filter_exists_on_parent error: NULL parameter\n");
+        rv = -1;
+        goto out;
+    }
+
+    if (rtnetlink_open(&filter_rth) < 0) {
+        ebpf_log("failed to open netlink\n");
+        rv = -1;
+        goto out;
+    }
+
+    req.t.tcm_ifindex = if_nametoindex(ifname);
+    if (0 == req.t.tcm_ifindex) {
+        ebpf_log("failed to find device %s\n", ifname);
+        rv = -1;
+        goto out;
+    }
+    req.t.tcm_parent = parent;
+
+    /* Do not filter by TCA_KIND in the dump request; enumerate all filters
+     * and match by name in userspace. Specifying TCA_KIND on a dump can
+     * cause some kernels to silently drop the request. */
+
+    req.n.nlmsg_seq = seq = ++filter_rth.seq;
+    if (sendmsg(filter_rth.fd, &msg, 0) < 0) {
+        ebpf_log("failure talking to rtnetlink\n");
+        rv = -1;
+        goto out;
+    }
+
+    msg.msg_iov = &iov;
+    msg.msg_iovlen = 1;
+
+    while (!done) {
+        char *buf          = NULL;
+        ssize_t recv_len   = rtnetlink_recv(filter_rth.fd, &msg, &buf);
+
+        if (recv_len <= 0) {
+            rv = -1;
+            goto out;
+        }
+
+        for (struct nlmsghdr *h = (struct nlmsghdr *)buf;
+             NLMSG_OK(h, (unsigned int)recv_len);
+             h = NLMSG_NEXT(h, recv_len)) {
+            if (h->nlmsg_seq != seq || h->nlmsg_pid != filter_rth.local.nl_pid) {
+                continue;
+            }
+
+            if (h->nlmsg_type == NLMSG_DONE) {
+                done = 1;
+                break;
+            }
+
+            if (h->nlmsg_type == NLMSG_ERROR) {
+                struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(h);
+                if (err->error) {
+                    rtnetlink_send_error(err);
+                    free(buf);
+                    rv = -1;
+                    goto out;
+                }
+                continue;
+            }
+
+            if (h->nlmsg_type != RTM_NEWTFILTER && h->nlmsg_type != RTM_GETTFILTER) {
+                continue;
+            }
+
+            struct tcmsg *t = (struct tcmsg *)NLMSG_DATA(h);
+            int len         = h->nlmsg_len - NLMSG_LENGTH(sizeof(*t));
+            struct rtattr *rta = (struct rtattr *)((char *)t + NLMSG_ALIGN(sizeof(*t)));
+            const char *kind   = NULL;
+            struct rtattr *options = NULL;
+
+            for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
+                if (rta->rta_type == TCA_KIND) {
+                    kind = (const char *)RTA_DATA(rta);
+                } else if (rta->rta_type == TCA_OPTIONS) {
+                    options = rta;
+                }
+            }
+
+            if (kind && options && !strcmp(kind, "bpf")) {
+                struct rtattr *tb[__TCA_BPF_MAX + 1];
+                parse_rtattr_nested(tb, __TCA_BPF_MAX, options);
+                if (tb[TCA_BPF_NAME]) {
+                    const char *name = (const char *)RTA_DATA(tb[TCA_BPF_NAME]);
+                    if (name && strstr(name, marker_name)) {
+                        found = 1;
+                        free(buf);
+                        rv = 1;
+                        goto out;
+                    }
+                }
+            }
+        }
+        free(buf);
+    }
+
+    rv = found ? 1 : 0;
+out:
+    rtnetlink_close(&filter_rth);
+    return rv;
+}
+
+int netlink_filter_exists(const char *ifname, const char *marker_name)
+{
+    int rv_ingress = netlink_filter_exists_on_parent(
+        ifname,
+        TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_INGRESS),
+        marker_name);
+    if (rv_ingress == 1) {
+        return 1;
+    }
+    int rv_egress = netlink_filter_exists_on_parent(
+        ifname,
+        TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_EGRESS),
+        marker_name);
+    if (rv_egress == 1) {
+        return 1;
+    }
+    if (rv_ingress < 0 || rv_egress < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+static int netlink_filter_del_on_parent(
+    const char *ifname,
+    __u32 parent,
+    const char *marker_name)
+{
+    int rv                            = -1;
+    struct rtnetlink_handle filter_rth = {.fd = -1};
+    struct rtnetlink_handle del_rth    = {.fd = -1};
+    struct netlink_msg req            = {
+                   .n.nlmsg_len   = NLMSG_LENGTH(sizeof(struct tcmsg)),
+                   .n.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP,
+                   .n.nlmsg_type  = RTM_GETTFILTER,
+                   .t.tcm_family  = AF_UNSPEC,
+    };
+    struct sockaddr_nl nladdr = {.nl_family = AF_NETLINK};
+    struct iovec iov         = {.iov_base = &req.n, .iov_len = req.n.nlmsg_len};
+    struct msghdr msg        = {
+        .msg_name    = &nladdr,
+        .msg_namelen = sizeof(nladdr),
+        .msg_iov     = &iov,
+        .msg_iovlen  = 1,
+    };
+    unsigned int seq = 0;
+    int done         = 0;
+    unsigned int ifindex = 0;
+
+    if (!ifname || !marker_name) {
+        ebpf_log("netlink_filter_del_on_parent error: NULL parameter\n");
+        rv = -1;
+        goto out;
+    }
+
+    if (rtnetlink_open(&filter_rth) < 0) {
+        ebpf_log("failed to open netlink for listing\n");
+        rv = -1;
+        goto out;
+    }
+
+    ifindex = if_nametoindex(ifname);
+    if (0 == ifindex) {
+        ebpf_log("failed to find device %s\n", ifname);
+        rv = -1;
+        goto out;
+    }
+
+    req.t.tcm_ifindex = ifindex;
+    req.t.tcm_parent  = parent;
+
+    /* Do not filter by TCA_KIND in the dump; enumerate all and match by name. */
+
+    req.n.nlmsg_seq = seq = ++filter_rth.seq;
+    if (sendmsg(filter_rth.fd, &msg, 0) < 0) {
+        ebpf_log("failure talking to rtnetlink\n");
+        rv = -1;
+        goto out;
+    }
+
+    msg.msg_iov    = &iov;
+    msg.msg_iovlen = 1;
+
+    while (!done) {
+        char *buf        = NULL;
+        ssize_t recv_len = rtnetlink_recv(filter_rth.fd, &msg, &buf);
+
+        if (recv_len <= 0) {
+            rv = -1;
+            goto out;
+        }
+
+        for (struct nlmsghdr *h = (struct nlmsghdr *)buf;
+             NLMSG_OK(h, (unsigned int)recv_len);
+             h = NLMSG_NEXT(h, recv_len)) {
+            /* kernel dump responses may have nlmsg_pid == 0 or our portid */
+            if (h->nlmsg_seq != seq ||
+                (h->nlmsg_pid != 0 && h->nlmsg_pid != filter_rth.local.nl_pid)) {
+                continue;
+            }
+
+            if (h->nlmsg_type == NLMSG_DONE) {
+                done = 1;
+                break;
+            }
+
+            if (h->nlmsg_type == NLMSG_ERROR) {
+                struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(h);
+                if (err->error) {
+                    rtnetlink_send_error(err);
+                    free(buf);
+                    rv = -1;
+                    goto out;
+                }
+                continue;
+            }
+
+            if (h->nlmsg_type != RTM_NEWTFILTER && h->nlmsg_type != RTM_GETTFILTER) {
+                continue;
+            }
+
+            struct tcmsg *t = (struct tcmsg *)NLMSG_DATA(h);
+            int len         = h->nlmsg_len - NLMSG_LENGTH(sizeof(*t));
+            struct rtattr *rta = (struct rtattr *)((char *)t + NLMSG_ALIGN(sizeof(*t)));
+            const char *kind   = NULL;
+            struct rtattr *options = NULL;
+
+            for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
+                if (rta->rta_type == TCA_KIND) {
+                    kind = (const char *)RTA_DATA(rta);
+                } else if (rta->rta_type == TCA_OPTIONS) {
+                    options = rta;
+                }
+            }
+
+            if (kind && options && !strcmp(kind, "bpf")) {
+                struct rtattr *tb[__TCA_BPF_MAX + 1];
+                parse_rtattr_nested(tb, __TCA_BPF_MAX, options);
+                if (tb[TCA_BPF_NAME]) {
+                    const char *name = (const char *)RTA_DATA(tb[TCA_BPF_NAME]);
+                    if (name && strstr(name, marker_name)) {
+                        /* Found our filter - delete it using RTM_DELTFILTER */
+                        struct netlink_msg del_req = {
+                            .n.nlmsg_len   = NLMSG_LENGTH(sizeof(struct tcmsg)),
+                            .n.nlmsg_flags = NLM_F_REQUEST,
+                            .n.nlmsg_type  = RTM_DELTFILTER,
+                            .t.tcm_family  = AF_UNSPEC,
+                            .t.tcm_ifindex = ifindex,
+                            .t.tcm_parent  = parent,
+                            .t.tcm_handle  = t->tcm_handle,
+                            .t.tcm_info    = t->tcm_info,
+                        };
+                        attr_put(&del_req.n, sizeof(del_req), TCA_KIND, "bpf",
+                                 strlen("bpf") + 1);
+                        free(buf);
+                        buf = NULL;
+
+                        if (rtnetlink_open(&del_rth) < 0) {
+                            ebpf_log("failed to open netlink for delete\n");
+                            rv = -1;
+                            goto out;
+                        }
+                        if (rtnetlink_send(&del_rth, &del_req.n) < 0) {
+                            ebpf_log("failed to delete tc filter\n");
+                            rv = -1;
+                            goto out;
+                        }
+                        rv = 0;
+                        goto out;
+                    }
+                }
+            }
+        }
+        free(buf);
+    }
+
+    /* Filter not found - not an error, nothing to delete */
+    rv = 0;
+out:
+    rtnetlink_close(&filter_rth);
+    rtnetlink_close(&del_rth);
+    return rv;
+}
+
+int netlink_filter_del(const char *ifname, const char *marker_name)
+{
+    int rv_egress = netlink_filter_del_on_parent(
+        ifname,
+        TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_EGRESS),
+        marker_name);
+    int rv_ingress = netlink_filter_del_on_parent(
+        ifname,
+        TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_INGRESS),
+        marker_name);
+    if (rv_egress < 0 || rv_ingress < 0) {
+        return -1;
+    }
+    return 0;
 }
