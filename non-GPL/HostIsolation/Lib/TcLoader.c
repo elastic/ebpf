@@ -32,9 +32,9 @@
 
 #define TC_H_MAJ_MASK (0xFFFF0000U)
 #define TC_H_MIN_MASK (0x0000FFFFU)
-#define TC_H_MAJ(h) ((h)&TC_H_MAJ_MASK)
-#define TC_H_MIN(h) ((h)&TC_H_MIN_MASK)
-#define TC_H_MAKE(maj, min) (((maj)&TC_H_MAJ_MASK) | ((min)&TC_H_MIN_MASK))
+#define TC_H_MAJ(h) ((h) & TC_H_MAJ_MASK)
+#define TC_H_MIN(h) ((h) & TC_H_MIN_MASK)
+#define TC_H_MAKE(maj, min) (((maj) & TC_H_MAJ_MASK) | ((min) & TC_H_MIN_MASK))
 #define TC_H_INGRESS (0xFFFFFFF1U)
 #define TC_H_CLSACT TC_H_INGRESS
 #define TC_H_MIN_INGRESS 0xFFF2U
@@ -532,27 +532,25 @@ out:
     return rv;
 }
 
-static int netlink_filter_exists_on_parent(
-    const char *ifname,
-    __u32 parent,
-    const char *marker_name)
+static int
+netlink_filter_exists_on_parent(const char *ifname, __u32 parent, const char *marker_name)
 {
-    int rv                            = -1;
-    int found                         = 0;
+    int rv                             = -1;
+    int found                          = 0;
     struct rtnetlink_handle filter_rth = {.fd = -1};
-    struct netlink_msg req            = {
-                   .n.nlmsg_len   = NLMSG_LENGTH(sizeof(struct tcmsg)),
-                   .n.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP,
-                   .n.nlmsg_type  = RTM_GETTFILTER,
-                   .t.tcm_family  = AF_UNSPEC,
+    struct netlink_msg req             = {
+                    .n.nlmsg_len   = NLMSG_LENGTH(sizeof(struct tcmsg)),
+                    .n.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP,
+                    .n.nlmsg_type  = RTM_GETTFILTER,
+                    .t.tcm_family  = AF_UNSPEC,
     };
     struct sockaddr_nl nladdr = {.nl_family = AF_NETLINK};
-    struct iovec iov         = {.iov_base = &req.n, .iov_len = req.n.nlmsg_len};
-    struct msghdr msg        = {
-        .msg_name    = &nladdr,
-        .msg_namelen = sizeof(nladdr),
-        .msg_iov     = &iov,
-        .msg_iovlen  = 1,
+    struct iovec iov          = {.iov_base = &req.n, .iov_len = req.n.nlmsg_len};
+    struct msghdr msg         = {
+                .msg_name    = &nladdr,
+                .msg_namelen = sizeof(nladdr),
+                .msg_iov     = &iov,
+                .msg_iovlen  = 1,
     };
     unsigned int seq = 0;
     int done         = 0;
@@ -586,21 +584,20 @@ static int netlink_filter_exists_on_parent(
         goto out;
     }
 
-    msg.msg_iov = &iov;
+    msg.msg_iov    = &iov;
     msg.msg_iovlen = 1;
 
     while (!done) {
-        char *buf          = NULL;
-        ssize_t recv_len   = rtnetlink_recv(filter_rth.fd, &msg, &buf);
+        char *buf        = NULL;
+        ssize_t recv_len = rtnetlink_recv(filter_rth.fd, &msg, &buf);
 
         if (recv_len <= 0) {
             rv = -1;
             goto out;
         }
 
-        for (struct nlmsghdr *h = (struct nlmsghdr *)buf;
-             NLMSG_OK(h, (unsigned int)recv_len);
-             h = NLMSG_NEXT(h, recv_len)) {
+        for (struct nlmsghdr *h = (struct nlmsghdr *)buf; NLMSG_OK(h, (unsigned int)recv_len);
+             h                  = NLMSG_NEXT(h, recv_len)) {
             if (h->nlmsg_seq != seq || h->nlmsg_pid != filter_rth.local.nl_pid) {
                 continue;
             }
@@ -625,10 +622,10 @@ static int netlink_filter_exists_on_parent(
                 continue;
             }
 
-            struct tcmsg *t = (struct tcmsg *)NLMSG_DATA(h);
-            int len         = h->nlmsg_len - NLMSG_LENGTH(sizeof(*t));
-            struct rtattr *rta = (struct rtattr *)((char *)t + NLMSG_ALIGN(sizeof(*t)));
-            const char *kind   = NULL;
+            struct tcmsg *t        = (struct tcmsg *)NLMSG_DATA(h);
+            int len                = h->nlmsg_len - NLMSG_LENGTH(sizeof(*t));
+            struct rtattr *rta     = (struct rtattr *)((char *)t + NLMSG_ALIGN(sizeof(*t)));
+            const char *kind       = NULL;
             struct rtattr *options = NULL;
 
             for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
@@ -665,16 +662,12 @@ out:
 int netlink_filter_exists(const char *ifname, const char *marker_name)
 {
     int rv_ingress = netlink_filter_exists_on_parent(
-        ifname,
-        TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_INGRESS),
-        marker_name);
+        ifname, TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_INGRESS), marker_name);
     if (rv_ingress == 1) {
         return 1;
     }
-    int rv_egress = netlink_filter_exists_on_parent(
-        ifname,
-        TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_EGRESS),
-        marker_name);
+    int rv_egress = netlink_filter_exists_on_parent(ifname, TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_EGRESS),
+                                                    marker_name);
     if (rv_egress == 1) {
         return 1;
     }
