@@ -32,9 +32,9 @@
 
 #define TC_H_MAJ_MASK (0xFFFF0000U)
 #define TC_H_MIN_MASK (0x0000FFFFU)
-#define TC_H_MAJ(h) ((h) & TC_H_MAJ_MASK)
-#define TC_H_MIN(h) ((h) & TC_H_MIN_MASK)
-#define TC_H_MAKE(maj, min) (((maj) & TC_H_MAJ_MASK) | ((min) & TC_H_MIN_MASK))
+#define TC_H_MAJ(h) ((h)&TC_H_MAJ_MASK)
+#define TC_H_MIN(h) ((h)&TC_H_MIN_MASK)
+#define TC_H_MAKE(maj, min) (((maj)&TC_H_MAJ_MASK) | ((min)&TC_H_MIN_MASK))
 #define TC_H_INGRESS (0xFFFFFFF1U)
 #define TC_H_CLSACT TC_H_INGRESS
 #define TC_H_MIN_INGRESS 0xFFF2U
