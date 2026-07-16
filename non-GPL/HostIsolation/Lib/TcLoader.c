@@ -544,7 +544,6 @@ static int
 netlink_filter_exists_on_parent(const char *ifname, __u32 parent, const char *marker_name)
 {
     int rv                             = -1;
-    int found                          = 0;
     struct rtnetlink_handle filter_rth = {.fd = -1};
     struct netlink_msg req             = {
                     .n.nlmsg_len   = NLMSG_LENGTH(sizeof(struct tcmsg)),
@@ -565,6 +564,12 @@ netlink_filter_exists_on_parent(const char *ifname, __u32 parent, const char *ma
 
     if (!ifname || !marker_name) {
         ebpf_log("netlink_filter_exists_on_parent error: NULL parameter\n");
+        rv = -1;
+        goto out;
+    }
+
+    if (marker_name[0] == '\0') {
+        ebpf_log("netlink_filter_exists_on_parent error: empty marker_name\n");
         rv = -1;
         goto out;
     }
@@ -608,11 +613,27 @@ netlink_filter_exists_on_parent(const char *ifname, __u32 parent, const char *ma
 
         for (struct nlmsghdr *h = (struct nlmsghdr *)buf; NLMSG_OK(h, (unsigned int)recv_len);
              h                  = NLMSG_NEXT(h, recv_len)) {
-            if (h->nlmsg_seq != seq || h->nlmsg_pid != filter_rth.local.nl_pid) {
+            if (h->nlmsg_seq != seq ||
+                (h->nlmsg_pid != 0 && h->nlmsg_pid != filter_rth.local.nl_pid)) {
                 continue;
             }
 
             if (h->nlmsg_type == NLMSG_DONE) {
+                if (h->nlmsg_flags & NLM_F_DUMP_INTR) {
+                    ebpf_log("netlink dump was interrupted\n");
+                    free(buf);
+                    rv = -1;
+                    goto out;
+                }
+                if (h->nlmsg_len >= NLMSG_LENGTH(sizeof(int))) {
+                    int done_err = *(int *)NLMSG_DATA(h);
+                    if (done_err) {
+                        ebpf_log("netlink NLMSG_DONE error: %s\n", strerror(-done_err));
+                        free(buf);
+                        rv = -1;
+                        goto out;
+                    }
+                }
                 done = 1;
                 break;
             }
@@ -652,7 +673,6 @@ netlink_filter_exists_on_parent(const char *ifname, __u32 parent, const char *ma
                 if (tb[TCA_BPF_NAME]) {
                     const char *name = (const char *)RTA_DATA(tb[TCA_BPF_NAME]);
                     if (name && strstr(name, marker_name)) {
-                        found = 1;
                         free(buf);
                         rv = 1;
                         goto out;
@@ -663,7 +683,7 @@ netlink_filter_exists_on_parent(const char *ifname, __u32 parent, const char *ma
         free(buf);
     }
 
-    rv = found ? 1 : 0;
+    rv = 0;
 out:
     rtnetlink_close(&filter_rth);
     return rv;
@@ -716,8 +736,20 @@ static int netlink_filter_del_on_parent(const char *ifname, __u32 parent, const 
         goto out;
     }
 
+    if (marker_name[0] == '\0') {
+        ebpf_log("netlink_filter_del_on_parent error: empty marker_name\n");
+        rv = -1;
+        goto out;
+    }
+
     if (rtnetlink_open(&filter_rth) < 0) {
         ebpf_log("failed to open netlink for listing\n");
+        rv = -1;
+        goto out;
+    }
+
+    if (rtnetlink_open(&del_rth) < 0) {
+        ebpf_log("failed to open netlink for delete\n");
         rv = -1;
         goto out;
     }
@@ -762,6 +794,21 @@ static int netlink_filter_del_on_parent(const char *ifname, __u32 parent, const 
             }
 
             if (h->nlmsg_type == NLMSG_DONE) {
+                if (h->nlmsg_flags & NLM_F_DUMP_INTR) {
+                    ebpf_log("netlink dump was interrupted\n");
+                    free(buf);
+                    rv = -1;
+                    goto out;
+                }
+                if (h->nlmsg_len >= NLMSG_LENGTH(sizeof(int))) {
+                    int done_err = *(int *)NLMSG_DATA(h);
+                    if (done_err) {
+                        ebpf_log("netlink NLMSG_DONE error: %s\n", strerror(-done_err));
+                        free(buf);
+                        rv = -1;
+                        goto out;
+                    }
+                }
                 done = 1;
                 break;
             }
@@ -813,21 +860,15 @@ static int netlink_filter_del_on_parent(const char *ifname, __u32 parent, const 
                             .t.tcm_info    = t->tcm_info,
                         };
                         attr_put(&del_req.n, sizeof(del_req), TCA_KIND, "bpf", strlen("bpf") + 1);
-                        free(buf);
-                        buf = NULL;
 
-                        if (rtnetlink_open(&del_rth) < 0) {
-                            ebpf_log("failed to open netlink for delete\n");
-                            rv = -1;
-                            goto out;
-                        }
                         if (rtnetlink_send(&del_rth, &del_req.n) < 0) {
                             ebpf_log("failed to delete tc filter\n");
+                            free(buf);
                             rv = -1;
                             goto out;
                         }
                         rv = 0;
-                        goto out;
+                        /* continue scanning to delete all matching filters */
                     }
                 }
             }
