@@ -259,7 +259,7 @@ out:
     return rv;
 }
 
-static int rtnetlink_send(struct rtnetlink_handle *rtnl, struct nlmsghdr *nlmsg)
+static int rtnetlink_send(struct rtnetlink_handle *rtnl, struct nlmsghdr *nlmsg, int expected_error)
 {
     struct iovec iov  = {.iov_base = nlmsg, .iov_len = nlmsg->nlmsg_len};
     struct iovec riov = {0};
@@ -348,11 +348,11 @@ static int rtnetlink_send(struct rtnetlink_handle *rtnl, struct nlmsghdr *nlmsg)
                 goto out;
             }
 
-            if (error) {
+            if (error && error != expected_error) {
                 rtnetlink_send_error(err);
             }
 
-            rv = error ? -1 : 0;
+            rv = error;
             goto out;
         }
 
@@ -384,6 +384,7 @@ out:
 static int netlink_qdisc(int cmd, unsigned int flags, const char *ifname)
 {
     int rv                            = -1;
+    int expected_error                = cmd == RTM_NEWQDISC ? -EEXIST : 0;
     struct rtnetlink_handle qdisc_rth = {.fd = -1};
     struct netlink_msg qdisc_req      = {
              .n.nlmsg_len   = NLMSG_LENGTH(sizeof(struct tcmsg)),
@@ -414,9 +415,11 @@ static int netlink_qdisc(int cmd, unsigned int flags, const char *ifname)
         goto out;
     }
     /* talk to netlink */
-    if (rtnetlink_send(&qdisc_rth, &qdisc_req.n) < 0) {
-        ebpf_log("error talking to the kernel (rtnetlink_send)\n");
-        rv = -1;
+    rv = rtnetlink_send(&qdisc_rth, &qdisc_req.n, expected_error);
+    if (rv < 0) {
+        if (rv != expected_error) {
+            ebpf_log("error talking to the kernel (rtnetlink_send)\n");
+        }
         goto out;
     }
 
@@ -428,7 +431,9 @@ out:
 
 int netlink_qdisc_add(const char *ifname)
 {
-    return netlink_qdisc(RTM_NEWQDISC, NLM_F_CREATE, ifname);
+    int rv = netlink_qdisc(RTM_NEWQDISC, NLM_F_EXCL | NLM_F_CREATE, ifname);
+
+    return rv == -EEXIST ? 0 : rv;
 }
 
 int netlink_qdisc_del(const char *ifname)
@@ -523,7 +528,7 @@ int netlink_filter_add_end(int fd, struct netlink_ctx *ctx)
     ctx->tail->rta_len = (((char *)nl) + nl->nlmsg_len) - (char *)ctx->tail;
 
     /* talk to netlink */
-    if (rtnetlink_send(&ctx->filter_rth, &ctx->msg.n) < 0) {
+    if (rtnetlink_send(&ctx->filter_rth, &ctx->msg.n, 0) < 0) {
         ebpf_log("error talking to the kernel (rtnetlink_send)\n");
         rv = -1;
         goto out;
@@ -884,7 +889,7 @@ restart_dump:
                         };
                         attr_put(&del_req.n, sizeof(del_req), TCA_KIND, "bpf", strlen("bpf") + 1);
 
-                        if (rtnetlink_send(&del_rth, &del_req.n) < 0) {
+                        if (rtnetlink_send(&del_rth, &del_req.n, 0) < 0) {
                             ebpf_log("failed to delete tc filter\n");
                             free(buf);
                             rv = -1;
