@@ -748,12 +748,6 @@ static int netlink_filter_del_on_parent(const char *ifname, __u32 parent, const 
         goto out;
     }
 
-    if (rtnetlink_open(&filter_rth) < 0) {
-        ebpf_log("failed to open netlink for listing\n");
-        rv = -1;
-        goto out;
-    }
-
     if (rtnetlink_open(&del_rth) < 0) {
         ebpf_log("failed to open netlink for delete\n");
         rv = -1;
@@ -772,15 +766,29 @@ static int netlink_filter_del_on_parent(const char *ifname, __u32 parent, const 
 
     /* Do not filter by TCA_KIND in the dump; enumerate all and match by name. */
 
+restart_dump:
+    done = 0;
+
+    if (rtnetlink_open(&filter_rth) < 0) {
+        ebpf_log("failed to open netlink for listing\n");
+        rv = -1;
+        goto out;
+    }
+
+    memset(&nladdr, 0, sizeof(nladdr));
+    nladdr.nl_family = AF_NETLINK;
+    iov.iov_base     = &req.n;
+    iov.iov_len      = req.n.nlmsg_len;
+    msg.msg_namelen  = sizeof(nladdr);
+    msg.msg_iov      = &iov;
+    msg.msg_iovlen   = 1;
+
     req.n.nlmsg_seq = seq = ++filter_rth.seq;
     if (sendmsg(filter_rth.fd, &msg, 0) < 0) {
         ebpf_log("failure talking to rtnetlink\n");
         rv = -1;
         goto out;
     }
-
-    msg.msg_iov    = &iov;
-    msg.msg_iovlen = 1;
 
     while (!done) {
         char *buf        = NULL;
@@ -882,8 +890,10 @@ static int netlink_filter_del_on_parent(const char *ifname, __u32 parent, const 
                             rv = -1;
                             goto out;
                         }
-                        rv = 0;
-                        /* continue scanning to delete all matching filters */
+                        /* The dump cursor is no longer valid after deletion. */
+                        free(buf);
+                        rtnetlink_close(&filter_rth);
+                        goto restart_dump;
                     }
                 }
             }
