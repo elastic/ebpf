@@ -429,11 +429,125 @@ out:
     return rv;
 }
 
+/* When RTM_NEWQDISC returns EEXIST, TC_H_CLSACT == TC_H_INGRESS == 0xFFFFFFF1
+ * so the slot may be held by an ingress qdisc rather than clsact.  Verify by
+ * dumping qdiscs on the interface and checking TCA_KIND of the entry at the
+ * TC_H_MAKE(TC_H_CLSACT, 0) handle.  Returns 0 if it is "clsact", -EINVAL if
+ * it is a different kind, or -1 on any netlink error. */
+static int netlink_qdisc_verify_clsact(const char *ifname)
+{
+    int rv                      = -1;
+    int done                    = 0;
+    unsigned int seq            = 0;
+    int ifindex                 = 0;
+    struct rtnetlink_handle rth = {.fd = -1};
+    struct netlink_msg req      = {
+             .n.nlmsg_len   = NLMSG_LENGTH(sizeof(struct tcmsg)),
+             .n.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP,
+             .n.nlmsg_type  = RTM_GETQDISC,
+             .t.tcm_family  = AF_UNSPEC,
+    };
+    struct iovec iov          = {.iov_base = &req.n, .iov_len = req.n.nlmsg_len};
+    struct sockaddr_nl nladdr = {.nl_family = AF_NETLINK};
+    struct msghdr msg         = {
+                .msg_name    = &nladdr,
+                .msg_namelen = sizeof(nladdr),
+                .msg_iov     = &iov,
+                .msg_iovlen  = 1,
+    };
+    struct iovec riov = {0};
+
+    ifindex = (int)if_nametoindex(ifname);
+    if (!ifindex) {
+        ebpf_log("netlink_qdisc_verify_clsact: failed to find device %s\n", ifname);
+        goto out;
+    }
+
+    if (rtnetlink_open(&rth) < 0) {
+        ebpf_log("netlink_qdisc_verify_clsact: failed to open netlink\n");
+        goto out;
+    }
+
+    req.t.tcm_ifindex = ifindex;
+    req.n.nlmsg_seq = seq = ++rth.seq;
+
+    if (sendmsg(rth.fd, &msg, 0) < 0) {
+        ebpf_log("netlink_qdisc_verify_clsact: failed to send request\n");
+        goto out;
+    }
+
+    msg.msg_iov    = &riov;
+    msg.msg_iovlen = 1;
+
+    while (!done) {
+        char *buf        = NULL;
+        ssize_t recv_len = rtnetlink_recv(rth.fd, &msg, &buf);
+
+        if (recv_len <= 0) {
+            goto out;
+        }
+
+        for (struct nlmsghdr *h = (struct nlmsghdr *)buf; NLMSG_OK(h, (unsigned int)recv_len);
+             h                  = NLMSG_NEXT(h, recv_len)) {
+
+            if (h->nlmsg_seq != seq)
+                continue;
+
+            if (h->nlmsg_type == NLMSG_DONE) {
+                done = 1;
+                break;
+            }
+
+            if (h->nlmsg_type == NLMSG_ERROR) {
+                struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(h);
+                if (err->error) {
+                    rtnetlink_send_error(err);
+                    free(buf);
+                    goto out;
+                }
+                continue;
+            }
+
+            if (h->nlmsg_type != RTM_NEWQDISC)
+                continue;
+
+            struct tcmsg *t = (struct tcmsg *)NLMSG_DATA(h);
+            if (t->tcm_ifindex != ifindex || t->tcm_handle != TC_H_MAKE(TC_H_CLSACT, 0))
+                continue;
+
+            int attr_len       = h->nlmsg_len - NLMSG_LENGTH(sizeof(*t));
+            struct rtattr *rta = (struct rtattr *)((char *)t + NLMSG_ALIGN(sizeof(*t)));
+            for (; RTA_OK(rta, attr_len); rta = RTA_NEXT(rta, attr_len)) {
+                if (rta->rta_type != TCA_KIND)
+                    continue;
+                const char *kind = (const char *)RTA_DATA(rta);
+                if (strcmp(kind, "clsact") == 0) {
+                    rv = 0;
+                } else {
+                    ebpf_log("existing qdisc at TC_H_CLSACT handle is '%s', not 'clsact'\n", kind);
+                    rv = -EINVAL;
+                }
+                free(buf);
+                goto out;
+            }
+        }
+        free(buf);
+    }
+
+    /* qdisc at TC_H_CLSACT handle not found in dump — treat as error */
+    rv = -1;
+out:
+    rtnetlink_close(&rth);
+    return rv;
+}
+
 int netlink_qdisc_add(const char *ifname)
 {
     int rv = netlink_qdisc(RTM_NEWQDISC, NLM_F_EXCL | NLM_F_CREATE, ifname);
 
-    return rv == -EEXIST ? 0 : rv;
+    if (rv == -EEXIST)
+        rv = netlink_qdisc_verify_clsact(ifname);
+    return rv;
 }
 
 int netlink_qdisc_del(const char *ifname)
