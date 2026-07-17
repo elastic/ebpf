@@ -509,7 +509,7 @@ int netlink_filter_add_end(int fd, struct netlink_ctx *ctx)
     nl = &ctx->msg.n;
     memset(buf, 0, sizeof(buf));
 
-    len = snprintf(buf, sizeof(buf), "el-endpo_%s:[%u]", info.name, info.id);
+    len = snprintf(buf, sizeof(buf), ELASTIC_TC_FILTER_MARKER "%s:[%u]", info.name, info.id);
     if (len < 0 || len >= (int)sizeof(buf)) {
         ebpf_log("netlink_filter_add_end error: name too long\n");
         rv = -1;
@@ -678,7 +678,7 @@ netlink_filter_exists_on_parent(const char *ifname, __u32 parent, const char *ma
                 parse_rtattr_nested(tb, __TCA_BPF_MAX, options);
                 if (tb[TCA_BPF_NAME]) {
                     const char *name = (const char *)RTA_DATA(tb[TCA_BPF_NAME]);
-                    if (name && strstr(name, marker_name)) {
+                    if (name && !strncmp(name, marker_name, strlen(marker_name))) {
                         free(buf);
                         rv = 1;
                         goto out;
@@ -870,7 +870,7 @@ restart_dump:
                 parse_rtattr_nested(tb, __TCA_BPF_MAX, options);
                 if (tb[TCA_BPF_NAME]) {
                     const char *name = (const char *)RTA_DATA(tb[TCA_BPF_NAME]);
-                    if (name && strstr(name, marker_name)) {
+                    if (name && !strncmp(name, marker_name, strlen(marker_name))) {
                         /* Found our filter - delete it using RTM_DELTFILTER */
                         struct netlink_msg del_req = {
                             .n.nlmsg_len   = NLMSG_LENGTH(sizeof(struct tcmsg)),
