@@ -655,16 +655,25 @@ netlink_filter_exists_on_parent(const char *ifname, __u32 parent, const char *ma
             struct rtattr *rta     = (struct rtattr *)((char *)t + NLMSG_ALIGN(sizeof(*t)));
             const char *kind       = NULL;
             struct rtattr *options = NULL;
+            __u32 chain_index      = 0;
+            int chain_valid        = 1;
 
             for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
                 if (rta->rta_type == TCA_KIND) {
                     kind = (const char *)RTA_DATA(rta);
                 } else if (rta->rta_type == TCA_OPTIONS) {
                     options = rta;
+                } else if (rta->rta_type == TCA_CHAIN) {
+                    if (RTA_PAYLOAD(rta) != sizeof(chain_index)) {
+                        chain_valid = 0;
+                    } else {
+                        memcpy(&chain_index, RTA_DATA(rta), sizeof(chain_index));
+                    }
                 }
             }
 
-            if (kind && options && !strcmp(kind, "bpf")) {
+            /* Endpoint attaches filters only to the default (chain 0) chain. */
+            if (chain_valid && chain_index == 0 && kind && options && !strcmp(kind, "bpf")) {
                 struct rtattr *tb[__TCA_BPF_MAX + 1];
                 parse_rtattr_nested(tb, __TCA_BPF_MAX, options);
                 if (tb[TCA_BPF_NAME]) {
@@ -830,16 +839,25 @@ static int netlink_filter_del_on_parent(const char *ifname, __u32 parent, const 
             struct rtattr *rta     = (struct rtattr *)((char *)t + NLMSG_ALIGN(sizeof(*t)));
             const char *kind       = NULL;
             struct rtattr *options = NULL;
+            __u32 chain_index      = 0;
+            int chain_valid        = 1;
 
             for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
                 if (rta->rta_type == TCA_KIND) {
                     kind = (const char *)RTA_DATA(rta);
                 } else if (rta->rta_type == TCA_OPTIONS) {
                     options = rta;
+                } else if (rta->rta_type == TCA_CHAIN) {
+                    if (RTA_PAYLOAD(rta) != sizeof(chain_index)) {
+                        chain_valid = 0;
+                    } else {
+                        memcpy(&chain_index, RTA_DATA(rta), sizeof(chain_index));
+                    }
                 }
             }
 
-            if (kind && options && !strcmp(kind, "bpf")) {
+            /* Endpoint attaches filters only to the default (chain 0) chain. */
+            if (chain_valid && chain_index == 0 && kind && options && !strcmp(kind, "bpf")) {
                 struct rtattr *tb[__TCA_BPF_MAX + 1];
                 parse_rtattr_nested(tb, __TCA_BPF_MAX, options);
                 if (tb[TCA_BPF_NAME]) {
