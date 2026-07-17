@@ -160,11 +160,8 @@ static int rtnetlink_open(struct rtnetlink_handle *rth)
         goto out;
     }
 
-    if (setsockopt(rth->fd, SOL_NETLINK, NETLINK_EXT_ACK, &one, sizeof(one))) {
-        ebpf_log("error setsockopt netlink\n");
-        rv = -1;
-        goto out;
-    }
+    /* Older kernels (< 4.12) may not support NETLINK_EXT_ACK; ignore failure */
+    setsockopt(rth->fd, SOL_NETLINK, NETLINK_EXT_ACK, &one, sizeof(one));
 
     memset(&rth->local, 0, sizeof(rth->local));
 
