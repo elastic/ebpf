@@ -50,7 +50,8 @@ struct netlink_ctx {
  * @brief Add qdisc to a network interface
  *
  * @param[in] ifname Network interface name
- * @return Error value (0 for success)
+ * @return 0 on success, -EBUSY if a non-clsact qdisc occupies the
+ * ingress/clsact slot, or another negative error value on failure
  */
 int netlink_qdisc_add(const char *ifname);
 

@@ -432,7 +432,7 @@ out:
 /* When RTM_NEWQDISC returns EEXIST, TC_H_CLSACT == TC_H_INGRESS == 0xFFFFFFF1
  * so the slot may be held by an ingress qdisc rather than clsact.  Verify by
  * dumping qdiscs on the interface and checking TCA_KIND of the entry at the
- * TC_H_MAKE(TC_H_CLSACT, 0) handle.  Returns 0 if it is "clsact", -EINVAL if
+ * TC_H_MAKE(TC_H_CLSACT, 0) handle.  Returns 0 if it is "clsact", -EBUSY if
  * it is a different kind, or -1 on any netlink error. */
 static int netlink_qdisc_verify_clsact(const char *ifname)
 {
@@ -524,8 +524,10 @@ static int netlink_qdisc_verify_clsact(const char *ifname)
                 if (strcmp(kind, "clsact") == 0) {
                     rv = 0;
                 } else {
-                    ebpf_log("existing qdisc at TC_H_CLSACT handle is '%s', not 'clsact'\n", kind);
-                    rv = -EINVAL;
+                    ebpf_log("cannot add clsact qdisc on %s: existing '%s' qdisc occupies the "
+                             "ingress/clsact slot; leaving it untouched\n",
+                             ifname, kind);
+                    rv = -EBUSY;
                 }
                 free(buf);
                 goto out;
