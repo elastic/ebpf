@@ -438,6 +438,7 @@ static int netlink_qdisc_verify_clsact(const char *ifname)
 {
     int rv                      = -1;
     int done                    = 0;
+    int dump_intr               = 0;
     unsigned int seq            = 0;
     int ifindex                 = 0;
     struct rtnetlink_handle rth = {.fd = -1};
@@ -493,7 +494,25 @@ static int netlink_qdisc_verify_clsact(const char *ifname)
             if (h->nlmsg_seq != seq)
                 continue;
 
+            if (h->nlmsg_flags & NLM_F_DUMP_INTR)
+                dump_intr = 1;
+
             if (h->nlmsg_type == NLMSG_DONE) {
+                if (dump_intr) {
+                    ebpf_log("netlink qdisc dump was interrupted\n");
+                    free(buf);
+                    rv = -1;
+                    goto out;
+                }
+                if (h->nlmsg_len >= NLMSG_LENGTH(sizeof(int))) {
+                    int done_err = *(int *)NLMSG_DATA(h);
+                    if (done_err) {
+                        ebpf_log("netlink qdisc NLMSG_DONE error: %s\n", strerror(-done_err));
+                        free(buf);
+                        rv = -1;
+                        goto out;
+                    }
+                }
                 done = 1;
                 break;
             }
@@ -529,15 +548,12 @@ static int netlink_qdisc_verify_clsact(const char *ifname)
                              ifname, kind);
                     rv = -EBUSY;
                 }
-                free(buf);
-                goto out;
+                break;
             }
         }
         free(buf);
     }
 
-    /* qdisc at TC_H_CLSACT handle not found in dump — treat as error */
-    rv = -1;
 out:
     rtnetlink_close(&rth);
     return rv;
