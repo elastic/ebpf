@@ -695,6 +695,7 @@ netlink_filter_exists_on_parent(const char *ifname, __u32 parent, const char *ma
     };
     unsigned int seq = 0;
     int done         = 0;
+    int dump_intr    = 0;
 
     if (!ifname || !marker_name) {
         ebpf_log("netlink_filter_exists_on_parent error: NULL parameter\n");
@@ -752,8 +753,13 @@ netlink_filter_exists_on_parent(const char *ifname, __u32 parent, const char *ma
                 continue;
             }
 
+            /* the kernel may set NLM_F_DUMP_INTR on any message in the dump,
+             * not necessarily on the final NLMSG_DONE */
+            if (h->nlmsg_flags & NLM_F_DUMP_INTR)
+                dump_intr = 1;
+
             if (h->nlmsg_type == NLMSG_DONE) {
-                if (h->nlmsg_flags & NLM_F_DUMP_INTR) {
+                if (dump_intr) {
                     ebpf_log("netlink dump was interrupted\n");
                     free(buf);
                     rv = -1;
@@ -871,6 +877,7 @@ static int netlink_filter_del_on_parent(const char *ifname, __u32 parent, const 
     };
     unsigned int seq     = 0;
     int done             = 0;
+    int dump_intr        = 0;
     unsigned int ifindex = 0;
 
     if (!ifname || !marker_name) {
@@ -904,7 +911,8 @@ static int netlink_filter_del_on_parent(const char *ifname, __u32 parent, const 
     /* Do not filter by TCA_KIND in the dump; enumerate all and match by name. */
 
 restart_dump:
-    done = 0;
+    done      = 0;
+    dump_intr = 0;
 
     if (rtnetlink_open(&filter_rth) < 0) {
         ebpf_log("failed to open netlink for listing\n");
@@ -944,8 +952,13 @@ restart_dump:
                 continue;
             }
 
+            /* the kernel may set NLM_F_DUMP_INTR on any message in the dump,
+             * not necessarily on the final NLMSG_DONE */
+            if (h->nlmsg_flags & NLM_F_DUMP_INTR)
+                dump_intr = 1;
+
             if (h->nlmsg_type == NLMSG_DONE) {
-                if (h->nlmsg_flags & NLM_F_DUMP_INTR) {
+                if (dump_intr) {
                     ebpf_log("netlink dump was interrupted\n");
                     free(buf);
                     rv = -1;
