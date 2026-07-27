@@ -37,6 +37,7 @@
 #define TC_H_MAKE(maj, min) (((maj)&TC_H_MAJ_MASK) | ((min)&TC_H_MIN_MASK))
 #define TC_H_INGRESS (0xFFFFFFF1U)
 #define TC_H_CLSACT TC_H_INGRESS
+#define TC_H_MIN_INGRESS 0xFFF2U
 #define TC_H_MIN_EGRESS 0xFFF3U
 #define TCA_BPF_FLAG_ACT_DIRECT (1 << 0)
 
@@ -57,6 +58,22 @@ enum {
 };
 
 #define NLMSG_TAIL(nmsg) ((struct rtattr *)(((char *)(nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
+
+static void parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta, int len)
+{
+    memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
+    while (RTA_OK(rta, len)) {
+        if (rta->rta_type <= max) {
+            tb[rta->rta_type] = rta;
+        }
+        rta = RTA_NEXT(rta, len);
+    }
+}
+
+static void parse_rtattr_nested(struct rtattr **tb, int max, struct rtattr *rta)
+{
+    parse_rtattr(tb, max, (struct rtattr *)RTA_DATA(rta), RTA_PAYLOAD(rta));
+}
 
 static int attr_put(struct nlmsghdr *n, size_t max, int type, const void *buf, size_t attr_len)
 {
@@ -143,11 +160,8 @@ static int rtnetlink_open(struct rtnetlink_handle *rth)
         goto out;
     }
 
-    if (setsockopt(rth->fd, SOL_NETLINK, NETLINK_EXT_ACK, &one, sizeof(one))) {
-        ebpf_log("error setsockopt netlink\n");
-        rv = -1;
-        goto out;
-    }
+    /* Older kernels (< 4.12) may not support NETLINK_EXT_ACK; ignore failure */
+    setsockopt(rth->fd, SOL_NETLINK, NETLINK_EXT_ACK, &one, sizeof(one));
 
     memset(&rth->local, 0, sizeof(rth->local));
 
@@ -245,7 +259,7 @@ out:
     return rv;
 }
 
-static int rtnetlink_send(struct rtnetlink_handle *rtnl, struct nlmsghdr *nlmsg)
+static int rtnetlink_send(struct rtnetlink_handle *rtnl, struct nlmsghdr *nlmsg, int expected_error)
 {
     struct iovec iov  = {.iov_base = nlmsg, .iov_len = nlmsg->nlmsg_len};
     struct iovec riov = {0};
@@ -334,11 +348,11 @@ static int rtnetlink_send(struct rtnetlink_handle *rtnl, struct nlmsghdr *nlmsg)
                 goto out;
             }
 
-            if (error) {
+            if (error && error != expected_error) {
                 rtnetlink_send_error(err);
             }
 
-            rv = error ? -1 : 0;
+            rv = error;
             goto out;
         }
 
@@ -370,6 +384,7 @@ out:
 static int netlink_qdisc(int cmd, unsigned int flags, const char *ifname)
 {
     int rv                            = -1;
+    int expected_error                = cmd == RTM_NEWQDISC ? -EEXIST : 0;
     struct rtnetlink_handle qdisc_rth = {.fd = -1};
     struct netlink_msg qdisc_req      = {
              .n.nlmsg_len   = NLMSG_LENGTH(sizeof(struct tcmsg)),
@@ -400,9 +415,11 @@ static int netlink_qdisc(int cmd, unsigned int flags, const char *ifname)
         goto out;
     }
     /* talk to netlink */
-    if (rtnetlink_send(&qdisc_rth, &qdisc_req.n) < 0) {
-        ebpf_log("error talking to the kernel (rtnetlink_send)\n");
-        rv = -1;
+    rv = rtnetlink_send(&qdisc_rth, &qdisc_req.n, expected_error);
+    if (rv < 0) {
+        if (rv != expected_error) {
+            ebpf_log("error talking to the kernel (rtnetlink_send)\n");
+        }
         goto out;
     }
 
@@ -412,9 +429,143 @@ out:
     return rv;
 }
 
+/* When RTM_NEWQDISC returns EEXIST, TC_H_CLSACT == TC_H_INGRESS == 0xFFFFFFF1
+ * so the slot may be held by an ingress qdisc rather than clsact.  Verify by
+ * dumping qdiscs on the interface and checking TCA_KIND of the entry at the
+ * TC_H_MAKE(TC_H_CLSACT, 0) handle.  Returns 0 if it is "clsact", -EBUSY if
+ * it is a different kind, or -1 on any netlink error. */
+static int netlink_qdisc_verify_clsact(const char *ifname)
+{
+    int rv                      = -1;
+    int done                    = 0;
+    int dump_intr               = 0;
+    unsigned int seq            = 0;
+    int ifindex                 = 0;
+    struct rtnetlink_handle rth = {.fd = -1};
+    struct netlink_msg req      = {
+             .n.nlmsg_len   = NLMSG_LENGTH(sizeof(struct tcmsg)),
+             .n.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP,
+             .n.nlmsg_type  = RTM_GETQDISC,
+             .t.tcm_family  = AF_UNSPEC,
+    };
+    struct iovec iov          = {.iov_base = &req.n, .iov_len = req.n.nlmsg_len};
+    struct sockaddr_nl nladdr = {.nl_family = AF_NETLINK};
+    struct msghdr msg         = {
+                .msg_name    = &nladdr,
+                .msg_namelen = sizeof(nladdr),
+                .msg_iov     = &iov,
+                .msg_iovlen  = 1,
+    };
+    struct iovec riov = {0};
+
+    ifindex = (int)if_nametoindex(ifname);
+    if (!ifindex) {
+        ebpf_log("netlink_qdisc_verify_clsact: failed to find device %s\n", ifname);
+        goto out;
+    }
+
+    if (rtnetlink_open(&rth) < 0) {
+        ebpf_log("netlink_qdisc_verify_clsact: failed to open netlink\n");
+        goto out;
+    }
+
+    req.t.tcm_ifindex = ifindex;
+    req.n.nlmsg_seq = seq = ++rth.seq;
+
+    if (sendmsg(rth.fd, &msg, 0) < 0) {
+        ebpf_log("netlink_qdisc_verify_clsact: failed to send request\n");
+        goto out;
+    }
+
+    msg.msg_iov    = &riov;
+    msg.msg_iovlen = 1;
+
+    while (!done) {
+        char *buf        = NULL;
+        ssize_t recv_len = rtnetlink_recv(rth.fd, &msg, &buf);
+
+        if (recv_len <= 0) {
+            goto out;
+        }
+
+        for (struct nlmsghdr *h = (struct nlmsghdr *)buf; NLMSG_OK(h, (unsigned int)recv_len);
+             h                  = NLMSG_NEXT(h, recv_len)) {
+
+            if (h->nlmsg_seq != seq)
+                continue;
+
+            if (h->nlmsg_flags & NLM_F_DUMP_INTR)
+                dump_intr = 1;
+
+            if (h->nlmsg_type == NLMSG_DONE) {
+                if (dump_intr) {
+                    ebpf_log("netlink qdisc dump was interrupted\n");
+                    free(buf);
+                    rv = -1;
+                    goto out;
+                }
+                if (h->nlmsg_len >= NLMSG_LENGTH(sizeof(int))) {
+                    int done_err = *(int *)NLMSG_DATA(h);
+                    if (done_err) {
+                        ebpf_log("netlink qdisc NLMSG_DONE error: %s\n", strerror(-done_err));
+                        free(buf);
+                        rv = -1;
+                        goto out;
+                    }
+                }
+                done = 1;
+                break;
+            }
+
+            if (h->nlmsg_type == NLMSG_ERROR) {
+                struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(h);
+                if (err->error) {
+                    rtnetlink_send_error(err);
+                    free(buf);
+                    goto out;
+                }
+                continue;
+            }
+
+            if (h->nlmsg_type != RTM_NEWQDISC)
+                continue;
+
+            struct tcmsg *t = (struct tcmsg *)NLMSG_DATA(h);
+            if (t->tcm_ifindex != ifindex || t->tcm_handle != TC_H_MAKE(TC_H_CLSACT, 0))
+                continue;
+
+            int attr_len       = h->nlmsg_len - NLMSG_LENGTH(sizeof(*t));
+            struct rtattr *rta = (struct rtattr *)((char *)t + NLMSG_ALIGN(sizeof(*t)));
+            for (; RTA_OK(rta, attr_len); rta = RTA_NEXT(rta, attr_len)) {
+                if (rta->rta_type != TCA_KIND)
+                    continue;
+                const char *kind = (const char *)RTA_DATA(rta);
+                if (strcmp(kind, "clsact") == 0) {
+                    rv = 0;
+                } else {
+                    ebpf_log("cannot add clsact qdisc on %s: existing '%s' qdisc occupies the "
+                             "ingress/clsact slot; leaving it untouched\n",
+                             ifname, kind);
+                    rv = -EBUSY;
+                }
+                break;
+            }
+        }
+        free(buf);
+    }
+
+out:
+    rtnetlink_close(&rth);
+    return rv;
+}
+
 int netlink_qdisc_add(const char *ifname)
 {
-    return netlink_qdisc(RTM_NEWQDISC, NLM_F_EXCL | NLM_F_CREATE, ifname);
+    int rv = netlink_qdisc(RTM_NEWQDISC, NLM_F_EXCL | NLM_F_CREATE, ifname);
+
+    if (rv == -EEXIST)
+        rv = netlink_qdisc_verify_clsact(ifname);
+    return rv;
 }
 
 int netlink_qdisc_del(const char *ifname)
@@ -495,7 +646,7 @@ int netlink_filter_add_end(int fd, struct netlink_ctx *ctx)
     nl = &ctx->msg.n;
     memset(buf, 0, sizeof(buf));
 
-    len = snprintf(buf, sizeof(buf), "el-endpo_%s:[%u]", info.name, info.id);
+    len = snprintf(buf, sizeof(buf), ELASTIC_TC_FILTER_MARKER "%s:[%u]", info.name, info.id);
     if (len < 0 || len >= (int)sizeof(buf)) {
         ebpf_log("netlink_filter_add_end error: name too long\n");
         rv = -1;
@@ -509,7 +660,7 @@ int netlink_filter_add_end(int fd, struct netlink_ctx *ctx)
     ctx->tail->rta_len = (((char *)nl) + nl->nlmsg_len) - (char *)ctx->tail;
 
     /* talk to netlink */
-    if (rtnetlink_send(&ctx->filter_rth, &ctx->msg.n) < 0) {
+    if (rtnetlink_send(&ctx->filter_rth, &ctx->msg.n, 0) < 0) {
         ebpf_log("error talking to the kernel (rtnetlink_send)\n");
         rv = -1;
         goto out;
@@ -521,4 +672,401 @@ out:
         rtnetlink_close(&ctx->filter_rth);
     }
     return rv;
+}
+
+static int
+netlink_filter_exists_on_parent(const char *ifname, __u32 parent, const char *marker_name)
+{
+    int rv                             = -1;
+    struct rtnetlink_handle filter_rth = {.fd = -1};
+    struct netlink_msg req             = {
+                    .n.nlmsg_len   = NLMSG_LENGTH(sizeof(struct tcmsg)),
+                    .n.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP,
+                    .n.nlmsg_type  = RTM_GETTFILTER,
+                    .t.tcm_family  = AF_UNSPEC,
+    };
+    struct sockaddr_nl nladdr = {.nl_family = AF_NETLINK};
+    struct iovec iov          = {.iov_base = &req.n, .iov_len = req.n.nlmsg_len};
+    struct msghdr msg         = {
+                .msg_name    = &nladdr,
+                .msg_namelen = sizeof(nladdr),
+                .msg_iov     = &iov,
+                .msg_iovlen  = 1,
+    };
+    unsigned int seq = 0;
+    int done         = 0;
+    int dump_intr    = 0;
+
+    if (!ifname || !marker_name) {
+        ebpf_log("netlink_filter_exists_on_parent error: NULL parameter\n");
+        rv = -1;
+        goto out;
+    }
+
+    if (marker_name[0] == '\0') {
+        ebpf_log("netlink_filter_exists_on_parent error: empty marker_name\n");
+        rv = -1;
+        goto out;
+    }
+
+    if (rtnetlink_open(&filter_rth) < 0) {
+        ebpf_log("failed to open netlink\n");
+        rv = -1;
+        goto out;
+    }
+
+    req.t.tcm_ifindex = if_nametoindex(ifname);
+    if (0 == req.t.tcm_ifindex) {
+        ebpf_log("failed to find device %s\n", ifname);
+        rv = -1;
+        goto out;
+    }
+    req.t.tcm_parent = parent;
+
+    /* Do not filter by TCA_KIND in the dump request; enumerate all filters
+     * and match by name in userspace. Specifying TCA_KIND on a dump can
+     * cause some kernels to silently drop the request. */
+
+    req.n.nlmsg_seq = seq = ++filter_rth.seq;
+    if (sendmsg(filter_rth.fd, &msg, 0) < 0) {
+        ebpf_log("failure talking to rtnetlink\n");
+        rv = -1;
+        goto out;
+    }
+
+    msg.msg_iov    = &iov;
+    msg.msg_iovlen = 1;
+
+    while (!done) {
+        char *buf        = NULL;
+        ssize_t recv_len = rtnetlink_recv(filter_rth.fd, &msg, &buf);
+
+        if (recv_len <= 0) {
+            rv = -1;
+            goto out;
+        }
+
+        for (struct nlmsghdr *h = (struct nlmsghdr *)buf; NLMSG_OK(h, (unsigned int)recv_len);
+             h                  = NLMSG_NEXT(h, recv_len)) {
+            if (h->nlmsg_seq != seq ||
+                (h->nlmsg_pid != 0 && h->nlmsg_pid != filter_rth.local.nl_pid)) {
+                continue;
+            }
+
+            /* the kernel may set NLM_F_DUMP_INTR on any message in the dump,
+             * not necessarily on the final NLMSG_DONE */
+            if (h->nlmsg_flags & NLM_F_DUMP_INTR)
+                dump_intr = 1;
+
+            if (h->nlmsg_type == NLMSG_DONE) {
+                if (dump_intr) {
+                    ebpf_log("netlink dump was interrupted\n");
+                    free(buf);
+                    rv = -1;
+                    goto out;
+                }
+                if (h->nlmsg_len >= NLMSG_LENGTH(sizeof(int))) {
+                    int done_err = *(int *)NLMSG_DATA(h);
+                    if (done_err) {
+                        ebpf_log("netlink NLMSG_DONE error: %s\n", strerror(-done_err));
+                        free(buf);
+                        rv = -1;
+                        goto out;
+                    }
+                }
+                done = 1;
+                break;
+            }
+
+            if (h->nlmsg_type == NLMSG_ERROR) {
+                struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(h);
+                if (err->error) {
+                    rtnetlink_send_error(err);
+                    free(buf);
+                    rv = -1;
+                    goto out;
+                }
+                continue;
+            }
+
+            if (h->nlmsg_type != RTM_NEWTFILTER && h->nlmsg_type != RTM_GETTFILTER) {
+                continue;
+            }
+
+            struct tcmsg *t        = (struct tcmsg *)NLMSG_DATA(h);
+            int len                = h->nlmsg_len - NLMSG_LENGTH(sizeof(*t));
+            struct rtattr *rta     = (struct rtattr *)((char *)t + NLMSG_ALIGN(sizeof(*t)));
+            const char *kind       = NULL;
+            struct rtattr *options = NULL;
+            __u32 chain_index      = 0;
+            int chain_valid        = 1;
+
+            for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
+                if (rta->rta_type == TCA_KIND) {
+                    kind = (const char *)RTA_DATA(rta);
+                } else if (rta->rta_type == TCA_OPTIONS) {
+                    options = rta;
+                } else if (rta->rta_type == TCA_CHAIN) {
+                    if (RTA_PAYLOAD(rta) != sizeof(chain_index)) {
+                        chain_valid = 0;
+                    } else {
+                        memcpy(&chain_index, RTA_DATA(rta), sizeof(chain_index));
+                    }
+                }
+            }
+
+            /* Endpoint attaches filters only to the default (chain 0) chain. */
+            if (chain_valid && chain_index == 0 && kind && options && !strcmp(kind, "bpf")) {
+                struct rtattr *tb[__TCA_BPF_MAX + 1];
+                parse_rtattr_nested(tb, __TCA_BPF_MAX, options);
+                if (tb[TCA_BPF_NAME]) {
+                    const char *name = (const char *)RTA_DATA(tb[TCA_BPF_NAME]);
+                    if (name && !strncmp(name, marker_name, strlen(marker_name))) {
+                        free(buf);
+                        rv = 1;
+                        goto out;
+                    }
+                }
+            }
+        }
+        free(buf);
+    }
+
+    rv = 0;
+out:
+    rtnetlink_close(&filter_rth);
+    return rv;
+}
+
+int netlink_filter_exists(const char *ifname, const char *marker_name)
+{
+    int rv_ingress = netlink_filter_exists_on_parent(
+        ifname, TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_INGRESS), marker_name);
+    if (rv_ingress == 1) {
+        return 1;
+    }
+    int rv_egress = netlink_filter_exists_on_parent(ifname, TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_EGRESS),
+                                                    marker_name);
+    if (rv_egress == 1) {
+        return 1;
+    }
+    if (rv_ingress < 0 || rv_egress < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+static int netlink_filter_del_on_parent(const char *ifname, __u32 parent, const char *marker_name)
+{
+    int rv                             = -1;
+    struct rtnetlink_handle filter_rth = {.fd = -1};
+    struct rtnetlink_handle del_rth    = {.fd = -1};
+    struct netlink_msg req             = {
+                    .n.nlmsg_len   = NLMSG_LENGTH(sizeof(struct tcmsg)),
+                    .n.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP,
+                    .n.nlmsg_type  = RTM_GETTFILTER,
+                    .t.tcm_family  = AF_UNSPEC,
+    };
+    struct sockaddr_nl nladdr = {.nl_family = AF_NETLINK};
+    struct iovec iov          = {.iov_base = &req.n, .iov_len = req.n.nlmsg_len};
+    struct msghdr msg         = {
+                .msg_name    = &nladdr,
+                .msg_namelen = sizeof(nladdr),
+                .msg_iov     = &iov,
+                .msg_iovlen  = 1,
+    };
+    unsigned int seq     = 0;
+    int done             = 0;
+    int dump_intr        = 0;
+    unsigned int ifindex = 0;
+
+    if (!ifname || !marker_name) {
+        ebpf_log("netlink_filter_del_on_parent error: NULL parameter\n");
+        rv = -1;
+        goto out;
+    }
+
+    if (marker_name[0] == '\0') {
+        ebpf_log("netlink_filter_del_on_parent error: empty marker_name\n");
+        rv = -1;
+        goto out;
+    }
+
+    if (rtnetlink_open(&del_rth) < 0) {
+        ebpf_log("failed to open netlink for delete\n");
+        rv = -1;
+        goto out;
+    }
+
+    ifindex = if_nametoindex(ifname);
+    if (0 == ifindex) {
+        ebpf_log("failed to find device %s\n", ifname);
+        rv = -1;
+        goto out;
+    }
+
+    req.t.tcm_ifindex = ifindex;
+    req.t.tcm_parent  = parent;
+
+    /* Do not filter by TCA_KIND in the dump; enumerate all and match by name. */
+
+restart_dump:
+    done      = 0;
+    dump_intr = 0;
+
+    if (rtnetlink_open(&filter_rth) < 0) {
+        ebpf_log("failed to open netlink for listing\n");
+        rv = -1;
+        goto out;
+    }
+
+    memset(&nladdr, 0, sizeof(nladdr));
+    nladdr.nl_family = AF_NETLINK;
+    iov.iov_base     = &req.n;
+    iov.iov_len      = req.n.nlmsg_len;
+    msg.msg_namelen  = sizeof(nladdr);
+    msg.msg_iov      = &iov;
+    msg.msg_iovlen   = 1;
+
+    req.n.nlmsg_seq = seq = ++filter_rth.seq;
+    if (sendmsg(filter_rth.fd, &msg, 0) < 0) {
+        ebpf_log("failure talking to rtnetlink\n");
+        rv = -1;
+        goto out;
+    }
+
+    while (!done) {
+        char *buf        = NULL;
+        ssize_t recv_len = rtnetlink_recv(filter_rth.fd, &msg, &buf);
+
+        if (recv_len <= 0) {
+            rv = -1;
+            goto out;
+        }
+
+        for (struct nlmsghdr *h = (struct nlmsghdr *)buf; NLMSG_OK(h, (unsigned int)recv_len);
+             h                  = NLMSG_NEXT(h, recv_len)) {
+            /* kernel dump responses may have nlmsg_pid == 0 or our portid */
+            if (h->nlmsg_seq != seq ||
+                (h->nlmsg_pid != 0 && h->nlmsg_pid != filter_rth.local.nl_pid)) {
+                continue;
+            }
+
+            /* the kernel may set NLM_F_DUMP_INTR on any message in the dump,
+             * not necessarily on the final NLMSG_DONE */
+            if (h->nlmsg_flags & NLM_F_DUMP_INTR)
+                dump_intr = 1;
+
+            if (h->nlmsg_type == NLMSG_DONE) {
+                if (dump_intr) {
+                    ebpf_log("netlink dump was interrupted\n");
+                    free(buf);
+                    rv = -1;
+                    goto out;
+                }
+                if (h->nlmsg_len >= NLMSG_LENGTH(sizeof(int))) {
+                    int done_err = *(int *)NLMSG_DATA(h);
+                    if (done_err) {
+                        ebpf_log("netlink NLMSG_DONE error: %s\n", strerror(-done_err));
+                        free(buf);
+                        rv = -1;
+                        goto out;
+                    }
+                }
+                done = 1;
+                break;
+            }
+
+            if (h->nlmsg_type == NLMSG_ERROR) {
+                struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(h);
+                if (err->error) {
+                    rtnetlink_send_error(err);
+                    free(buf);
+                    rv = -1;
+                    goto out;
+                }
+                continue;
+            }
+
+            if (h->nlmsg_type != RTM_NEWTFILTER && h->nlmsg_type != RTM_GETTFILTER) {
+                continue;
+            }
+
+            struct tcmsg *t        = (struct tcmsg *)NLMSG_DATA(h);
+            int len                = h->nlmsg_len - NLMSG_LENGTH(sizeof(*t));
+            struct rtattr *rta     = (struct rtattr *)((char *)t + NLMSG_ALIGN(sizeof(*t)));
+            const char *kind       = NULL;
+            struct rtattr *options = NULL;
+            __u32 chain_index      = 0;
+            int chain_valid        = 1;
+
+            for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
+                if (rta->rta_type == TCA_KIND) {
+                    kind = (const char *)RTA_DATA(rta);
+                } else if (rta->rta_type == TCA_OPTIONS) {
+                    options = rta;
+                } else if (rta->rta_type == TCA_CHAIN) {
+                    if (RTA_PAYLOAD(rta) != sizeof(chain_index)) {
+                        chain_valid = 0;
+                    } else {
+                        memcpy(&chain_index, RTA_DATA(rta), sizeof(chain_index));
+                    }
+                }
+            }
+
+            /* Endpoint attaches filters only to the default (chain 0) chain. */
+            if (chain_valid && chain_index == 0 && kind && options && !strcmp(kind, "bpf")) {
+                struct rtattr *tb[__TCA_BPF_MAX + 1];
+                parse_rtattr_nested(tb, __TCA_BPF_MAX, options);
+                if (tb[TCA_BPF_NAME]) {
+                    const char *name = (const char *)RTA_DATA(tb[TCA_BPF_NAME]);
+                    if (name && !strncmp(name, marker_name, strlen(marker_name))) {
+                        /* Found our filter - delete it using RTM_DELTFILTER */
+                        struct netlink_msg del_req = {
+                            .n.nlmsg_len   = NLMSG_LENGTH(sizeof(struct tcmsg)),
+                            .n.nlmsg_flags = NLM_F_REQUEST,
+                            .n.nlmsg_type  = RTM_DELTFILTER,
+                            .t.tcm_family  = AF_UNSPEC,
+                            .t.tcm_ifindex = ifindex,
+                            .t.tcm_parent  = parent,
+                            .t.tcm_handle  = t->tcm_handle,
+                            .t.tcm_info    = t->tcm_info,
+                        };
+                        attr_put(&del_req.n, sizeof(del_req), TCA_KIND, "bpf", strlen("bpf") + 1);
+
+                        if (rtnetlink_send(&del_rth, &del_req.n, 0) < 0) {
+                            ebpf_log("failed to delete tc filter\n");
+                            free(buf);
+                            rv = -1;
+                            goto out;
+                        }
+                        /* The dump cursor is no longer valid after deletion. */
+                        free(buf);
+                        rtnetlink_close(&filter_rth);
+                        goto restart_dump;
+                    }
+                }
+            }
+        }
+        free(buf);
+    }
+
+    /* Filter not found - not an error, nothing to delete */
+    rv = 0;
+out:
+    rtnetlink_close(&filter_rth);
+    rtnetlink_close(&del_rth);
+    return rv;
+}
+
+int netlink_filter_del(const char *ifname, const char *marker_name)
+{
+    int rv_egress =
+        netlink_filter_del_on_parent(ifname, TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_EGRESS), marker_name);
+    int rv_ingress =
+        netlink_filter_del_on_parent(ifname, TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_INGRESS), marker_name);
+    if (rv_egress < 0 || rv_ingress < 0) {
+        return -1;
+    }
+    return 0;
 }

@@ -18,6 +18,7 @@
 
 /* maximum netlink message size */
 #define MAX_MSG 16384
+#define ELASTIC_TC_FILTER_MARKER "el-endpo_"
 
 struct rtnetlink_handle {
     int fd;
@@ -49,7 +50,8 @@ struct netlink_ctx {
  * @brief Add qdisc to a network interface
  *
  * @param[in] ifname Network interface name
- * @return Error value (0 for success)
+ * @return 0 on success, -EBUSY if a non-clsact qdisc occupies the
+ * ingress/clsact slot, or another negative error value on failure
  */
 int netlink_qdisc_add(const char *ifname);
 
@@ -80,4 +82,22 @@ int netlink_filter_add_begin(struct netlink_ctx *ctx, const char *ifname);
  * @return Error value (0 for success)
  */
 int netlink_filter_add_end(int fd, struct netlink_ctx *ctx);
+
+/**
+ * @brief Check if an interface has our eBPF tc filter attached
+ *
+ * @param[in] ifname Network interface name
+ * @param[in] marker_name Prefix to match against TCA_BPF_NAME
+ * @return 1 if found, 0 if not found, -1 on error
+ */
+int netlink_filter_exists(const char *ifname, const char *marker_name);
+
+/**
+ * @brief Delete our eBPF tc filter from a network interface
+ *
+ * @param[in] ifname Network interface name
+ * @param[in] marker_name Prefix to match against TCA_BPF_NAME
+ * @return 0 on success, -1 on error
+ */
+int netlink_filter_del(const char *ifname, const char *marker_name);
 #endif
