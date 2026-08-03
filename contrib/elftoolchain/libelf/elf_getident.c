@@ -24,6 +24,8 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
 #include <ar.h>
 #include <assert.h>
 #include <libelf.h>
@@ -31,6 +33,8 @@
 #include "_libelf.h"
 
 ELFTC_VCSID("$Id$");
+
+/*@ELFTC-DOWNSTREAM-VCSID@*/
 
 char *
 elf_getident(Elf *e, size_t *sz)

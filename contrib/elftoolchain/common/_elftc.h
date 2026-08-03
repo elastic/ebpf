@@ -282,45 +282,32 @@ struct name {							\
 
 /*
  * VCS Ids.
+ *
+ * The marker below is intended to be replaced with a project-specific
+ * definition of the ELFTC_VCSID macro.
  */
+
+/* @ELFTC-VCSID-MARKER@ */
 
 #ifndef	ELFTC_VCSID
 
-#if defined(__DragonFly__)
-#define	ELFTC_VCSID(ID)		__RCSID(ID)
-#endif
+#if defined(__DragonFly__) || defined(__NetBSD__)
 
-#if defined(__FreeBSD__)
+#define	ELFTC_VCSID(ID)		__RCSID(ID)
+
+#elif defined(__FreeBSD__)
+
 #define	ELFTC_VCSID(ID)		__FBSDID(ID)
-#endif
 
-#if defined(__APPLE__) || defined(__GLIBC__) || defined(__GNU__) || \
-    defined(__linux__)
+#elif defined(__APPLE__) || defined(__OpenBSD__) || defined(__GLIBC__) || \
+    defined(__GNU__) || defined(__linux__) || defined(__minix)
+
 #if defined(__GNUC__)
 #define	ELFTC_VCSID(ID)		__asm__(".ident\t\"" ID "\"")
 #else
 #define	ELFTC_VCSID(ID)		/**/
 #endif
-#endif
 
-#if defined(__minix)
-#if defined(__GNUC__)
-#define	ELFTC_VCSID(ID)		__asm__(".ident\t\"" ID "\"")
-#else
-#define	ELFTC_VCSID(ID)		/**/
-#endif	/* __GNU__ */
-#endif
-
-#if defined(__NetBSD__)
-#define	ELFTC_VCSID(ID)		__RCSID(ID)
-#endif
-
-#if defined(__OpenBSD__)
-#if defined(__GNUC__)
-#define	ELFTC_VCSID(ID)		__asm__(".ident\t\"" ID "\"")
-#else
-#define	ELFTC_VCSID(ID)		/**/
-#endif	/* __GNUC__ */
 #endif
 
 #endif	/* ELFTC_VCSID */
@@ -338,7 +325,7 @@ struct name {							\
 
 #define	ELFTC_GETPROGNAME()	getprogname()
 
-#endif	/* __DragonFly__ || __FreeBSD__ || __minix || __NetBSD__ */
+#endif	/* __APPLE__ || __DragonFly__ || __FreeBSD__ || __minix || __NetBSD__ */
 
 
 #if defined(__GLIBC__) || defined(__linux__)
@@ -366,11 +353,45 @@ extern const char *__progname;
 #endif	/* ELFTC_GETPROGNAME */
 
 
-/**
- ** Per-OS configuration.
- **/
+/*
+ * Per-OS configuration.
+ *
+ * The following symbols are supported by this configuration fragment,
+ * although not all the OSes so referenced are fully supported.
+ *
+ * Cross-compilation:
+ *
+ * HAVE_NBTOOL_CONFIG_H : cross-compiling NetBSD tools on various OSes.
+ *
+ * Native compilation:
+ *
+ * __APPLE__     : compiling under Mac OS X.
+ * __DragonFly__ : compiling under DragonFlyBSD.
+ * __GLIBC__     : compiling under GNU based systems, such as GNU/kFreeBSD.
+ * __linux__     : compiling under GNU/Linux systems.
+ * __FreeBSD__   : compiling under FreeBSD.
+ * __minix       : compiling under Minix3.
+ * __NetBSD__    : compiling (native) under NetBSD.
+ * __OpenBSD__   : compiling under OpenBSD.
+ */
 
-#if defined(__APPLE__)
+#if defined(HAVE_NBTOOL_CONFIG_H)
+
+#include <sys/param.h>
+#include <sys/endian.h>
+
+#ifndef	roundup2
+#define	roundup2	roundup
+#endif
+
+#define	ELFTC_BYTE_ORDER			_BYTE_ORDER
+#define	ELFTC_BYTE_ORDER_LITTLE_ENDIAN		_LITTLE_ENDIAN
+#define	ELFTC_BYTE_ORDER_BIG_ENDIAN		_BIG_ENDIAN
+
+#define	ELFTC_HAVE_MMAP				1
+#define	ELFTC_HAVE_STRMODE			1
+
+#elif defined(__APPLE__)
 
 #include <libkern/OSByteOrder.h>
 #define	htobe32(x)	OSSwapHostToBigInt32(x)
@@ -384,10 +405,8 @@ extern const char *__progname;
 #define	ELFTC_HAVE_STRMODE			1
 
 #define ELFTC_NEED_BYTEORDER_EXTENSIONS		1
-#endif /* __APPLE__ */
 
-
-#if defined(__DragonFly__)
+#elif defined(__DragonFly__)
 
 #include <osreldate.h>
 #include <sys/endian.h>
@@ -398,9 +417,7 @@ extern const char *__progname;
 
 #define	ELFTC_HAVE_MMAP				1
 
-#endif
-
-#if defined(__GLIBC__) || defined(__linux__)
+#elif defined(__GLIBC__) || defined(__linux__)
 
 #include <endian.h>
 
@@ -420,10 +437,7 @@ extern const char *__progname;
 
 #define	roundup2	roundup
 
-#endif	/* __GLIBC__ || __linux__ */
-
-
-#if defined(__FreeBSD__)
+#elif defined(__FreeBSD__)
 
 #include <osreldate.h>
 #include <sys/endian.h>
@@ -437,15 +451,11 @@ extern const char *__progname;
 #if __FreeBSD_version <= 900000
 #define	ELFTC_BROKEN_YY_NO_INPUT		1
 #endif
-#endif	/* __FreeBSD__ */
 
-
-#if defined(__minix)
+#elif defined(__minix)
 #define	ELFTC_HAVE_MMAP				0
-#endif	/* __minix */
 
-
-#if defined(__NetBSD__)
+#elif defined(__NetBSD__)
 
 #include <sys/param.h>
 #include <sys/endian.h>
@@ -461,10 +471,8 @@ extern const char *__progname;
 /* and 5.99.21 was from Wed Oct 21 21:28:36 2009 UTC */
 #  define ELFTC_BROKEN_YY_NO_INPUT		1
 #endif
-#endif	/* __NetBSD __ */
 
-
-#if defined(__OpenBSD__)
+#elif defined(__OpenBSD__)
 
 #include <sys/param.h>
 #include <sys/endian.h>

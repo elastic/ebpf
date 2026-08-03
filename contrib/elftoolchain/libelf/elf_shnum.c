@@ -24,12 +24,16 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
 #include <ar.h>
 #include <libelf.h>
 
 #include "_libelf.h"
 
 ELFTC_VCSID("$Id$");
+
+/*@ELFTC-DOWNSTREAM-VCSID@*/
 
 static int
 _libelf_getshdrnum(Elf *e, size_t *shnum)

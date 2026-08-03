@@ -4,10 +4,6 @@ USER ?= $(shell whoami)
 CURRENT_DATE_TAG ?= $(shell date +%Y%m%d-%H%M)
 PKG_VERSION ?= $(shell cat VERSION)
 
-# bmake Settings
-MAKE_SYS_PATH ?= /usr/share/mk
-export MAKESYSPATH = ${MAKE_SYS_PATH}
-
 # Container Settings
 NOCONTAINER ?=
 BUILD_CONTAINER_IMAGE ?=

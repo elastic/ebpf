@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2006,2008 Joseph Koshy
+ * Copyright (c) 2006,2008,2020 Joseph Koshy
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,12 +24,16 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
 #include <assert.h>
 #include <gelf.h>
 
 #include "_libelf.h"
 
 ELFTC_VCSID("$Id$");
+
+/*@ELFTC-DOWNSTREAM-VCSID@*/
 
 GElf_Sym *
 gelf_getsymshndx(Elf_Data *d, Elf_Data *id, int ndx, GElf_Sym *dst,
@@ -48,9 +52,16 @@ gelf_getsymshndx(Elf_Data *d, Elf_Data *id, int ndx, GElf_Sym *dst,
 	if (gelf_getsym(d, ndx, dst) == 0)
 		return (NULL);
 
-	if (lid == NULL || (scn = lid->d_scn) == NULL ||
-	    (e = scn->s_elf) == NULL || (e != ld->d_scn->s_elf) ||
-	    shindex == NULL) {
+	if (shindex == NULL)
+		return (dst);
+
+	if (lid == NULL) {
+		*shindex = 0;
+		return (dst);
+	}
+
+	if ((scn = lid->d_scn) == NULL ||
+	    (e = scn->s_elf) == NULL || (e != ld->d_scn->s_elf)) {
 		LIBELF_SET_ERROR(ARGUMENT, 0);
 		return (NULL);
 	}

@@ -1,5 +1,0 @@
-
-Version Needed Section:  .gnu.version_r
-            file                        version
-            libm.so.6                   GLIBC_2.2.5
-            libc.so.6                   GLIBC_2.2.5
