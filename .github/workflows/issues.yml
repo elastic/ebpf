@@ -9,13 +9,19 @@ on:
       - edited
       - synchronized
 
+permissions:
+  contents: read
+
 jobs:
   add-to-project:
     name: Add issue to project
     runs-on: ubuntu-latest
     continue-on-error: true
+    permissions:
+      contents: read
+      repository-projects: write
     steps:
-      - uses: actions/add-to-project@v0.3.0
+      - uses: actions/add-to-project@a9f041ddd462ed185893ea1024cec954f50dbe42 # v0.3.0
         with:
           project-url: https://github.com/orgs/elastic/projects/765
           github-token: ${{ secrets.ELASTIC_PAT }}
