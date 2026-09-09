@@ -1,4 +1,4 @@
-from debian:bullseye
+from debian:bullseye@sha256:6f519a81440354a85eb592c5f32109ab80605f6b892455983a6f618bf87fabe9
 
 RUN dpkg --add-architecture arm64
 RUN apt-get -y update
