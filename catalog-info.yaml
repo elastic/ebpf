@@ -19,7 +19,7 @@ spec:
     kind: Pipeline
     metadata:
       name: ebpf
-      description:  eBPF code and tools for the Linux build of Elastic Endpoint Security
+      description: eBPF code and tools for the Linux build of Elastic Endpoint Security
     spec:
       repository: elastic/ebpf
       pipeline_file: ".buildkite/pipeline.yml"
