@@ -12,7 +12,7 @@ steps:
       - "renovate.json"
 
   # if our catalog-info.yaml is changed, make sure it's well-formed according to our internal standards as well as Backstage's validation
-  - label: Validate TokenPolicy RREs
+  - label: "Validate catalog-info.yaml"
     command: "/agent/check-catalog-info.sh"
     agents:
       image: "docker.elastic.co/ci-agent-images/pipelib:0.32.0@sha256:508f620c3821579a7bac5347a85a9fa6a47f68e844083b976d928c41ae5c7bec"
