@@ -42,7 +42,7 @@ jobs:
           - name: gcc-12
             target: RUN_GCC12
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
         name: Checkout
       - uses: ./.github/actions/setup
         name: Setup
@@ -63,14 +63,14 @@ jobs:
           - arch: s390x
           - arch: x86
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
         name: Checkout
       - uses: ./.github/actions/setup
         name: Pre-Setup
       - run: source /tmp/ci_setup && sudo -E $CI_ROOT/managers/ubuntu.sh
         if: matrix.arch == 'x86'
         name: Setup
-      - uses: uraimo/run-on-arch-action@v2.0.5
+      - uses: uraimo/run-on-arch-action@cd5f294c3b7be88bc5b708fe25e1af36818f9ead # v2.0.5
         name: Build in docker
         if: matrix.arch != 'x86'
         with:

@@ -1,4 +1,4 @@
-FROM docker.io/ubuntu:latest
+FROM docker.io/ubuntu:latest@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78
 ARG IMGPACK_FILTER=
 COPY / /kernel-img-repository/${IMGPACK_FILTER}
 
