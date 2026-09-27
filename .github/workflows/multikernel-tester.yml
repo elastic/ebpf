@@ -28,6 +28,9 @@ on:
         type: string
         description: Stringified JSON string of kernels, for example '[ "debian", "fedora" ]'
 
+permissions:
+  contents: read
+
 jobs:
   test-kernel:
     name: Kernel
@@ -38,7 +41,7 @@ jobs:
     runs-on: ${{ inputs.runner }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
         persist-credentials: false
     - name: Install packages needed for testing
@@ -57,14 +60,14 @@ jobs:
     - name: Get Env
       run: echo "ELASTIC_EBPF_VERSION=$(cat VERSION)" >> $GITHUB_ENV && echo "PWD=$(pwd)" >> $GITHUB_ENV
     - name: Download Build Artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
       with:
         name: elastic-ebpf-${{ inputs.architecture }}
         path: ${{ env.PWD }}/artifacts
     - name: Untar
       run: cd artifacts && tar -zxf elastic-ebpf-${ELASTIC_EBPF_VERSION}-SNAPSHOT.tar.gz
     - name: Install Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
       with:
         go-version: '1.22'
     - name: Run tests
@@ -76,13 +79,13 @@ jobs:
         mkdir -p logs && mv testing/results logs/${{ matrix.kernel_flavor }}-${{ inputs.architecture }}
     - name: Archive test summary
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: result-summary-${{ matrix.kernel_flavor }}-${{ inputs.architecture }}.txt
         path: results-${{ matrix.kernel_flavor }}-${{ inputs.architecture }}.txt
     - name: Archive individual test results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: logs-${{ matrix.kernel_flavor }}-${{ inputs.architecture }}.txt
         path: logs
