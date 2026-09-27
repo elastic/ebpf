@@ -19,7 +19,6 @@ jobs:
     continue-on-error: true
     permissions:
       contents: read
-      repository-projects: write
     steps:
       - uses: actions/add-to-project@a9f041ddd462ed185893ea1024cec954f50dbe42 # v0.3.0
         with:
