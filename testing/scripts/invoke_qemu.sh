@@ -96,7 +96,8 @@ main() {
     elif [[ $arch == "x86_64" ]]; then
         # x86_64 uses ttyS0 for the first serial port
         bootparams+=" console=ttyS0"
-        extra_args+=" -machine accel=kvm"
+        # Fall back to emulation on hosts without KVM (e.g. no nested virt)
+        extra_args+=" -machine accel=kvm:tcg"
     fi
 
     sudo qemu-system-${arch} \

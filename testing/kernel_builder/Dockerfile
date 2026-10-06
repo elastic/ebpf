@@ -1,4 +1,4 @@
-from debian:bullseye
+from debian:bookworm
 
 RUN dpkg --add-architecture arm64
 RUN apt-get -y update

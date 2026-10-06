@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
@@ -183,6 +184,46 @@ func ForkExec(t *testing.T, et *Runner) {
 	require.Equal(t, execEvent.Env[0], "TEST_ENV_KEY1=TEST_ENV_VAL1")
 	require.Equal(t, execEvent.Env[1], "TEST_ENV_KEY2=TEST_ENV_VAL2")
 	require.Equal(t, execEvent.Cwd, "/")
+}
+
+// CgroupPath runs a binary two cgroups below the root, so resolving its pids
+// cgroup path has to walk kernfs_node parents; a broken parent read yields
+// "/nested" instead of the full path.
+func CgroupPath(t *testing.T, et *Runner) {
+	if testBinaryPath != "/" {
+		t.Skipf("Test will not work outside test framework")
+	}
+
+	const cgroupRoot = "/sys/fs/cgroup"
+	parent := filepath.Join(cgroupRoot, "ebpf_test")
+	leaf := filepath.Join(parent, "nested")
+
+	// The pids controller has to be enabled at every level, otherwise the
+	// task's pids css belongs to an ancestor and the path stops short.
+	if err := os.WriteFile(filepath.Join(cgroupRoot, "cgroup.subtree_control"), []byte("+pids"), 0); err != nil {
+		t.Skipf("pids cgroup controller not available: %v", err)
+	}
+	require.NoError(t, os.MkdirAll(leaf, 0o755))
+	defer os.Remove(parent)
+	defer os.Remove(leaf)
+	require.NoError(t, os.WriteFile(filepath.Join(parent, "cgroup.subtree_control"), []byte("+pids"), 0))
+
+	fd, err := syscall.Open(leaf, syscall.O_RDONLY|syscall.O_DIRECTORY, 0)
+	require.NoError(t, err)
+	defer syscall.Close(fd)
+
+	cmd := exec.Command(filepath.Join(testBinaryPath, "do_nothing"))
+	cmd.SysProcAttr = &syscall.SysProcAttr{UseCgroupFD: true, CgroupFD: fd}
+	require.NoError(t, cmd.Run())
+
+	for {
+		var execEvent ProcessExecEvent
+		et.UnmarshalNextEvent(&execEvent, "PROCESS_EXEC")
+		if execEvent.Pids.Tgid == int64(cmd.Process.Pid) {
+			require.Equal(t, "/ebpf_test/nested", execEvent.CgroupPath)
+			return
+		}
+	}
 }
 
 func FileCreate(t *testing.T, et *Runner) {
@@ -430,6 +471,27 @@ func TtyWrite(t *testing.T, et *Runner) {
 	require.Equal(t, ev.TtyDev.Major, int64(4))
 	require.Equal(t, ev.TtyDev.WinsizeRows, int64(0))
 	require.Equal(t, ev.TtyDev.WinsizeCols, int64(0))
+}
+
+func TtyWritePty(t *testing.T, et *Runner) {
+	var output struct {
+		Pid int64 `json:"pid"`
+	}
+	runTestUnmarshalOutput(t, "tty_write_pty", &output)
+
+	var ev TtyWriteEvent
+	for {
+		et.UnmarshalNextEvent(&ev, "PROCESS_TTY_WRITE")
+		if ev.Pids.Tgid == output.Pid {
+			break
+		}
+	}
+
+	require.Equal(t, int64(0), ev.Truncated)
+	require.Equal(t, "--- OK\n", ev.Out)
+	// Written to the pty master, so the event must describe the slave
+	// (UNIX98_PTY_SLAVE_MAJOR); 128 means the master went unrecognised.
+	require.Equal(t, int64(136), ev.TtyDev.Major)
 }
 
 func Tcpv4ConnectionAttempt(t *testing.T, et *Runner) {
@@ -713,6 +775,7 @@ func TestEbpf(t *testing.T) {
 		{"FeaturesCorrect", FeaturesCorrect, []string{}, false},
 		{"ForkExit", ForkExit, []string{"--process-fork"}, false},
 		{"ForkExec", ForkExec, []string{"--process-fork", "--process-exec"}, false},
+		{"CgroupPath", CgroupPath, []string{"--process-exec"}, false},
 		{"FileCreate", FileCreate, []string{"--file-create"}, false},
 		{"FileDelete", FileDelete, []string{"--file-delete"}, false},
 		{"FileRename", FileRename, []string{"--file-rename"}, false},
@@ -720,6 +783,7 @@ func TestEbpf(t *testing.T) {
 		{"Setgid", Setgid, []string{"--process-setgid"}, false},
 		{"FileModify", FileModify, []string{"--file-modify"}, false},
 		{"TtyWrite", TtyWrite, []string{"--process-tty-write"}, false},
+		{"TtyWritePty", TtyWritePty, []string{"--process-tty-write"}, false},
 		{"Tcpv4ConnectionAttempt", Tcpv4ConnectionAttempt, []string{"--net-conn-attempt"}, false},
 		{"Tcpv4ConnectionAccept", Tcpv4ConnectionAccept, []string{"--net-conn-accept"}, false},
 		{"Tcpv4ConnectionClose", Tcpv4ConnectionClose, []string{"--net-conn-close"}, false},

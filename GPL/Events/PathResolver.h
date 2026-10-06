@@ -29,6 +29,30 @@
 
 #include "Helpers.h"
 
+/* struct kernfs_node */
+//
+// kernfs_node::parent was renamed to __parent in Linux 6.15 (the pointer became
+// RCU-protected), see torvalds/linux 633488947ef66b194377411322dc9e12aab79b65.
+// The loader fills this with the offset of whichever spelling exists, so the
+// probe reads a plain offset and never a CO-RE field that may be absent.
+//
+// This matters even for a read on an unreachable branch: vmlinux.h applies
+// preserve_access_index to every record, so an absent field yields a poisoned
+// instruction, and the compiler is free to hoist it onto a reachable path. A
+// loader-supplied offset carries no relocation, so there is nothing to poison.
+DECL_FIELD_OFFSET(kernfs_node, __parent);
+
+static struct kernfs_node *ebpf_kernfs_node__parent(struct kernfs_node *kn)
+{
+    struct kernfs_node *parent = NULL;
+
+    if (!FIELD_OFFSET(kernfs_node, __parent))
+        return NULL;
+
+    bpf_core_read(&parent, sizeof(parent), (char *)kn + FIELD_OFFSET(kernfs_node, __parent));
+    return parent;
+}
+
 #define PATH_MAX 4096
 #define PATH_MAX_INDEX_MASK 4095
 
@@ -201,7 +225,7 @@ static size_t ebpf_resolve_kernfs_node_to_string(char *buf, struct kernfs_node *
             break;
 
         kna[depth] = kn;
-        kn         = BPF_CORE_READ(kn, parent);
+        kn         = ebpf_kernfs_node__parent(kn);
         depth++;
     }
 

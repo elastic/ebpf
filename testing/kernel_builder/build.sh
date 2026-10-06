@@ -11,10 +11,20 @@
 
 readonly KERNEL_OUTPUT_DIR="kernels"
 
-readonly BUILD_ARCHES=(
+readonly DEFAULT_BUILD_ARCHES=(
     "aarch64"
     "x86_64"
 )
+
+# The BUILD_ARCHES and BUILD_VERSIONS environment variables (space separated)
+# override the defaults, e.g.:
+#   make BUILD_ARCHES=x86_64 BUILD_VERSIONS="6.6 6.8"
+if [[ -n $BUILD_ARCHES ]]; then
+    read -r -a ARCHES <<< "$BUILD_ARCHES"
+else
+    ARCHES=("${DEFAULT_BUILD_ARCHES[@]}")
+fi
+readonly ARCHES
 
 # We hit every minor release here, and grab a number of different patch
 # releases from each LTS series (e.g. 5.10, 5.15)
@@ -42,6 +52,14 @@ readonly BUILD_VERSIONS_PAHOLE_SOURCE=(
     "6.4"
     "6.4.16"
     "6.5"
+    "6.6"  # LTS
+    "6.8"  # Ubuntu 24.04
+    "6.11" # Only release with inode.__i_atime / __i_mtime
+    "6.12" # LTS, inode timestamps split into _sec / _nsec
+    "6.14" # Last with kernfs_node.parent
+    "6.15" # kernfs_node.parent renamed to __parent
+    "6.17"
+    "7.0"
 )
 
 exit_error() {
@@ -98,7 +116,7 @@ fetch_and_build() {
     tar -C $(dirname ${archive}) -axvf ${archive}
     rm ${archive}
 
-    for arch in ${BUILD_ARCHES[@]}; do
+    for arch in ${ARCHES[@]}; do
         echo "BUILD ${arch}/${version}"
         mkdir -p ${KERNEL_OUTPUT_DIR}/bin/${arch}
         build_kernel \
@@ -107,10 +125,17 @@ fetch_and_build() {
             ${KERNEL_OUTPUT_DIR}/bin/${arch}/linux-${arch}-${version} \
             ${version}
     done
+
+    # A built tree with debug info is several GB, only the image is needed
+    rm -rf ${KERNEL_OUTPUT_DIR}/src/linux-${version}
 }
 
 main() {
-    if [ "$(pahole --version)" = "v1.20" ]; then
+    if [[ -n $BUILD_VERSIONS ]]; then
+        for version in ${BUILD_VERSIONS}; do
+            fetch_and_build $version
+        done
+    elif [ "$(pahole --version)" = "v1.20" ]; then
         for version in ${BUILD_VERSIONS_PAHOLE_120[@]}; do
             fetch_and_build $version
         done

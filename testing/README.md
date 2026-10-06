@@ -53,9 +53,9 @@ will need to have installed in order to run `./run-tests.sh`. On most distros,
 sudo apt install parallel
 ```
 
-By default `run_tests.sh` will pass `-j$(nproc)` to `parallel` (i.e. spin up as
-many jobs as there are CPU cores). You can change this by passing
-`-j <number of jobs>` to `run-tests.sh`.
+By default `run_tests.sh` will pass `-j$(nproc)` to `parallel`, capped at 8
+(i.e. spin up as many jobs as there are CPU cores, up to 8). You can change
+this by passing `-j<number of jobs>` to `run_tests.sh`.
 
 ## Running tests locally
 

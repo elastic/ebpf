@@ -122,6 +122,7 @@ type ProcessExecEvent struct {
 	Cwd        string   `json:"cwd"`
 	Argv       []string `json:"argv"`
 	Env        []string `json:"env"`
+	CgroupPath string   `json:"pids_ss_cgroup_path"`
 }
 
 type ProcessKernelLoadModuleEvent struct {
