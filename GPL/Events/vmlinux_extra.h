@@ -16,7 +16,7 @@
  * partial definitions describe only the timestamp fields we read.
  * __i_ctime appeared in 6.6; __i_atime and __i_mtime followed in 6.7.
  */
-struct inode___6_8 {
+struct inode___6_7 {
     struct timespec64 __i_atime;
     struct timespec64 __i_mtime;
     struct timespec64 __i_ctime;

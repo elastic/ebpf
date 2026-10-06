@@ -52,11 +52,11 @@ readonly BUILD_VERSIONS_PAHOLE_SOURCE=(
     "6.4"
     "6.4.16"
     "6.5"
-    "6.6"  # LTS
-    "6.8"  # Ubuntu 24.04
-    "6.11" # Only release with inode.__i_atime / __i_mtime
-    "6.12" # LTS, inode timestamps split into _sec / _nsec
-    "6.14" # Last with kernfs_node.parent
+    "6.6"  # LTS, inode.__i_ctime only (atime/mtime keep the old names)
+    "6.8"  # Ubuntu 24.04, inode.__i_atime / __i_mtime / __i_ctime (6.7-6.10)
+    "6.11" # inode timestamps split into _sec / _nsec
+    "6.12" # LTS
+    "6.14" # Last with kernfs_node.parent; I_CTIME_QUERIED in i_ctime_nsec (6.13+)
     "6.15" # kernfs_node.parent renamed to __parent
     "6.17"
     "6.18"

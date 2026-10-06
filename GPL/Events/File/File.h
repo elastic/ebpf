@@ -71,11 +71,11 @@ static void ebpf_file_info__fill(struct ebpf_file_info *finfo, struct dentry *de
     if (bpf_core_field_exists(ino->i_atime)) {
         finfo->atime = BPF_CORE_READ(ino, i_atime.tv_sec) * NANOSECONDS_IN_SECOND +
                        BPF_CORE_READ(ino, i_atime.tv_nsec);
-    } else if (bpf_core_field_exists(struct inode___6_8, __i_atime)) {
-        struct inode___6_8 *ino68 = (void *)ino;
+    } else if (bpf_core_field_exists(struct inode___6_7, __i_atime)) {
+        struct inode___6_7 *ino67 = (void *)ino;
 
-        finfo->atime = BPF_CORE_READ(ino68, __i_atime.tv_sec) * NANOSECONDS_IN_SECOND +
-                       BPF_CORE_READ(ino68, __i_atime.tv_nsec);
+        finfo->atime = BPF_CORE_READ(ino67, __i_atime.tv_sec) * NANOSECONDS_IN_SECOND +
+                       BPF_CORE_READ(ino67, __i_atime.tv_nsec);
     } else if (bpf_core_field_exists(struct inode___6_11, i_atime_sec) &&
                bpf_core_field_exists(struct inode___6_11, i_atime_nsec)) {
         struct inode___6_11 *ino611 = (void *)ino;
@@ -87,11 +87,11 @@ static void ebpf_file_info__fill(struct ebpf_file_info *finfo, struct dentry *de
     if (bpf_core_field_exists(ino->i_mtime)) {
         finfo->mtime = BPF_CORE_READ(ino, i_mtime.tv_sec) * NANOSECONDS_IN_SECOND +
                        BPF_CORE_READ(ino, i_mtime.tv_nsec);
-    } else if (bpf_core_field_exists(struct inode___6_8, __i_mtime)) {
-        struct inode___6_8 *ino68 = (void *)ino;
+    } else if (bpf_core_field_exists(struct inode___6_7, __i_mtime)) {
+        struct inode___6_7 *ino67 = (void *)ino;
 
-        finfo->mtime = BPF_CORE_READ(ino68, __i_mtime.tv_sec) * NANOSECONDS_IN_SECOND +
-                       BPF_CORE_READ(ino68, __i_mtime.tv_nsec);
+        finfo->mtime = BPF_CORE_READ(ino67, __i_mtime.tv_sec) * NANOSECONDS_IN_SECOND +
+                       BPF_CORE_READ(ino67, __i_mtime.tv_nsec);
     } else if (bpf_core_field_exists(struct inode___6_11, i_mtime_sec) &&
                bpf_core_field_exists(struct inode___6_11, i_mtime_nsec)) {
         struct inode___6_11 *ino611 = (void *)ino;
@@ -103,11 +103,11 @@ static void ebpf_file_info__fill(struct ebpf_file_info *finfo, struct dentry *de
     if (bpf_core_field_exists(ino->i_ctime)) {
         finfo->ctime = BPF_CORE_READ(ino, i_ctime.tv_sec) * NANOSECONDS_IN_SECOND +
                        BPF_CORE_READ(ino, i_ctime.tv_nsec);
-    } else if (bpf_core_field_exists(struct inode___6_8, __i_ctime)) {
-        struct inode___6_8 *ino68 = (void *)ino;
+    } else if (bpf_core_field_exists(struct inode___6_7, __i_ctime)) {
+        struct inode___6_7 *ino67 = (void *)ino;
 
-        finfo->ctime = BPF_CORE_READ(ino68, __i_ctime.tv_sec) * NANOSECONDS_IN_SECOND +
-                       BPF_CORE_READ(ino68, __i_ctime.tv_nsec);
+        finfo->ctime = BPF_CORE_READ(ino67, __i_ctime.tv_sec) * NANOSECONDS_IN_SECOND +
+                       BPF_CORE_READ(ino67, __i_ctime.tv_nsec);
     } else if (bpf_core_field_exists(struct inode___6_11, i_ctime_sec) &&
                bpf_core_field_exists(struct inode___6_11, i_ctime_nsec)) {
         struct inode___6_11 *ino611 = (void *)ino;
