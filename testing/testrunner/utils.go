@@ -88,6 +88,7 @@ type FileInfo struct {
 	Size  uint64 `json:"size"`
 	Uid   uint64 `json:"uid"`
 	Gid   uint64 `json:"gid"`
+	Atime uint64 `json:"atime"`
 	Mtime uint64 `json:"mtime"`
 	Ctime uint64 `json:"ctime"`
 }

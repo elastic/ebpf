@@ -226,12 +226,25 @@ func CgroupPath(t *testing.T, et *Runner) {
 	}
 }
 
+type fileOperationOutput struct {
+	PidInfo      TestPidInfo `json:"pid_info"`
+	FileNameOrig string      `json:"filename_orig"`
+	FileNameNew  string      `json:"filename_new"`
+	Timestamps   []FileInfo  `json:"timestamps"`
+}
+
+func assertFileTimestamps(t *testing.T, expected, actual FileInfo) {
+	t.Helper()
+	require.NotZero(t, expected.Atime, "fstat atime")
+	require.NotZero(t, expected.Mtime, "fstat mtime")
+	require.NotZero(t, expected.Ctime, "fstat ctime")
+	require.Equal(t, expected.Atime, actual.Atime, "atime")
+	require.Equal(t, expected.Mtime, actual.Mtime, "mtime")
+	require.Equal(t, expected.Ctime, actual.Ctime, "ctime")
+}
+
 func FileCreate(t *testing.T, et *Runner) {
-	var binOutput struct {
-		PidInfo      TestPidInfo `json:"pid_info"`
-		FileNameOrig string      `json:"filename_orig"`
-		FileNameNew  string      `json:"filename_new"`
-	}
+	var binOutput fileOperationOutput
 	runTestUnmarshalOutput(t, "create_rename_delete_file", &binOutput)
 
 	var fileCreateEvent FileCreateEvent
@@ -251,6 +264,8 @@ func FileCreate(t *testing.T, et *Runner) {
 	require.Equal(t, fileCreateEvent.Finfo.Size, uint64(0))
 	require.Equal(t, fileCreateEvent.Finfo.Uid, uint64(0))
 	require.Equal(t, fileCreateEvent.Finfo.Gid, uint64(0))
+	require.Len(t, binOutput.Timestamps, 6)
+	assertFileTimestamps(t, binOutput.Timestamps[0], fileCreateEvent.Finfo)
 }
 
 func FileDelete(t *testing.T, et *Runner) {
@@ -281,11 +296,7 @@ func FileDelete(t *testing.T, et *Runner) {
 }
 
 func FileRename(t *testing.T, et *Runner) {
-	var binOutput struct {
-		PidInfo      TestPidInfo `json:"pid_info"`
-		FileNameOrig string      `json:"filename_orig"`
-		FileNameNew  string      `json:"filename_new"`
-	}
+	var binOutput fileOperationOutput
 	runTestUnmarshalOutput(t, "create_rename_delete_file", &binOutput)
 
 	var fileRenameEvent FileRenameEvent
@@ -306,6 +317,8 @@ func FileRename(t *testing.T, et *Runner) {
 	require.Equal(t, fileRenameEvent.Finfo.Size, uint64(0))
 	require.Equal(t, fileRenameEvent.Finfo.Uid, uint64(0))
 	require.Equal(t, fileRenameEvent.Finfo.Gid, uint64(0))
+	require.Len(t, binOutput.Timestamps, 6)
+	assertFileTimestamps(t, binOutput.Timestamps[1], fileRenameEvent.Finfo)
 }
 
 func Setuid(t *testing.T, et *Runner) {
@@ -408,11 +421,7 @@ func FileDeleteContainer(t *testing.T, et *Runner) {
 }
 
 func FileModify(t *testing.T, et *Runner) {
-	var binOutput struct {
-		PidInfo      TestPidInfo `json:"pid_info"`
-		FileNameOrig string      `json:"filename_orig"`
-		FileNameNew  string      `json:"filename_new"`
-	}
+	var binOutput fileOperationOutput
 	runTestUnmarshalOutput(t, "create_rename_delete_file", &binOutput)
 
 	eventsCount := 4 // chmod, write, writev, truncate
@@ -449,6 +458,11 @@ func FileModify(t *testing.T, et *Runner) {
 	require.Equal(t, events[3].Path, binOutput.FileNameNew)
 	require.Equal(t, events[3].ChangeType, "CONTENT")
 	require.Equal(t, events[3].Finfo.Size, uint64(0))
+
+	require.Len(t, binOutput.Timestamps, 6)
+	for i, event := range events {
+		assertFileTimestamps(t, binOutput.Timestamps[i+2], event.Finfo)
+	}
 }
 
 func TtyWrite(t *testing.T, et *Runner) {

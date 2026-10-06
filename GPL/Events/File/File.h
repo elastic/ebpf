@@ -11,16 +11,12 @@
 #define EBPF_EVENTPROBE_FILE_H
 
 #include "vmlinux.h"
+#include "vmlinux_extra.h"
 
 #include <bpf/bpf_core_read.h>
 
 #include "EbpfEventProto.h"
 #include "Helpers.h"
-
-/* struct inode */
-DECL_FIELD_OFFSET(inode, __i_atime);
-DECL_FIELD_OFFSET(inode, __i_mtime);
-DECL_FIELD_OFFSET(inode, __i_ctime);
 
 #define PATH_MAX 4096
 
@@ -47,6 +43,11 @@ DECL_FIELD_OFFSET(inode, __i_ctime);
 
 #define NANOSECONDS_IN_SECOND 1000000000
 
+/* Bit 31 of i_ctime_nsec tracks multigrain timestamp queries. It is not part
+ * of the timestamp (see inode_get_ctime_nsec in include/linux/fs.h).
+ */
+#define I_CTIME_QUERIED (1U << 31)
+
 static struct path *path_from_file(struct file *f)
 {
     size_t off = bpf_core_field_offset(struct file, f_path);
@@ -55,8 +56,6 @@ static struct path *path_from_file(struct file *f)
 
 static void ebpf_file_info__fill(struct ebpf_file_info *finfo, struct dentry *de)
 {
-    struct timespec64 ts;
-
     struct inode *ino = BPF_CORE_READ(de, d_inode);
 
     finfo->inode = BPF_CORE_READ(ino, i_ino);
@@ -65,28 +64,56 @@ static void ebpf_file_info__fill(struct ebpf_file_info *finfo, struct dentry *de
     finfo->uid   = BPF_CORE_READ(ino, i_uid.val);
     finfo->gid   = BPF_CORE_READ(ino, i_gid.val);
 
-    if (FIELD_OFFSET(inode, __i_atime)) {
-        bpf_core_read(&ts, sizeof(ts), (char *)ino + FIELD_OFFSET(inode, __i_atime));
-        finfo->atime = ts.tv_sec * NANOSECONDS_IN_SECOND + ts.tv_nsec;
-    } else if (bpf_core_field_exists(ino->i_atime)) {
+    // Reset every timestamp: event_buffer_map is reused between events.
+    finfo->atime = finfo->mtime = finfo->ctime = 0;
+
+    // Check each timestamp independently: 6.6 renamed only ctime.
+    if (bpf_core_field_exists(ino->i_atime)) {
         finfo->atime = BPF_CORE_READ(ino, i_atime.tv_sec) * NANOSECONDS_IN_SECOND +
                        BPF_CORE_READ(ino, i_atime.tv_nsec);
+    } else if (bpf_core_field_exists(struct inode___6_8, __i_atime)) {
+        struct inode___6_8 *ino68 = (void *)ino;
+
+        finfo->atime = BPF_CORE_READ(ino68, __i_atime.tv_sec) * NANOSECONDS_IN_SECOND +
+                       BPF_CORE_READ(ino68, __i_atime.tv_nsec);
+    } else if (bpf_core_field_exists(struct inode___6_11, i_atime_sec) &&
+               bpf_core_field_exists(struct inode___6_11, i_atime_nsec)) {
+        struct inode___6_11 *ino611 = (void *)ino;
+
+        finfo->atime = BPF_CORE_READ(ino611, i_atime_sec) * NANOSECONDS_IN_SECOND +
+                       (u64)BPF_CORE_READ(ino611, i_atime_nsec);
     }
 
-    if (FIELD_OFFSET(inode, __i_mtime)) {
-        bpf_core_read(&ts, sizeof(ts), (char *)ino + FIELD_OFFSET(inode, __i_mtime));
-        finfo->mtime = ts.tv_sec * NANOSECONDS_IN_SECOND + ts.tv_nsec;
-    } else if (bpf_core_field_exists(ino->i_mtime)) {
+    if (bpf_core_field_exists(ino->i_mtime)) {
         finfo->mtime = BPF_CORE_READ(ino, i_mtime.tv_sec) * NANOSECONDS_IN_SECOND +
                        BPF_CORE_READ(ino, i_mtime.tv_nsec);
+    } else if (bpf_core_field_exists(struct inode___6_8, __i_mtime)) {
+        struct inode___6_8 *ino68 = (void *)ino;
+
+        finfo->mtime = BPF_CORE_READ(ino68, __i_mtime.tv_sec) * NANOSECONDS_IN_SECOND +
+                       BPF_CORE_READ(ino68, __i_mtime.tv_nsec);
+    } else if (bpf_core_field_exists(struct inode___6_11, i_mtime_sec) &&
+               bpf_core_field_exists(struct inode___6_11, i_mtime_nsec)) {
+        struct inode___6_11 *ino611 = (void *)ino;
+
+        finfo->mtime = BPF_CORE_READ(ino611, i_mtime_sec) * NANOSECONDS_IN_SECOND +
+                       (u64)BPF_CORE_READ(ino611, i_mtime_nsec);
     }
 
-    if (FIELD_OFFSET(inode, __i_ctime)) {
-        bpf_core_read(&ts, sizeof(ts), (char *)ino + FIELD_OFFSET(inode, __i_ctime));
-        finfo->ctime = ts.tv_sec * NANOSECONDS_IN_SECOND + ts.tv_nsec;
-    } else if (bpf_core_field_exists(ino->i_ctime)) {
+    if (bpf_core_field_exists(ino->i_ctime)) {
         finfo->ctime = BPF_CORE_READ(ino, i_ctime.tv_sec) * NANOSECONDS_IN_SECOND +
                        BPF_CORE_READ(ino, i_ctime.tv_nsec);
+    } else if (bpf_core_field_exists(struct inode___6_8, __i_ctime)) {
+        struct inode___6_8 *ino68 = (void *)ino;
+
+        finfo->ctime = BPF_CORE_READ(ino68, __i_ctime.tv_sec) * NANOSECONDS_IN_SECOND +
+                       BPF_CORE_READ(ino68, __i_ctime.tv_nsec);
+    } else if (bpf_core_field_exists(struct inode___6_11, i_ctime_sec) &&
+               bpf_core_field_exists(struct inode___6_11, i_ctime_nsec)) {
+        struct inode___6_11 *ino611 = (void *)ino;
+
+        finfo->ctime = BPF_CORE_READ(ino611, i_ctime_sec) * NANOSECONDS_IN_SECOND +
+                       (u64)(BPF_CORE_READ(ino611, i_ctime_nsec) & ~I_CTIME_QUERIED);
     }
 
     if (S_ISREG(finfo->mode)) {

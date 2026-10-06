@@ -657,7 +657,8 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
     bool is_master             = false;
     struct ebpf_tty_dev master = {};
     struct ebpf_tty_dev slave  = {};
-    if (ebpf_tty_driver__field(tty, FIELD_OFFSET(tty_driver, type)) == ebpf_tty_driver__type_pty() &&
+    if (ebpf_tty_driver__field(tty, FIELD_OFFSET(tty_driver, type)) ==
+            ebpf_tty_driver__type_pty() &&
         ebpf_tty_driver__field(tty, FIELD_OFFSET(tty_driver, subtype)) == PTY_TYPE_MASTER) {
         struct tty_struct *tmp = BPF_CORE_READ(tty, link);
         ebpf_tty_dev__fill(&master, tty);

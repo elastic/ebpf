@@ -59,6 +59,8 @@ readonly BUILD_VERSIONS_PAHOLE_SOURCE=(
     "6.14" # Last with kernfs_node.parent
     "6.15" # kernfs_node.parent renamed to __parent
     "6.17"
+    "6.18"
+    "6.19"
     "7.0"
 )
 
