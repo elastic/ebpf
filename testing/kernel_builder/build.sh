@@ -70,6 +70,12 @@ exit_error() {
     exit 1
 }
 
+# build_kernel only knows these arches. Check before downloading anything.
+for arch in ${ARCHES[@]}; do
+    [[ $arch == "x86_64" || $arch == "aarch64" ]] \
+        || exit_error "Unsupported arch '${arch}', expected x86_64 or aarch64"
+done
+
 build_kernel() {
     local arch=$1
     local src_dir=$2
@@ -108,12 +114,17 @@ build_kernel() {
 
     mv ${src_dir}/${output_file} ${dest}
 
+    # headers_install writes into the tree, which is deleted after the build
+    mkdir -p ${KERNEL_OUTPUT_DIR}/headers/${arch}
+    rm -rf ${KERNEL_OUTPUT_DIR}/headers/${arch}/linux-headers-${version}-${make_arch}
+    mv ${src_dir}/linux-headers-${version}-${make_arch} ${KERNEL_OUTPUT_DIR}/headers/${arch}/
+
     # The tree is deleted after the build. Keep the ELF with debug info, which
     # gdb needs (see testing/README.md), only when asked: there is one per
     # version and arch, and each is hundreds of MB. Not next to the image,
     # because test runs boot every file in an image directory (see the
     # run-multikernel-test target in the top-level Makefile).
-    if [[ -n $KEEP_VMLINUX ]]; then
+    if [[ $KEEP_VMLINUX == "1" ]]; then
         mkdir -p ${KERNEL_OUTPUT_DIR}/vmlinux/${arch}
         cp ${src_dir}/vmlinux ${KERNEL_OUTPUT_DIR}/vmlinux/${arch}/vmlinux-${arch}-${version}
     fi
@@ -140,7 +151,7 @@ fetch_and_build() {
     done
 
     # A built tree with debug info is several GB, only the image is needed
-    # (and vmlinux with KEEP_VMLINUX, copied above)
+    # (and the headers, and vmlinux with KEEP_VMLINUX, saved above)
     rm -rf ${KERNEL_OUTPUT_DIR}/src/linux-${version}
 }
 

@@ -55,7 +55,7 @@ sudo apt install parallel
 
 By default `run_tests.sh` will pass `-j$(nproc)` to `parallel`, capped at 8
 (i.e. spin up as many jobs as there are CPU cores, up to 8). You can change
-this by passing `-j<number of jobs>` to `run_tests.sh`.
+this by passing `-j <number of jobs>` to `run_tests.sh`.
 
 ## Running tests locally
 

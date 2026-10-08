@@ -82,13 +82,13 @@ main() {
     while getopts "j:" opt; do
         case ${opt} in
             j ) jobs=$OPTARG
-                shift 1
                 ;;
             \? )
                 exit_usage
                 ;;
         esac
     done
+    shift $((OPTIND - 1))
 
     local arch=$1
     local artifacts="$2"

@@ -25,7 +25,8 @@ to build can be controlled by way of the globals declared at the top of
 make BUILD_ARCHES=x86_64 BUILD_VERSIONS="6.6 6.8"
 ```
 
-The kernel source tree is deleted after each build. To keep each kernel's
+The kernel source tree is deleted after each build. The installed UAPI headers
+are kept under `kernels/headers/<arch>`. To keep each kernel's
 `vmlinux` (the ELF with debug info that gdb needs, see `testing/README.md`),
 set `KEEP_VMLINUX=1`. They are output under `kernels/vmlinux/<arch>`, and each
 is hundreds of MB:
