@@ -774,6 +774,18 @@ func TcFilter(t *testing.T, et *Runner) {
 	require.NoError(t, err, "error running Tc filter tests: %s\n", string(output))
 }
 
+func TestMain(m *testing.M) {
+	code := m.Run()
+
+	if inBluebox {
+		if err := WriteResultToConsole(code); err != nil {
+			fmt.Fprintf(os.Stderr, "could not write test result to console: %v\n", err)
+		}
+	}
+
+	os.Exit(code)
+}
+
 func TestEbpf(t *testing.T) {
 	hasOverlayFS := IsOverlayFsSupported(t)
 

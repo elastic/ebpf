@@ -20,6 +20,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -276,6 +277,9 @@ var (
 	tcObjPath  = "/TcFilter.bpf.o"
 )
 
+// set by init when running in the bluebox test env
+var inBluebox = false
+
 // init will run at startup and figure out if we're running in the bluebox test env or not,
 // and set paths for the binaries as needed
 func init() {
@@ -284,6 +288,7 @@ func init() {
 	// if there's an error, assume that we're in the test environment,
 	// and we're using the root path
 	if err != nil {
+		inBluebox = true
 		fmt.Printf("using root path '%s' for test binary path\n", testBinaryPath)
 		return
 	}
@@ -450,4 +455,36 @@ func FetchNsFromProc() (NsInfo, error) {
 	}
 
 	return ns, nil
+}
+
+// TCSBRK from asm-generic/ioctls.h, same value on x86_64 and aarch64. With a
+// non-zero argument it is tcdrain(): wait until all output has been sent.
+const tcsbrk = 0x5409
+
+// WriteResultToConsole writes the result of the test run straight to
+// /dev/console and waits until the console has sent it. The bluebox init relays
+// our stdout to the console through a pipe and powers the VM off as soon as we
+// exit, without waiting for the console to send what is still buffered. On slow
+// consoles (e.g. PREEMPT_RT kernels) that loses the end of the output, so
+// run_tests.sh checks for this line instead of go test's final "PASS".
+func WriteResultToConsole(code int) error {
+	console, err := os.OpenFile("/dev/console", os.O_WRONLY|syscall.O_NOCTTY, 0)
+	if err != nil {
+		return err
+	}
+	defer console.Close()
+
+	result := "PASS"
+	if code != 0 {
+		result = fmt.Sprintf("FAIL (exit code %d)", code)
+	}
+	// Start on a new line, in case the console is in the middle of one
+	if _, err := fmt.Fprintf(console, "\nTESTRUNNER RESULT: %s\n", result); err != nil {
+		return err
+	}
+
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, console.Fd(), tcsbrk, 1); errno != 0 {
+		return errno
+	}
+	return nil
 }

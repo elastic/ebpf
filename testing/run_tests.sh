@@ -8,9 +8,12 @@
 readonly PROGNAME=$(basename $0)
 readonly ARGS="$@"
 
-# go test prints a lone PASS once every test passed. Don't match init's
-# "exit status 0": it is also printed for orphaned test binary children.
-readonly SUCCESS_REGEX='stdout: PASS\s*$'
+# testrunner writes this line straight to the console once every test passed,
+# and waits until it has been sent (see WriteResultToConsole). Don't match go
+# test's final "stdout: PASS": init relays it and may power off before the
+# console sends it. Don't match init's "exit status 0" either: it is also
+# printed for orphaned test binary children.
+readonly SUCCESS_REGEX='TESTRUNNER RESULT: PASS\s*$'
 readonly SUMMARY_FILE="bpf-check-summary.txt"
 readonly RESULTS_DIR="results"
 
