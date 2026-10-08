@@ -80,15 +80,18 @@ main() {
         bootparams+="nokaslr"
     fi
 
+    # -cpu host only exists under KVM
+    local use_kvm=""
     file_exists /dev/kvm && [[ $host_arch == $arch ]] && [[ $kvm_requested == "1" ]] \
-        && extra_args+=" -enable-kvm"
+        && use_kvm="1"
 
     if [[ $arch == "aarch64" ]]; then
         # qemu-system-aarch64 requires you to pass a -machine, just use -M virt
         # for a generic aarch64 machine (we don't care about hardware specifics)
         extra_args+=" -M virt"
 
-        # Need to specify a cpu for aarch64
+        # Need to specify a cpu for aarch64. KVM is never used for aarch64: it
+        # would need -cpu host instead
         extra_args+=" -cpu cortex-a57"
 
         # aarch64 uses ttyAMA0 for the first serial port
@@ -96,12 +99,11 @@ main() {
     elif [[ $arch == "x86_64" ]]; then
         # x86_64 uses ttyS0 for the first serial port
         bootparams+=" console=ttyS0"
-        extra_args+=" -cpu host"
-        # Fall back to emulation on hosts without KVM (e.g. no nested virt)
-        extra_args+=" -machine accel=kvm:tcg"
-        # stderr, because run_tests.sh sends stdout to the per-kernel result file
-        if ! file_exists /dev/kvm || [[ $host_arch != $arch ]]; then
-            echo "WARNING: no KVM for x86_64 on this host, falling back to emulation (much slower)" >&2
+        if [[ $use_kvm == "1" ]]; then
+            extra_args+=" -enable-kvm -cpu host"
+        else
+            # stderr, because run_tests.sh sends stdout to the per-kernel result file
+            echo "WARNING: not using KVM for x86_64, running under emulation (much slower)" >&2
         fi
     fi
 
