@@ -80,8 +80,8 @@ main() {
         bootparams+="nokaslr"
     fi
 
-    file_exists /dev/kvm && [[ $host_arch == $arch ]] && [[ kvm_requested == "1" ]] \
-        && extra_args+=" -enable-kvm -cpu host"
+    file_exists /dev/kvm && [[ $host_arch == $arch ]] && [[ $kvm_requested == "1" ]] \
+        && extra_args+=" -enable-kvm"
 
     if [[ $arch == "aarch64" ]]; then
         # qemu-system-aarch64 requires you to pass a -machine, just use -M virt
@@ -96,8 +96,13 @@ main() {
     elif [[ $arch == "x86_64" ]]; then
         # x86_64 uses ttyS0 for the first serial port
         bootparams+=" console=ttyS0"
+        extra_args+=" -cpu host"
         # Fall back to emulation on hosts without KVM (e.g. no nested virt)
         extra_args+=" -machine accel=kvm:tcg"
+        # stderr, because run_tests.sh sends stdout to the per-kernel result file
+        if ! file_exists /dev/kvm || [[ $host_arch != $arch ]]; then
+            echo "WARNING: no KVM for x86_64 on this host, falling back to emulation (much slower)" >&2
+        fi
     fi
 
     sudo qemu-system-${arch} \

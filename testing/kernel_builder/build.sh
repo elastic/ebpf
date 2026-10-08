@@ -19,6 +19,7 @@ readonly DEFAULT_BUILD_ARCHES=(
 # The BUILD_ARCHES and BUILD_VERSIONS environment variables (space separated)
 # override the defaults, e.g.:
 #   make BUILD_ARCHES=x86_64 BUILD_VERSIONS="6.6 6.8"
+# Set KEEP_VMLINUX=1 to also keep each kernel's vmlinux, for gdb.
 if [[ -n $BUILD_ARCHES ]]; then
     read -r -a ARCHES <<< "$BUILD_ARCHES"
 else
@@ -106,6 +107,16 @@ build_kernel() {
     popd
 
     mv ${src_dir}/${output_file} ${dest}
+
+    # The tree is deleted after the build. Keep the ELF with debug info, which
+    # gdb needs (see testing/README.md), only when asked: there is one per
+    # version and arch, and each is hundreds of MB. Not next to the image,
+    # because test runs boot every file in an image directory (see the
+    # run-multikernel-test target in the top-level Makefile).
+    if [[ -n $KEEP_VMLINUX ]]; then
+        mkdir -p ${KERNEL_OUTPUT_DIR}/vmlinux/${arch}
+        cp ${src_dir}/vmlinux ${KERNEL_OUTPUT_DIR}/vmlinux/${arch}/vmlinux-${arch}-${version}
+    fi
 }
 
 fetch_and_build() {
@@ -129,6 +140,7 @@ fetch_and_build() {
     done
 
     # A built tree with debug info is several GB, only the image is needed
+    # (and vmlinux with KEEP_VMLINUX, copied above)
     rm -rf ${KERNEL_OUTPUT_DIR}/src/linux-${version}
 }
 

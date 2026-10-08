@@ -144,7 +144,9 @@ on x86_64, the invocation looks like this:
 ```
 
 Then, in another terminal, run `gdb` on your kernel ELF binary with debug
-symbols (usually called `vmlinux`). Connect to QEMU with `target remote
+symbols (usually called `vmlinux`). The kernel builder deletes it with the
+source tree unless you build with `KEEP_VMLINUX=1`, see
+`kernel_builder/README.md`. Connect to QEMU with `target remote
 localhost:1234` and  set your source search path to a locally-checked-out clone
 of Linux that matches the kernel you're debugging with `dir
 <path_to_linux_source>`.
