@@ -26,31 +26,19 @@
 #define EBPF_EVENTPROBE_PATHRESOLVER_H
 
 #include "vmlinux.h"
+#include "vmlinux_extra.h"
 
 #include "Helpers.h"
 
-/* struct kernfs_node */
-//
-// kernfs_node::parent was renamed to __parent in Linux 6.15 (the pointer became
-// RCU-protected), see torvalds/linux 633488947ef66b194377411322dc9e12aab79b65.
-// The loader fills this with the offset of whichever spelling exists, so the
-// probe reads a plain offset and never a CO-RE field that may be absent.
-//
-// This matters even for a read on an unreachable branch: vmlinux.h applies
-// preserve_access_index to every record, so an absent field yields a poisoned
-// instruction, and the compiler is free to hoist it onto a reachable path. A
-// loader-supplied offset carries no relocation, so there is nothing to poison.
-DECL_FIELD_OFFSET(kernfs_node, __parent);
-
 static struct kernfs_node *ebpf_kernfs_node__parent(struct kernfs_node *kn)
 {
-    struct kernfs_node *parent = NULL;
+    if (bpf_core_field_exists(struct kernfs_node___6_15, __parent)) {
+        struct kernfs_node___6_15 *kn615 = (void *)kn;
 
-    if (!FIELD_OFFSET(kernfs_node, __parent))
-        return NULL;
+        return BPF_CORE_READ(kn615, __parent);
+    }
 
-    bpf_core_read(&parent, sizeof(parent), (char *)kn + FIELD_OFFSET(kernfs_node, __parent));
-    return parent;
+    return BPF_CORE_READ(kn, parent);
 }
 
 #define PATH_MAX 4096

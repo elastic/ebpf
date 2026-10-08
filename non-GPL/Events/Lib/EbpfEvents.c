@@ -249,22 +249,6 @@ out:
         __r;                                                                                       \
     })
 
-/* Like FILL_FIELD_OFFSET, but fills the constant for `field` with the offset
- * of `name`. For fields renamed across kernel versions that the probes read
- * through a single offset constant.
- */
-#define FILL_FIELD_OFFSET_AS(obj, btf, struct, field, name)                                        \
-    ({                                                                                             \
-        int __r = -1;                                                                              \
-        int r   = resolve_btf_field_off(btf, #struct, #name);                                      \
-        if (r >= 0)                                                                                \
-            __r = 0;                                                                               \
-        else                                                                                       \
-            verbose("fill field offset (%s, %s): %d\n", #struct, #name, r);                        \
-        obj->rodata->off__##struct##__##field##__ = r;                                             \
-        __r;                                                                                       \
-    })
-
 /* Given a function name, returns whether it exists in the provided BTF. */
 #define BTF_FUNC_EXISTS(btf, func) ({ (bool)resolve_btf_type_by_func(btf, #func); })
 
@@ -303,16 +287,6 @@ static int probe_fill_relos(struct btf *btf, struct EventProbe_bpf *obj)
 
     err = err ?: FILL_FUNC_ARG_IDX(obj, btf, do_truncate, filp);
     err = err ?: FILL_FUNC_RET_IDX(obj, btf, do_truncate);
-
-    // kernfs_node::parent was renamed to __parent in 6.15
-    if (BTF_FIELD_EXISTS(btf, kernfs_node, __parent))
-        err = err ?: FILL_FIELD_OFFSET(obj, btf, kernfs_node, __parent);
-    else
-        err = err ?: FILL_FIELD_OFFSET_AS(obj, btf, kernfs_node, __parent, parent);
-
-    // tty_driver::type and ::subtype changed from short to enum in 6.15
-    err = err ?: FILL_FIELD_OFFSET(obj, btf, tty_driver, type);
-    err = err ?: FILL_FIELD_OFFSET(obj, btf, tty_driver, subtype);
 
     return err;
 }

@@ -32,4 +32,29 @@ struct inode___6_11 {
     u32 i_ctime_nsec;
 } __attribute__((preserve_access_index));
 
+/* Linux 6.15 renamed kernfs_node::parent to __parent (633488947ef6). */
+struct kernfs_node___6_15 {
+    struct kernfs_node *__parent;
+} __attribute__((preserve_access_index));
+
+/* Linux 6.15 changed tty_driver::type and ::subtype from short to enums
+ * (52443558adcd). CO-RE rejects a short local field against an enum target, so
+ * the new layout needs its own flavor. The enums also renumbered
+ * TTY_DRIVER_TYPE_* from 0. The values below are the 6.15 ones, but probes
+ * read them with bpf_core_enum_value(), which relocates them against the
+ * running kernel.
+ */
+enum tty_driver_type___6_15 {
+    TTY_DRIVER_TYPE_PTY___6_15 = 3,
+};
+
+enum tty_driver_subtype___6_15 {
+    PTY_TYPE_MASTER___6_15 = 1,
+};
+
+struct tty_driver___6_15 {
+    enum tty_driver_type___6_15 type;
+    enum tty_driver_subtype___6_15 subtype;
+} __attribute__((preserve_access_index));
+
 #endif // EBPF_EVENTPROBE_VMLINUX_EXTRA_H

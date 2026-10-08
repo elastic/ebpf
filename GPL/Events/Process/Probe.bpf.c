@@ -21,50 +21,31 @@
 /* tty_write */
 DECL_FIELD_OFFSET(iov_iter, __iov);
 
-/* struct tty_driver */
-//
-// tty_driver::type and ::subtype changed from short to enum tty_driver_type /
-// enum tty_driver_subtype in Linux 6.15 (torvalds/linux 52443558adcd). CO-RE
-// refuses to relocate a field whose kind changed -- both libbpf and cilium/ebpf
-// reject a local int against a target enum -- so BPF_CORE_READ of either field
-// is poisoned on 6.15+ even though the field still exists under the same name.
-//
-// Read them through a loader-supplied offset instead. Two bytes is exact for
-// the old short and is the correct low half of the new enum on little-endian,
-// which suffices: every TTY_DRIVER_TYPE_* and PTY_TYPE_* value is far below
-// 2^16.
-DECL_FIELD_OFFSET(tty_driver, type);
-DECL_FIELD_OFFSET(tty_driver, subtype);
-
-static u16 ebpf_tty_driver__field(const struct tty_struct *tty, int off)
+// Linux 6.15 changed tty_driver::type and ::subtype to enums, see
+// vmlinux_extra.h. On older kernels the field check fails, because the target
+// fields are still short.
+static bool ebpf_tty_driver__is_pty_master(const struct tty_struct *tty)
 {
-    struct tty_driver *drv = NULL;
-    u16 val                = 0;
+    struct tty_driver *drv = BPF_CORE_READ(tty, driver);
 
-    if (!off)
-        return 0;
-
-    drv = BPF_CORE_READ(tty, driver);
     if (!drv)
-        return 0;
+        return false;
 
-    bpf_core_read(&val, sizeof(val), (char *)drv + off);
-    return val;
-}
+    if (bpf_core_field_exists(struct tty_driver___6_15, type)) {
+        struct tty_driver___6_15 *drv615 = (void *)drv;
 
-// 6.15 also turned the TTY_DRIVER_TYPE_* defines into enum tty_driver_type,
-// renumbered from 0: TTY_DRIVER_TYPE_PTY went from 4 to 3. PTY_TYPE_MASTER is
-// 1 in both. A type existence check resolves to 0 when the type is absent
-// instead of being poisoned, so this is safe on every kernel.
-enum tty_driver_type___6_15 {
-    TTY_DRIVER_TYPE_PTY___6_15 = 3,
-};
+        if (!bpf_core_enum_value_exists(enum tty_driver_type___6_15, TTY_DRIVER_TYPE_PTY___6_15) ||
+            !bpf_core_enum_value_exists(enum tty_driver_subtype___6_15, PTY_TYPE_MASTER___6_15))
+            return false;
 
-static u16 ebpf_tty_driver__type_pty(void)
-{
-    if (bpf_core_type_exists(enum tty_driver_type___6_15))
-        return TTY_DRIVER_TYPE_PTY___6_15;
-    return TTY_DRIVER_TYPE_PTY;
+        return BPF_CORE_READ(drv615, type) ==
+                   bpf_core_enum_value(enum tty_driver_type___6_15, TTY_DRIVER_TYPE_PTY___6_15) &&
+               BPF_CORE_READ(drv615, subtype) ==
+                   bpf_core_enum_value(enum tty_driver_subtype___6_15, PTY_TYPE_MASTER___6_15);
+    }
+
+    return BPF_CORE_READ(drv, type) == TTY_DRIVER_TYPE_PTY &&
+           BPF_CORE_READ(drv, subtype) == PTY_TYPE_MASTER;
 }
 
 // Limits on large things we send up as variable length parameters.
@@ -657,9 +638,7 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
     bool is_master             = false;
     struct ebpf_tty_dev master = {};
     struct ebpf_tty_dev slave  = {};
-    if (ebpf_tty_driver__field(tty, FIELD_OFFSET(tty_driver, type)) ==
-            ebpf_tty_driver__type_pty() &&
-        ebpf_tty_driver__field(tty, FIELD_OFFSET(tty_driver, subtype)) == PTY_TYPE_MASTER) {
+    if (ebpf_tty_driver__is_pty_master(tty)) {
         struct tty_struct *tmp = BPF_CORE_READ(tty, link);
         ebpf_tty_dev__fill(&master, tty);
         ebpf_tty_dev__fill(&slave, tmp);
