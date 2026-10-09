@@ -1,0 +1,52 @@
+# Builder image for building the probes with clang, the way cilium/ebpf's bpf2go
+# does for elastic/ebpfevents (make build BPF_COMPILER=clang). See
+# testing/README.md. Unlike Dockerfile.builder (CentOS 7 + zig, which the
+# released artifacts are built with), this image is only meant for testing the
+# probes, so it uses a current Ubuntu with clang-18.
+#
+#   make container BPF_COMPILER=clang
+#   make build package testbins BPF_COMPILER=clang
+
+FROM docker.io/ubuntu:24.04
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    bmake \
+    build-essential \
+    ca-certificates \
+    clang-18 \
+    cmake \
+    file \
+    groff-base \
+    linux-tools-generic \
+    llvm-18 \
+    m4 \
+    pkg-config \
+    python3 \
+    wget \
+    xz-utils \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# cmake/modules/BPF.cmake runs a bare llvm-strip.
+RUN ln -s /usr/bin/llvm-strip-18 /usr/local/bin/llvm-strip
+
+# Ubuntu's `bpftool` is a wrapper that needs the tools for the running kernel,
+# which a container doesn't have. Use the real binary from linux-tools-generic.
+RUN ln -s "$(ls /usr/lib/linux-tools/*/bpftool | head -n1)" /usr/local/bin/bpftool \
+    && bpftool version
+
+# Debian/Ubuntu keep the arch headers in a multiarch directory, which clang's
+# bpf target doesn't search: <linux/types.h> fails with "asm/types.h not found".
+RUN ln -s /usr/include/$(arch)-linux-gnu/asm /usr/include/asm
+
+# Kludge (same as Dockerfile.builder):
+#  ld on newer toolsets only likes -soname=<value> format, and bmake's mk files
+#  use -soname <value> format.
+RUN sed -i -e 's/-soname /-soname=/g' /usr/share/mk/lib.mk
+
+ENV NOCONTAINER=TRUE
+ENV MAKESYSPATH=/usr/share/mk
+
+LABEL org.opencontainers.image.source=https://github.com/elastic/ebpf

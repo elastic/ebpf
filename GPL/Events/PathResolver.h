@@ -30,17 +30,6 @@
 
 #include "Helpers.h"
 
-static struct kernfs_node *ebpf_kernfs_node__parent(struct kernfs_node *kn)
-{
-    if (bpf_core_field_exists(struct kernfs_node___6_15, __parent)) {
-        struct kernfs_node___6_15 *kn615 = (void *)kn;
-
-        return BPF_CORE_READ(kn615, __parent);
-    }
-
-    return BPF_CORE_READ(kn, parent);
-}
-
 #define PATH_MAX 4096
 #define PATH_MAX_INDEX_MASK 4095
 
@@ -199,6 +188,7 @@ static size_t ebpf_resolve_kernfs_node_to_string(char *buf, struct kernfs_node *
 {
     size_t cur = 0;
     int depth = 0, zero = 0, read_len, name_len;
+    int parent_ok;
     char name[KERNFS_NODE_COMPONENT_MAX_LEN];
     buf[0] = '\0';
 
@@ -213,7 +203,34 @@ static size_t ebpf_resolve_kernfs_node_to_string(char *buf, struct kernfs_node *
             break;
 
         kna[depth] = kn;
-        kn         = ebpf_kernfs_node__parent(kn);
+
+        // kernfs_node::parent was renamed to __parent in Linux 6.15 (the
+        // pointer became RCU-protected), see torvalds/linux
+        // 633488947ef66b194377411322dc9e12aab79b65.
+        //
+        // A CO-RE read of a field the running kernel doesn't have is poisoned,
+        // so it must stay in a branch the verifier can prove dead. Keep these
+        // as two independent ifs. Inside a loop, clang merges mutually
+        // exclusive guarded reads (an if/else chain, or a helper that returns
+        // early) into one read and moves the field offset out of the loop,
+        // past its guard. Every kernel before 6.15 then rejects the program
+        // with "invalid func unknown#195896080". The if/else chains in File.h
+        // are safe only because they are not in a loop. Re-run the clang build
+        // (testing/README.md) after any change here. Same shape as quark's
+        // PathResolver.h.
+        parent_ok = 0;
+        if (bpf_core_field_exists(struct kernfs_node___6_15, __parent)) {
+            kn        = BPF_CORE_READ((struct kernfs_node___6_15 *)kn, __parent);
+            parent_ok = 1;
+        }
+        if (bpf_core_field_exists(kn->parent)) {
+            kn        = BPF_CORE_READ(kn, parent);
+            parent_ok = 1;
+        }
+        if (!parent_ok) {
+            bpf_printk("could not resolve kernfs_node.parent");
+            goto out_err;
+        }
         depth++;
     }
 
