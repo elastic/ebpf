@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
@@ -185,12 +186,65 @@ func ForkExec(t *testing.T, et *Runner) {
 	require.Equal(t, execEvent.Cwd, "/")
 }
 
-func FileCreate(t *testing.T, et *Runner) {
-	var binOutput struct {
-		PidInfo      TestPidInfo `json:"pid_info"`
-		FileNameOrig string      `json:"filename_orig"`
-		FileNameNew  string      `json:"filename_new"`
+// CgroupPath runs a binary two cgroups below the root, so resolving its pids
+// cgroup path has to walk kernfs_node parents; a broken parent read yields
+// "/nested" instead of the full path.
+func CgroupPath(t *testing.T, et *Runner) {
+	if testBinaryPath != "/" {
+		t.Skipf("Test will not work outside test framework")
 	}
+
+	const cgroupRoot = "/sys/fs/cgroup"
+	parent := filepath.Join(cgroupRoot, "ebpf_test")
+	leaf := filepath.Join(parent, "nested")
+
+	// The pids controller has to be enabled at every level, otherwise the
+	// task's pids css belongs to an ancestor and the path stops short.
+	if err := os.WriteFile(filepath.Join(cgroupRoot, "cgroup.subtree_control"), []byte("+pids"), 0); err != nil {
+		t.Skipf("pids cgroup controller not available: %v", err)
+	}
+	require.NoError(t, os.MkdirAll(leaf, 0o755))
+	defer os.Remove(parent)
+	defer os.Remove(leaf)
+	require.NoError(t, os.WriteFile(filepath.Join(parent, "cgroup.subtree_control"), []byte("+pids"), 0))
+
+	fd, err := syscall.Open(leaf, syscall.O_RDONLY|syscall.O_DIRECTORY, 0)
+	require.NoError(t, err)
+	defer syscall.Close(fd)
+
+	cmd := exec.Command(filepath.Join(testBinaryPath, "do_nothing"))
+	cmd.SysProcAttr = &syscall.SysProcAttr{UseCgroupFD: true, CgroupFD: fd}
+	require.NoError(t, cmd.Run())
+
+	for {
+		var execEvent ProcessExecEvent
+		et.UnmarshalNextEvent(&execEvent, "PROCESS_EXEC")
+		if execEvent.Pids.Tgid == int64(cmd.Process.Pid) {
+			require.Equal(t, "/ebpf_test/nested", execEvent.CgroupPath)
+			return
+		}
+	}
+}
+
+type fileOperationOutput struct {
+	PidInfo      TestPidInfo `json:"pid_info"`
+	FileNameOrig string      `json:"filename_orig"`
+	FileNameNew  string      `json:"filename_new"`
+	Timestamps   []FileInfo  `json:"timestamps"`
+}
+
+func assertFileTimestamps(t *testing.T, expected, actual FileInfo) {
+	t.Helper()
+	require.NotZero(t, expected.Atime, "fstat atime")
+	require.NotZero(t, expected.Mtime, "fstat mtime")
+	require.NotZero(t, expected.Ctime, "fstat ctime")
+	require.Equal(t, expected.Atime, actual.Atime, "atime")
+	require.Equal(t, expected.Mtime, actual.Mtime, "mtime")
+	require.Equal(t, expected.Ctime, actual.Ctime, "ctime")
+}
+
+func FileCreate(t *testing.T, et *Runner) {
+	var binOutput fileOperationOutput
 	runTestUnmarshalOutput(t, "create_rename_delete_file", &binOutput)
 
 	var fileCreateEvent FileCreateEvent
@@ -210,6 +264,8 @@ func FileCreate(t *testing.T, et *Runner) {
 	require.Equal(t, fileCreateEvent.Finfo.Size, uint64(0))
 	require.Equal(t, fileCreateEvent.Finfo.Uid, uint64(0))
 	require.Equal(t, fileCreateEvent.Finfo.Gid, uint64(0))
+	require.Len(t, binOutput.Timestamps, 6)
+	assertFileTimestamps(t, binOutput.Timestamps[0], fileCreateEvent.Finfo)
 }
 
 func FileDelete(t *testing.T, et *Runner) {
@@ -240,11 +296,7 @@ func FileDelete(t *testing.T, et *Runner) {
 }
 
 func FileRename(t *testing.T, et *Runner) {
-	var binOutput struct {
-		PidInfo      TestPidInfo `json:"pid_info"`
-		FileNameOrig string      `json:"filename_orig"`
-		FileNameNew  string      `json:"filename_new"`
-	}
+	var binOutput fileOperationOutput
 	runTestUnmarshalOutput(t, "create_rename_delete_file", &binOutput)
 
 	var fileRenameEvent FileRenameEvent
@@ -265,6 +317,8 @@ func FileRename(t *testing.T, et *Runner) {
 	require.Equal(t, fileRenameEvent.Finfo.Size, uint64(0))
 	require.Equal(t, fileRenameEvent.Finfo.Uid, uint64(0))
 	require.Equal(t, fileRenameEvent.Finfo.Gid, uint64(0))
+	require.Len(t, binOutput.Timestamps, 6)
+	assertFileTimestamps(t, binOutput.Timestamps[1], fileRenameEvent.Finfo)
 }
 
 func Setuid(t *testing.T, et *Runner) {
@@ -367,11 +421,7 @@ func FileDeleteContainer(t *testing.T, et *Runner) {
 }
 
 func FileModify(t *testing.T, et *Runner) {
-	var binOutput struct {
-		PidInfo      TestPidInfo `json:"pid_info"`
-		FileNameOrig string      `json:"filename_orig"`
-		FileNameNew  string      `json:"filename_new"`
-	}
+	var binOutput fileOperationOutput
 	runTestUnmarshalOutput(t, "create_rename_delete_file", &binOutput)
 
 	eventsCount := 4 // chmod, write, writev, truncate
@@ -408,6 +458,11 @@ func FileModify(t *testing.T, et *Runner) {
 	require.Equal(t, events[3].Path, binOutput.FileNameNew)
 	require.Equal(t, events[3].ChangeType, "CONTENT")
 	require.Equal(t, events[3].Finfo.Size, uint64(0))
+
+	require.Len(t, binOutput.Timestamps, 6)
+	for i, event := range events {
+		assertFileTimestamps(t, binOutput.Timestamps[i+2], event.Finfo)
+	}
 }
 
 func TtyWrite(t *testing.T, et *Runner) {
@@ -430,6 +485,27 @@ func TtyWrite(t *testing.T, et *Runner) {
 	require.Equal(t, ev.TtyDev.Major, int64(4))
 	require.Equal(t, ev.TtyDev.WinsizeRows, int64(0))
 	require.Equal(t, ev.TtyDev.WinsizeCols, int64(0))
+}
+
+func TtyWritePty(t *testing.T, et *Runner) {
+	var output struct {
+		Pid int64 `json:"pid"`
+	}
+	runTestUnmarshalOutput(t, "tty_write_pty", &output)
+
+	var ev TtyWriteEvent
+	for {
+		et.UnmarshalNextEvent(&ev, "PROCESS_TTY_WRITE")
+		if ev.Pids.Tgid == output.Pid {
+			break
+		}
+	}
+
+	require.Equal(t, int64(0), ev.Truncated)
+	require.Equal(t, "--- OK\n", ev.Out)
+	// Written to the pty master, so the event must describe the slave
+	// (UNIX98_PTY_SLAVE_MAJOR); 128 means the master went unrecognised.
+	require.Equal(t, int64(136), ev.TtyDev.Major)
 }
 
 func Tcpv4ConnectionAttempt(t *testing.T, et *Runner) {
@@ -698,6 +774,18 @@ func TcFilter(t *testing.T, et *Runner) {
 	require.NoError(t, err, "error running Tc filter tests: %s\n", string(output))
 }
 
+func TestMain(m *testing.M) {
+	code := m.Run()
+
+	if inBluebox {
+		if err := WriteResultToConsole(code); err != nil {
+			fmt.Fprintf(os.Stderr, "could not write test result to console: %v\n", err)
+		}
+	}
+
+	os.Exit(code)
+}
+
 func TestEbpf(t *testing.T) {
 	hasOverlayFS := IsOverlayFsSupported(t)
 
@@ -713,6 +801,7 @@ func TestEbpf(t *testing.T) {
 		{"FeaturesCorrect", FeaturesCorrect, []string{}, false},
 		{"ForkExit", ForkExit, []string{"--process-fork"}, false},
 		{"ForkExec", ForkExec, []string{"--process-fork", "--process-exec"}, false},
+		{"CgroupPath", CgroupPath, []string{"--process-exec"}, false},
 		{"FileCreate", FileCreate, []string{"--file-create"}, false},
 		{"FileDelete", FileDelete, []string{"--file-delete"}, false},
 		{"FileRename", FileRename, []string{"--file-rename"}, false},
@@ -720,6 +809,7 @@ func TestEbpf(t *testing.T) {
 		{"Setgid", Setgid, []string{"--process-setgid"}, false},
 		{"FileModify", FileModify, []string{"--file-modify"}, false},
 		{"TtyWrite", TtyWrite, []string{"--process-tty-write"}, false},
+		{"TtyWritePty", TtyWritePty, []string{"--process-tty-write"}, false},
 		{"Tcpv4ConnectionAttempt", Tcpv4ConnectionAttempt, []string{"--net-conn-attempt"}, false},
 		{"Tcpv4ConnectionAccept", Tcpv4ConnectionAccept, []string{"--net-conn-accept"}, false},
 		{"Tcpv4ConnectionClose", Tcpv4ConnectionClose, []string{"--net-conn-close"}, false},

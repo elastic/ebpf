@@ -21,6 +21,33 @@
 /* tty_write */
 DECL_FIELD_OFFSET(iov_iter, __iov);
 
+// Linux 6.15 changed tty_driver::type and ::subtype to enums, see
+// vmlinux_extra.h. On older kernels the field check fails, because the target
+// fields are still short.
+static bool ebpf_tty_driver__is_pty_master(const struct tty_struct *tty)
+{
+    struct tty_driver *drv = BPF_CORE_READ(tty, driver);
+
+    if (!drv)
+        return false;
+
+    if (bpf_core_field_exists(struct tty_driver___6_15, type)) {
+        struct tty_driver___6_15 *drv615 = (void *)drv;
+
+        if (!bpf_core_enum_value_exists(enum tty_driver_type___6_15, TTY_DRIVER_TYPE_PTY___6_15) ||
+            !bpf_core_enum_value_exists(enum tty_driver_subtype___6_15, PTY_TYPE_MASTER___6_15))
+            return false;
+
+        return BPF_CORE_READ(drv615, type) ==
+                   bpf_core_enum_value(enum tty_driver_type___6_15, TTY_DRIVER_TYPE_PTY___6_15) &&
+               BPF_CORE_READ(drv615, subtype) ==
+                   bpf_core_enum_value(enum tty_driver_subtype___6_15, PTY_TYPE_MASTER___6_15);
+    }
+
+    return BPF_CORE_READ(drv, type) == TTY_DRIVER_TYPE_PTY &&
+           BPF_CORE_READ(drv, subtype) == PTY_TYPE_MASTER;
+}
+
 // Limits on large things we send up as variable length parameters.
 //
 // These should be kept _well_ under half the size of the event_buffer_map or
@@ -611,8 +638,7 @@ static int tty_write__enter(struct kiocb *iocb, struct iov_iter *from)
     bool is_master             = false;
     struct ebpf_tty_dev master = {};
     struct ebpf_tty_dev slave  = {};
-    if (BPF_CORE_READ(tty, driver, type) == TTY_DRIVER_TYPE_PTY &&
-        BPF_CORE_READ(tty, driver, subtype) == PTY_TYPE_MASTER) {
+    if (ebpf_tty_driver__is_pty_master(tty)) {
         struct tty_struct *tmp = BPF_CORE_READ(tty, link);
         ebpf_tty_dev__fill(&master, tty);
         ebpf_tty_dev__fill(&slave, tmp);

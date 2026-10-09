@@ -53,9 +53,9 @@ will need to have installed in order to run `./run-tests.sh`. On most distros,
 sudo apt install parallel
 ```
 
-By default `run_tests.sh` will pass `-j$(nproc)` to `parallel` (i.e. spin up as
-many jobs as there are CPU cores). You can change this by passing
-`-j <number of jobs>` to `run-tests.sh`.
+By default `run_tests.sh` will pass `-j$(nproc)` to `parallel`, capped at 8
+(i.e. spin up as many jobs as there are CPU cores, up to 8). You can change
+this by passing `-j <number of jobs>` to `run_tests.sh`.
 
 ## Running tests locally
 
@@ -144,7 +144,9 @@ on x86_64, the invocation looks like this:
 ```
 
 Then, in another terminal, run `gdb` on your kernel ELF binary with debug
-symbols (usually called `vmlinux`). Connect to QEMU with `target remote
+symbols (usually called `vmlinux`). The kernel builder deletes it with the
+source tree unless you build with `KEEP_VMLINUX=1`, see
+`kernel_builder/README.md`. Connect to QEMU with `target remote
 localhost:1234` and  set your source search path to a locally-checked-out clone
 of Linux that matches the kernel you're debugging with `dir
 <path_to_linux_source>`.

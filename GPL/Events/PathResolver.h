@@ -26,8 +26,20 @@
 #define EBPF_EVENTPROBE_PATHRESOLVER_H
 
 #include "vmlinux.h"
+#include "vmlinux_extra.h"
 
 #include "Helpers.h"
+
+static struct kernfs_node *ebpf_kernfs_node__parent(struct kernfs_node *kn)
+{
+    if (bpf_core_field_exists(struct kernfs_node___6_15, __parent)) {
+        struct kernfs_node___6_15 *kn615 = (void *)kn;
+
+        return BPF_CORE_READ(kn615, __parent);
+    }
+
+    return BPF_CORE_READ(kn, parent);
+}
 
 #define PATH_MAX 4096
 #define PATH_MAX_INDEX_MASK 4095
@@ -201,7 +213,7 @@ static size_t ebpf_resolve_kernfs_node_to_string(char *buf, struct kernfs_node *
             break;
 
         kna[depth] = kn;
-        kn         = BPF_CORE_READ(kn, parent);
+        kn         = ebpf_kernfs_node__parent(kn);
         depth++;
     }
 

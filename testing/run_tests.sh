@@ -8,7 +8,12 @@
 readonly PROGNAME=$(basename $0)
 readonly ARGS="$@"
 
-readonly SUCCESS_STRING="exit status 0"
+# testrunner writes this line straight to the console once every test passed,
+# and waits until it has been sent (see WriteResultToConsole). Don't match go
+# test's final "stdout: PASS": init relays it and may power off before the
+# console sends it. Don't match init's "exit status 0" either: it is also
+# printed for orphaned test binary children.
+readonly SUCCESS_REGEX='TESTRUNNER RESULT: PASS\s*$'
 readonly SUMMARY_FILE="bpf-check-summary.txt"
 readonly RESULTS_DIR="results"
 
@@ -41,7 +46,7 @@ run_tests() {
     echo "BPF-check run for $# $arch kernel(s) at $(date)" > $SUMMARY_FILE
     for f in $RESULTS_DIR/*; do
         local kern=$(basename $f .txt)
-        if grep -q "$SUCCESS_STRING" $f; then
+        if grep -qE "$SUCCESS_REGEX" $f && ! grep -q -- "--- FAIL" $f; then
             echo "PASS: $kern" >> $SUMMARY_FILE
         else
             echo "FAIL: $kern" >> $SUMMARY_FILE
@@ -60,7 +65,7 @@ the given arch, with the given artifacts directory and with the given kernel
 images.
 
 OPTIONS:
-    -j <jobs>       Spin up <jobs> VMs in parallel (defaults to nproc)
+    -j <jobs>       Spin up <jobs> VMs in parallel (defaults to nproc, at most 8)
 
 EXAMPLE:
     $PROGNAME -j3 x86_64 ../artifacts-x86_64/package linux-v5.12 linux-v5.13 linux-v5.14
@@ -71,18 +76,19 @@ EOF
 
 main() {
 
-    local jobs=$(nproc)
+    # A test VM keeps roughly one host core busy, cap parallel VMs at 8
+    local jobs=$(( $(nproc) < 8 ? $(nproc) : 8 ))
 
     while getopts "j:" opt; do
         case ${opt} in
             j ) jobs=$OPTARG
-                shift 1
                 ;;
             \? )
                 exit_usage
                 ;;
         esac
     done
+    shift $((OPTIND - 1))
 
     local arch=$1
     local artifacts="$2"

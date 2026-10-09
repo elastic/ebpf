@@ -32,6 +32,8 @@ ebpf_probe_target(EventProbe
     PUBLIC_HEADERS EbpfEventProto.h
     DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/File/Probe.bpf.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/File/File.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/vmlinux_extra.h
     ${CMAKE_CURRENT_SOURCE_DIR}/Network/Probe.bpf.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Network/Network.h
     ${CMAKE_CURRENT_SOURCE_DIR}/Process/Probe.bpf.c

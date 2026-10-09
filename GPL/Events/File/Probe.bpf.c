@@ -104,7 +104,7 @@ static int vfs_unlink__exit(int ret)
         goto out;
 
     struct ebpf_events_state *state = ebpf_events_state__get(EBPF_EVENTS_STATE_UNLINK);
-    if (!state || state->rename.step != UNLINK_STATE_DENTRY_SET) {
+    if (!state || state->unlink.step != UNLINK_STATE_DENTRY_SET) {
         // Omit logging as this happens in the happy path.
         goto out;
     }

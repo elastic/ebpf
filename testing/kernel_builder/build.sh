@@ -11,10 +11,21 @@
 
 readonly KERNEL_OUTPUT_DIR="kernels"
 
-readonly BUILD_ARCHES=(
+readonly DEFAULT_BUILD_ARCHES=(
     "aarch64"
     "x86_64"
 )
+
+# The BUILD_ARCHES and BUILD_VERSIONS environment variables (space separated)
+# override the defaults, e.g.:
+#   make BUILD_ARCHES=x86_64 BUILD_VERSIONS="6.6 6.8"
+# Set KEEP_VMLINUX=1 to also keep each kernel's vmlinux, for gdb.
+if [[ -n $BUILD_ARCHES ]]; then
+    read -r -a ARCHES <<< "$BUILD_ARCHES"
+else
+    ARCHES=("${DEFAULT_BUILD_ARCHES[@]}")
+fi
+readonly ARCHES
 
 # We hit every minor release here, and grab a number of different patch
 # releases from each LTS series (e.g. 5.10, 5.15)
@@ -42,12 +53,28 @@ readonly BUILD_VERSIONS_PAHOLE_SOURCE=(
     "6.4"
     "6.4.16"
     "6.5"
+    "6.6"  # LTS, inode.__i_ctime only (atime/mtime keep the old names)
+    "6.8"  # Ubuntu 24.04, inode.__i_atime / __i_mtime / __i_ctime (6.7-6.10)
+    "6.11" # inode timestamps split into _sec / _nsec
+    "6.12" # LTS
+    "6.14" # Last with kernfs_node.parent; I_CTIME_QUERIED in i_ctime_nsec (6.13+)
+    "6.15" # kernfs_node.parent renamed to __parent
+    "6.17"
+    "6.18"
+    "6.19"
+    "7.0"
 )
 
 exit_error() {
     echo $1
     exit 1
 }
+
+# build_kernel only knows these arches. Check before downloading anything.
+for arch in ${ARCHES[@]}; do
+    [[ $arch == "x86_64" || $arch == "aarch64" ]] \
+        || exit_error "Unsupported arch '${arch}', expected x86_64 or aarch64"
+done
 
 build_kernel() {
     local arch=$1
@@ -86,6 +113,21 @@ build_kernel() {
     popd
 
     mv ${src_dir}/${output_file} ${dest}
+
+    # headers_install writes into the tree, which is deleted after the build
+    mkdir -p ${KERNEL_OUTPUT_DIR}/headers/${arch}
+    rm -rf ${KERNEL_OUTPUT_DIR}/headers/${arch}/linux-headers-${version}-${make_arch}
+    mv ${src_dir}/linux-headers-${version}-${make_arch} ${KERNEL_OUTPUT_DIR}/headers/${arch}/
+
+    # The tree is deleted after the build. Keep the ELF with debug info, which
+    # gdb needs (see testing/README.md), only when asked: there is one per
+    # version and arch, and each is hundreds of MB. Not next to the image,
+    # because test runs boot every file in an image directory (see the
+    # run-multikernel-test target in the top-level Makefile).
+    if [[ $KEEP_VMLINUX == "1" ]]; then
+        mkdir -p ${KERNEL_OUTPUT_DIR}/vmlinux/${arch}
+        cp ${src_dir}/vmlinux ${KERNEL_OUTPUT_DIR}/vmlinux/${arch}/vmlinux-${arch}-${version}
+    fi
 }
 
 fetch_and_build() {
@@ -98,7 +140,7 @@ fetch_and_build() {
     tar -C $(dirname ${archive}) -axvf ${archive}
     rm ${archive}
 
-    for arch in ${BUILD_ARCHES[@]}; do
+    for arch in ${ARCHES[@]}; do
         echo "BUILD ${arch}/${version}"
         mkdir -p ${KERNEL_OUTPUT_DIR}/bin/${arch}
         build_kernel \
@@ -107,10 +149,18 @@ fetch_and_build() {
             ${KERNEL_OUTPUT_DIR}/bin/${arch}/linux-${arch}-${version} \
             ${version}
     done
+
+    # A built tree with debug info is several GB, only the image is needed
+    # (and the headers, and vmlinux with KEEP_VMLINUX, saved above)
+    rm -rf ${KERNEL_OUTPUT_DIR}/src/linux-${version}
 }
 
 main() {
-    if [ "$(pahole --version)" = "v1.20" ]; then
+    if [[ -n $BUILD_VERSIONS ]]; then
+        for version in ${BUILD_VERSIONS}; do
+            fetch_and_build $version
+        done
+    elif [ "$(pahole --version)" = "v1.20" ]; then
         for version in ${BUILD_VERSIONS_PAHOLE_120[@]}; do
             fetch_and_build $version
         done

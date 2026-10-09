@@ -80,15 +80,18 @@ main() {
         bootparams+="nokaslr"
     fi
 
-    file_exists /dev/kvm && [[ $host_arch == $arch ]] && [[ kvm_requested == "1" ]] \
-        && extra_args+=" -enable-kvm -cpu host"
+    # -cpu host only exists under KVM
+    local use_kvm=""
+    file_exists /dev/kvm && [[ $host_arch == $arch ]] && [[ $kvm_requested == "1" ]] \
+        && use_kvm="1"
 
     if [[ $arch == "aarch64" ]]; then
         # qemu-system-aarch64 requires you to pass a -machine, just use -M virt
         # for a generic aarch64 machine (we don't care about hardware specifics)
         extra_args+=" -M virt"
 
-        # Need to specify a cpu for aarch64
+        # Need to specify a cpu for aarch64. KVM is never used for aarch64: it
+        # would need -cpu host instead
         extra_args+=" -cpu cortex-a57"
 
         # aarch64 uses ttyAMA0 for the first serial port
@@ -96,7 +99,12 @@ main() {
     elif [[ $arch == "x86_64" ]]; then
         # x86_64 uses ttyS0 for the first serial port
         bootparams+=" console=ttyS0"
-        extra_args+=" -machine accel=kvm"
+        if [[ $use_kvm == "1" ]]; then
+            extra_args+=" -enable-kvm -cpu host"
+        else
+            # stderr, because run_tests.sh sends stdout to the per-kernel result file
+            echo "WARNING: not using KVM for x86_64, running under emulation (much slower)" >&2
+        fi
     fi
 
     sudo qemu-system-${arch} \
