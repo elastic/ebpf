@@ -22,9 +22,11 @@ RUN apt-get update \
     linux-tools-generic \
     llvm-18 \
     m4 \
+    pkg-config \
     python3 \
     wget \
     xz-utils \
+    zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # cmake/modules/BPF.cmake runs a bare llvm-strip.
