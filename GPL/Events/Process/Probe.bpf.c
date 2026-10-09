@@ -21,31 +21,41 @@
 /* tty_write */
 DECL_FIELD_OFFSET(iov_iter, __iov);
 
-// Linux 6.15 changed tty_driver::type and ::subtype to enums, see
-// vmlinux_extra.h. On older kernels the field check fails, because the target
-// fields are still short.
+// Linux 6.15 changed tty_driver::type and ::subtype from short to enums and
+// renumbered TTY_DRIVER_TYPE_*, see vmlinux_extra.h. Each layout is read under
+// its own field check: before 6.15 the tty_driver___6_15 check fails because
+// the fields are still short, and from 6.15 the plain check fails because CO-RE
+// won't relocate a short local field onto an enum target. The local field
+// sizes match the kernel's in both cases (2-byte short, 4-byte enum).
+//
+// Keep the checks independent and return once, at the end. Don't return from
+// the 6.15 branch before the fallback read: that shape is what let clang-18 put
+// a poisoned read on the reachable path in PathResolver.h.
 static bool ebpf_tty_driver__is_pty_master(const struct tty_struct *tty)
 {
     struct tty_driver *drv = BPF_CORE_READ(tty, driver);
+    bool is_master         = false;
 
     if (!drv)
         return false;
 
-    if (bpf_core_field_exists(struct tty_driver___6_15, type)) {
+    if (bpf_core_field_exists(struct tty_driver___6_15, type) &&
+        bpf_core_enum_value_exists(enum tty_driver_type___6_15, TTY_DRIVER_TYPE_PTY___6_15) &&
+        bpf_core_enum_value_exists(enum tty_driver_subtype___6_15, PTY_TYPE_MASTER___6_15)) {
         struct tty_driver___6_15 *drv615 = (void *)drv;
 
-        if (!bpf_core_enum_value_exists(enum tty_driver_type___6_15, TTY_DRIVER_TYPE_PTY___6_15) ||
-            !bpf_core_enum_value_exists(enum tty_driver_subtype___6_15, PTY_TYPE_MASTER___6_15))
-            return false;
-
-        return BPF_CORE_READ(drv615, type) ==
-                   bpf_core_enum_value(enum tty_driver_type___6_15, TTY_DRIVER_TYPE_PTY___6_15) &&
-               BPF_CORE_READ(drv615, subtype) ==
-                   bpf_core_enum_value(enum tty_driver_subtype___6_15, PTY_TYPE_MASTER___6_15);
+        is_master =
+            BPF_CORE_READ(drv615, type) ==
+                bpf_core_enum_value(enum tty_driver_type___6_15, TTY_DRIVER_TYPE_PTY___6_15) &&
+            BPF_CORE_READ(drv615, subtype) ==
+                bpf_core_enum_value(enum tty_driver_subtype___6_15, PTY_TYPE_MASTER___6_15);
+    }
+    if (bpf_core_field_exists(drv->type)) {
+        is_master = BPF_CORE_READ(drv, type) == TTY_DRIVER_TYPE_PTY &&
+                    BPF_CORE_READ(drv, subtype) == PTY_TYPE_MASTER;
     }
 
-    return BPF_CORE_READ(drv, type) == TTY_DRIVER_TYPE_PTY &&
-           BPF_CORE_READ(drv, subtype) == PTY_TYPE_MASTER;
+    return is_master;
 }
 
 // Limits on large things we send up as variable length parameters.

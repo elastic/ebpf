@@ -48,7 +48,7 @@ CO-RE relocations differently, for example hoisting a read out of its
 fail to load with the other on kernels that lack the field. To test that build:
 
 ```
-make container BPF_COMPILER=clang        # once: builds docker/Dockerfile.cmake.builder (Ubuntu + clang-18)
+make container BPF_COMPILER=clang        # once: builds docker/Dockerfile.clang.builder (Ubuntu + clang-18)
 make build package testbins BPF_COMPILER=clang
 make run-multikernel-test BPF_COMPILER=clang IMG_FILTER=<filter>
 # or, by hand:

@@ -9,10 +9,12 @@
 option(USE_BUILTIN_VMLINUX "If true, use the builtin vmlinux.h for building eBPF probes instead of generating one from system BTF" True)
 option(USE_ZIG_BPF_COMPILER "If true, use zig's drop in replacement to clang/llvm compiler" True)
 
-# Only used when USE_ZIG_BPF_COMPILER is False. The defaults build the probes
-# the way cilium/ebpf's bpf2go does for elastic/ebpfevents (clang, -mcpu=v1).
+# Only used when USE_ZIG_BPF_COMPILER is False. BPF_MCPU defaults to v1, as
+# cilium/ebpf's bpf2go uses for elastic/ebpfevents, because clang's own default
+# CPU differs between clang versions. To build the probes exactly as
+# ebpfevents does, also set BPF_CLANG=clang-18 (`make BPF_COMPILER=clang` does).
 set(BPF_CLANG clang CACHE STRING "clang binary used to build the probes when USE_ZIG_BPF_COMPILER is False")
-set(BPF_MCPU "" CACHE STRING "-mcpu passed to clang when USE_ZIG_BPF_COMPILER is False (bpf2go uses v1), empty for clang's default")
+set(BPF_MCPU v1 CACHE STRING "-mcpu passed to clang when USE_ZIG_BPF_COMPILER is False, empty for clang's default")
 
 if (USE_ZIG_BPF_COMPILER)
     set(BPF_COMPILER_ENV "ZIG_GLOBAL_CACHE_DIR=${PROJECT_BINARY_DIR}/zigcache")

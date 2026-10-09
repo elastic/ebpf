@@ -208,13 +208,15 @@ static size_t ebpf_resolve_kernfs_node_to_string(char *buf, struct kernfs_node *
         // pointer became RCU-protected), see torvalds/linux
         // 633488947ef66b194377411322dc9e12aab79b65.
         //
-        // Keep these as two independent ifs, not an if/else chain, and don't
-        // move either read out of its guard. A CO-RE read of a field the
-        // running kernel doesn't have is poisoned, so it must stay in a branch
-        // the verifier can prove dead. With an if/else chain (or a helper that
-        // returns early) clang-18 puts the __parent read on the reachable
-        // path, and every kernel before 6.15 rejects the program with
-        // "invalid func unknown#195896080". Same shape as quark's PathResolver.h.
+        // A CO-RE read of a field the running kernel doesn't have is poisoned,
+        // so it must stay in a branch the verifier can prove dead. Guard each
+        // read with its own bpf_core_field_exists() and don't return from a
+        // guarded branch before the fallback read. That early-return shape
+        // (formerly ebpf_kernfs_node__parent()) let clang-18 put the __parent
+        // read on the reachable path, and every kernel before 6.15 rejected
+        // the program with "invalid func unknown#195896080". Plain if/else
+        // chains, such as the inode timestamps in File.h, are fine. Same shape
+        // as quark's PathResolver.h.
         parent_ok = 0;
         if (bpf_core_field_exists(struct kernfs_node___6_15, __parent)) {
             kn        = BPF_CORE_READ((struct kernfs_node___6_15 *)kn, __parent);

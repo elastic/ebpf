@@ -9,7 +9,7 @@ PKG_VERSION ?= $(shell cat VERSION)
 #   clang           clang with the flags cilium/ebpf's bpf2go uses for
 #                   elastic/ebpfevents (-target bpfel -mcpu=v1). The default
 #                   builder image has no clang, so this builds its own
-#                   (docker/Dockerfile.cmake.builder, `make container
+#                   (docker/Dockerfile.clang.builder, `make container
 #                   BPF_COMPILER=clang`), or uses the host's BPF_CLANG with
 #                   NOCONTAINER=1.
 # The two builds go to separate directories (artifacts-<arch> and
@@ -32,7 +32,7 @@ CONTAINER_PULL_TAG ?= 20221121-1315
 ifeq (${BPF_COMPILER},clang)
 	# There is no published image for the clang build: build it locally with
 	# `make container BPF_COMPILER=clang`.
-	CONTAINER_DOCKERFILE ?= docker/Dockerfile.cmake.builder
+	CONTAINER_DOCKERFILE ?= docker/Dockerfile.clang.builder
 	CONTAINER_LOCAL_TAG ?= ebpf-builder-clang:${USER}-latest
 	CONTAINER_IMAGE ?= ${CONTAINER_LOCAL_TAG}
 endif
