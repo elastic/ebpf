@@ -4,6 +4,19 @@ USER ?= $(shell whoami)
 CURRENT_DATE_TAG ?= $(shell date +%Y%m%d-%H%M)
 PKG_VERSION ?= $(shell cat VERSION)
 
+# BPF_COMPILER selects how the probes are built:
+#   zig   (default) zig cc, as released. Works in the builder container.
+#   clang           clang with the flags cilium/ebpf's bpf2go uses for
+#                   elastic/ebpfevents (-target bpfel -mcpu=v1). The default
+#                   builder image has no clang, so this builds its own
+#                   (docker/Dockerfile.cmake.builder, `make container
+#                   BPF_COMPILER=clang`), or uses the host's BPF_CLANG with
+#                   NOCONTAINER=1.
+# The two builds go to separate directories (artifacts-<arch> and
+# artifacts-<arch>-clang), so both can be built and tested side by side.
+BPF_COMPILER ?= zig
+BPF_CLANG ?= clang-18
+
 # bmake Settings
 MAKE_SYS_PATH ?= /usr/share/mk
 export MAKESYSPATH = ${MAKE_SYS_PATH}
@@ -16,6 +29,14 @@ NO_CACHE ?=
 CONTAINER_ENGINE ?= docker
 CONTAINER_REPOSITORY ?= ghcr.io/elastic/ebpf-builder
 CONTAINER_PULL_TAG ?= 20221121-1315
+ifeq (${BPF_COMPILER},clang)
+	# There is no published image for the clang build: build it locally with
+	# `make container BPF_COMPILER=clang`.
+	CONTAINER_DOCKERFILE ?= docker/Dockerfile.cmake.builder
+	CONTAINER_LOCAL_TAG ?= ebpf-builder-clang:${USER}-latest
+	CONTAINER_IMAGE ?= ${CONTAINER_LOCAL_TAG}
+endif
+CONTAINER_DOCKERFILE ?= docker/Dockerfile.builder
 CONTAINER_LOCAL_TAG ?= ebpf-builder:${USER}-latest
 
 IMAGEPACK_REPOSITORY ?= ghcr.io/elastic/ebpf-imagepack
@@ -41,16 +62,6 @@ else
 endif
 	CONTAINER_RUN_CMD = ${CONTAINER_ENGINE} run --platform linux/${ARCH} --rm -v${PWD}:${PWD} -w${PWD} -u$(shell id -u):$(shell id -g) ${EXTRA_FLAGS} -e NOCONTAINER=TRUE ${CONTAINER_IMAGE}
 endif
-
-# BPF_COMPILER selects how the probes are built:
-#   zig   (default) zig cc, as released. Works in the builder container.
-#   clang           clang with the flags cilium/ebpf's bpf2go uses for
-#                   elastic/ebpfevents (-target bpfel -mcpu=v1). Needs BPF_CLANG
-#                   (default clang-18) on the host, so use it with NOCONTAINER=1.
-# The two builds go to separate directories (artifacts-<arch> and
-# artifacts-<arch>-clang), so both can be built and tested side by side.
-BPF_COMPILER ?= zig
-BPF_CLANG ?= clang-18
 
 PWD = $(shell pwd)
 ifeq (${BPF_COMPILER},zig)
@@ -114,7 +125,7 @@ endif
 endif
 
 container:
-	${CONTAINER_ENGINE} buildx build ${NO_CACHE} --progress plain --platform=linux/${ARCH} -t ${CONTAINER_LOCAL_TAG} -f docker/Dockerfile.builder .
+	${CONTAINER_ENGINE} buildx build ${NO_CACHE} --progress plain --platform=linux/${ARCH} -t ${CONTAINER_LOCAL_TAG} -f ${CONTAINER_DOCKERFILE} .
 
 tag-container:
 	${CONTAINER_ENGINE} tag ${CONTAINER_LOCAL_TAG} ${CONTAINER_IMAGE}

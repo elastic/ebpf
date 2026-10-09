@@ -48,16 +48,22 @@ CO-RE relocations differently, for example hoisting a read out of its
 fail to load with the other on kernels that lack the field. To test that build:
 
 ```
-make build package testbins BPF_COMPILER=clang NOCONTAINER=1   # BPF_CLANG=clang-18 by default
-make run-multikernel-test BPF_COMPILER=clang NOCONTAINER=1 IMG_FILTER=<filter>
+make container BPF_COMPILER=clang        # once: builds docker/Dockerfile.cmake.builder (Ubuntu + clang-18)
+make build package testbins BPF_COMPILER=clang
+make run-multikernel-test BPF_COMPILER=clang IMG_FILTER=<filter>
 # or, by hand:
 cd testing && ./run_tests.sh -n x86_64-clang x86_64 ../artifacts-x86_64-clang/package <kernel images>
 ```
 
 This builds into `artifacts-<arch>-clang`, so it doesn't replace the default
 build, and `-n` keeps its initramfs, summary (`bpf-check-summary-<name>.txt`)
-and results (`results-<name>/`) apart from the default run's. You need
-`clang-18` (or set `BPF_CLANG`) and `llvm-strip` on the host.
+and results (`results-<name>/`) apart from the default run's.
+
+The default builder image has no clang, so the clang build uses its own image,
+`ebpf-builder-clang`. To build on the host instead, pass `NOCONTAINER=1`; you
+then need `clang-18` (or set `BPF_CLANG`), `llvm-strip`, `bmake`, `bpftool` and,
+on a current distro, bmake's `-soname` workaround that `Dockerfile.builder`
+also applies: `sudo sed -i 's/-soname /-soname=/g' /usr/share/mk/lib.mk`.
 
 A summary of the test run will be output to `bpf-check-summary.txt`. Results
 for individual kernels will be output to `results/<kernel_name>.txt`. This is a
