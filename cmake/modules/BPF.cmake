@@ -9,6 +9,11 @@
 option(USE_BUILTIN_VMLINUX "If true, use the builtin vmlinux.h for building eBPF probes instead of generating one from system BTF" True)
 option(USE_ZIG_BPF_COMPILER "If true, use zig's drop in replacement to clang/llvm compiler" True)
 
+# Only used when USE_ZIG_BPF_COMPILER is False. The defaults build the probes
+# the way cilium/ebpf's bpf2go does for elastic/ebpfevents (clang, -mcpu=v1).
+set(BPF_CLANG clang CACHE STRING "clang binary used to build the probes when USE_ZIG_BPF_COMPILER is False")
+set(BPF_MCPU "" CACHE STRING "-mcpu passed to clang when USE_ZIG_BPF_COMPILER is False (bpf2go uses v1), empty for clang's default")
+
 if (USE_ZIG_BPF_COMPILER)
     set(BPF_COMPILER_ENV "ZIG_GLOBAL_CACHE_DIR=${PROJECT_BINARY_DIR}/zigcache")
     set(BPF_COMPILER zig)
@@ -18,11 +23,15 @@ if (USE_ZIG_BPF_COMPILER)
     )
 else()
     set(BPF_COMPILER_ENV "")
-    set(BPF_COMPILER clang)
+    set(BPF_COMPILER ${BPF_CLANG})
     set(BPF_COMPILER_FLAGS
-        -target=bpf
+        --target=bpfel
     )
+    if (BPF_MCPU)
+        list(APPEND BPF_COMPILER_FLAGS -mcpu=${BPF_MCPU})
+    endif()
 endif()
+message(STATUS "BPF compiler: ${BPF_COMPILER} ${BPF_COMPILER_FLAGS}")
 
 set(LLVM_STRIP llvm-strip)
 set(BPFTOOL bpftool)
@@ -30,7 +39,7 @@ set(BTF_FILE "/sys/kernel/btf/vmlinux")
 
 # Standard includes
 if(NOT USE_ZIG_BPF_COMPILER)
-    execute_process(COMMAND ${CLANG} -print-file-name=include
+    execute_process(COMMAND ${BPF_CLANG} -print-file-name=include
                     OUTPUT_VARIABLE NOSTDINC_INCLUDES ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 

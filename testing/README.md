@@ -38,6 +38,27 @@ images you want to test. Then invoke:
 packaged artifacts is `artifacts-<arch>/package`, e.g.
 `artifacts-x86_64/package`.
 
+### Testing the probes as ebpfevents builds them
+
+By default the probes are built with zig (LLVM 13) in the builder container.
+[elastic/ebpfevents](https://github.com/elastic/ebpfevents) builds the same C
+with clang-18 and `-mcpu=v1` (cilium/ebpf's bpf2go), and clang can lay out
+CO-RE relocations differently, for example hoisting a read out of its
+`bpf_core_field_exists()` guard. A probe that loads with one compiler can then
+fail to load with the other on kernels that lack the field. To test that build:
+
+```
+make build package testbins BPF_COMPILER=clang NOCONTAINER=1   # BPF_CLANG=clang-18 by default
+make run-multikernel-test BPF_COMPILER=clang NOCONTAINER=1 IMG_FILTER=<filter>
+# or, by hand:
+cd testing && ./run_tests.sh -n x86_64-clang x86_64 ../artifacts-x86_64-clang/package <kernel images>
+```
+
+This builds into `artifacts-<arch>-clang`, so it doesn't replace the default
+build, and `-n` keeps its initramfs, summary (`bpf-check-summary-<name>.txt`)
+and results (`results-<name>/`) apart from the default run's. You need
+`clang-18` (or set `BPF_CLANG`) and `llvm-strip` on the host.
+
 A summary of the test run will be output to `bpf-check-summary.txt`. Results
 for individual kernels will be output to `results/<kernel_name>.txt`. This is a
 dump of the VM's serial console output, which will contain all stdout/stderr
