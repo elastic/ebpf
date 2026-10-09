@@ -13,13 +13,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
     bmake \
-    bpftool \
     build-essential \
     ca-certificates \
     clang-18 \
     cmake \
     file \
     groff-base \
+    linux-tools-generic \
     llvm-18 \
     m4 \
     python3 \
@@ -30,6 +30,11 @@ RUN apt-get update \
 # cmake/modules/BPF.cmake runs a bare llvm-strip.
 RUN ln -s /usr/bin/llvm-strip-18 /usr/local/bin/llvm-strip
 
+# Ubuntu's `bpftool` is a wrapper that needs the tools for the running kernel,
+# which a container doesn't have. Use the real binary from linux-tools-generic.
+RUN ln -s "$(ls /usr/lib/linux-tools/*/bpftool | head -n1)" /usr/local/bin/bpftool \
+    && bpftool version
+
 # Kludge (same as Dockerfile.builder):
 #  ld on newer toolsets only likes -soname=<value> format, and bmake's mk files
 #  use -soname <value> format.
@@ -38,4 +43,4 @@ RUN sed -i -e 's/-soname /-soname=/g' /usr/share/mk/lib.mk
 ENV NOCONTAINER=TRUE
 ENV MAKESYSPATH=/usr/share/mk
 
-LABEL org.opencontainers.image.source https://github.com/elastic/ebpf
+LABEL org.opencontainers.image.source=https://github.com/elastic/ebpf
