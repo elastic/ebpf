@@ -37,6 +37,10 @@ RUN ln -s /usr/bin/llvm-strip-18 /usr/local/bin/llvm-strip
 RUN ln -s "$(ls /usr/lib/linux-tools/*/bpftool | head -n1)" /usr/local/bin/bpftool \
     && bpftool version
 
+# Debian/Ubuntu keep the arch headers in a multiarch directory, which clang's
+# bpf target doesn't search: <linux/types.h> fails with "asm/types.h not found".
+RUN ln -s /usr/include/$(arch)-linux-gnu/asm /usr/include/asm
+
 # Kludge (same as Dockerfile.builder):
 #  ld on newer toolsets only likes -soname=<value> format, and bmake's mk files
 #  use -soname <value> format.
