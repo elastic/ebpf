@@ -60,10 +60,12 @@ build, and `-n` keeps its initramfs, summary (`bpf-check-summary-<name>.txt`)
 and results (`results-<name>/`) apart from the default run's.
 
 The default builder image has no clang, so the clang build uses its own image,
-`ebpf-builder-clang`. To build on the host instead, pass `NOCONTAINER=1`; you
-then need `clang-18` (or set `BPF_CLANG`), `llvm-strip`, `bmake`, `bpftool` and,
-on a current distro, bmake's `-soname` workaround that `Dockerfile.builder`
-also applies: `sudo sed -i 's/-soname /-soname=/g' /usr/share/mk/lib.mk`.
+`ebpf-builder-clang`. Run `make container BPF_COMPILER=clang` before the first
+clang build, otherwise docker tries to pull that image and fails. To build on
+the host instead, pass `NOCONTAINER=1`; you then need `clang-18` (or set
+`BPF_CLANG`), `llvm-strip`, `bmake`, `bpftool` and, on a current distro, bmake's
+`-soname` workaround that `Dockerfile.builder` also applies:
+`sudo sed -i 's/-soname /-soname=/g' /usr/share/mk/lib.mk`.
 
 A summary of the test run will be output to `bpf-check-summary.txt`. Results
 for individual kernels will be output to `results/<kernel_name>.txt`. This is a

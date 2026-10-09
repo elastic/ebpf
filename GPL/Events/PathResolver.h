@@ -209,14 +209,15 @@ static size_t ebpf_resolve_kernfs_node_to_string(char *buf, struct kernfs_node *
         // 633488947ef66b194377411322dc9e12aab79b65.
         //
         // A CO-RE read of a field the running kernel doesn't have is poisoned,
-        // so it must stay in a branch the verifier can prove dead. Guard each
-        // read with its own bpf_core_field_exists() and don't return from a
-        // guarded branch before the fallback read. That early-return shape
-        // (formerly ebpf_kernfs_node__parent()) let clang-18 put the __parent
-        // read on the reachable path, and every kernel before 6.15 rejected
-        // the program with "invalid func unknown#195896080". Plain if/else
-        // chains, such as the inode timestamps in File.h, are fine. Same shape
-        // as quark's PathResolver.h.
+        // so it must stay in a branch the verifier can prove dead. Keep these
+        // as two independent ifs. Inside a loop, clang merges mutually
+        // exclusive guarded reads (an if/else chain, or a helper that returns
+        // early) into one read and moves the field offset out of the loop,
+        // past its guard. Every kernel before 6.15 then rejects the program
+        // with "invalid func unknown#195896080". The if/else chains in File.h
+        // are safe only because they are not in a loop. Re-run the clang build
+        // (testing/README.md) after any change here. Same shape as quark's
+        // PathResolver.h.
         parent_ok = 0;
         if (bpf_core_field_exists(struct kernfs_node___6_15, __parent)) {
             kn        = BPF_CORE_READ((struct kernfs_node___6_15 *)kn, __parent);

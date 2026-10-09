@@ -28,9 +28,8 @@ DECL_FIELD_OFFSET(iov_iter, __iov);
 // won't relocate a short local field onto an enum target. The local field
 // sizes match the kernel's in both cases (2-byte short, 4-byte enum).
 //
-// Keep the checks independent and return once, at the end. Don't return from
-// the 6.15 branch before the fallback read: that shape is what let clang-18 put
-// a poisoned read on the reachable path in PathResolver.h.
+// The checks are independent, as in PathResolver.h, for consistency. This code
+// is not in a loop, so an if/else chain here would also be safe.
 static bool ebpf_tty_driver__is_pty_master(const struct tty_struct *tty)
 {
     struct tty_driver *drv = BPF_CORE_READ(tty, driver);

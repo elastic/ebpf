@@ -14,13 +14,11 @@ cscope.out
 
 # Test results and other stuff in testing/
 testing/testrunner/testrunner.test
-testing/bpf-check-summary.txt
-testing/bpf-check-summary-x86_64-clang.txt
+testing/bpf-check-summary*.txt
 testing/*.cpio
 testing/*.tar
 testing/mainline-kernels
-testing/results/
-testing/results-x86_64-clang/
+testing/results*/
 testing/testrunner/testrunner
 testing/test_bins/bin/*
 testing/init/bin/*

@@ -80,7 +80,7 @@ ifeq (${BPF_COMPILER},clang)
 	# Keep the clang run's initramfs and results apart from the default build's
 	MKT_ARGS = -n ${BUILD_NAME}
 endif
-ARTIFACTS_PATH ?= ${BUILD_DIR}
+ARTIFACTS_PATH ?= ${PKG_DIR}
 
 # Debug settings
 ifdef DEBUG
