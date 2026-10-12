@@ -14,8 +14,11 @@ readonly ARGS="$@"
 # console sends it. Don't match init's "exit status 0" either: it is also
 # printed for orphaned test binary children.
 readonly SUCCESS_REGEX='TESTRUNNER RESULT: PASS\s*$'
-readonly SUMMARY_FILE="bpf-check-summary.txt"
-readonly RESULTS_DIR="results"
+
+# Set by -n so that runs of differently built artifacts don't overwrite each
+# other's initramfs, summary and results.
+SUMMARY_FILE="bpf-check-summary.txt"
+RESULTS_DIR="results"
 
 file_exists() {
     [[ -f $1 ]]
@@ -58,7 +61,7 @@ run_tests() {
 
 exit_usage() {
     cat <<- EOF
-Usage: $PROGNAME [-j jobs] <arch> <artifacts package directory> <kernel images>
+Usage: $PROGNAME [-j jobs] [-n name] <arch> <artifacts package directory> <kernel images>
 
 Perform a run of the BPF multi-kernel tester with the given kernel images on
 the given arch, with the given artifacts directory and with the given kernel
@@ -66,6 +69,10 @@ images.
 
 OPTIONS:
     -j <jobs>       Spin up <jobs> VMs in parallel (defaults to nproc, at most 8)
+    -n <name>       Name this run, e.g. x86_64-clang for the clang build (see
+                    BPF_COMPILER in the top level Makefile). Results go to
+                    results-<name>/, the summary to bpf-check-summary-<name>.txt
+                    and the initramfs to initramfs-<name>.cpio.
 
 EXAMPLE:
     $PROGNAME -j3 x86_64 ../artifacts-x86_64/package linux-v5.12 linux-v5.13 linux-v5.14
@@ -79,9 +86,15 @@ main() {
     # A test VM keeps roughly one host core busy, cap parallel VMs at 8
     local jobs=$(( $(nproc) < 8 ? $(nproc) : 8 ))
 
-    while getopts "j:" opt; do
+    local name=""
+
+    while getopts "j:n:" opt; do
         case ${opt} in
             j ) jobs=$OPTARG
+                ;;
+            n ) name=$OPTARG
+                SUMMARY_FILE="bpf-check-summary-${name}.txt"
+                RESULTS_DIR="results-${name}"
                 ;;
             \? )
                 exit_usage
@@ -107,7 +120,7 @@ main() {
     is_empty $* \
         && exit_usage
 
-    local initramfs="initramfs-${arch}.cpio"
+    local initramfs="initramfs-${name:-$arch}.cpio"
     ./scripts/gen_initramfs.sh $arch "$artifacts" "$initramfs" \
         || exit_error "Could not build initramfs (see above)"
 

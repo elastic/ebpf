@@ -4,6 +4,19 @@ USER ?= $(shell whoami)
 CURRENT_DATE_TAG ?= $(shell date +%Y%m%d-%H%M)
 PKG_VERSION ?= $(shell cat VERSION)
 
+# BPF_COMPILER selects how the probes are built:
+#   zig   (default) zig cc, as released. Works in the builder container.
+#   clang           clang with the flags cilium/ebpf's bpf2go uses for
+#                   elastic/ebpfevents (-target bpfel -mcpu=v1). The default
+#                   builder image has no clang, so this builds its own
+#                   (docker/Dockerfile.clang.builder, `make container
+#                   BPF_COMPILER=clang`), or uses the host's BPF_CLANG with
+#                   NOCONTAINER=1.
+# The two builds go to separate directories (artifacts-<arch> and
+# artifacts-<arch>-clang), so both can be built and tested side by side.
+BPF_COMPILER ?= zig
+BPF_CLANG ?= clang-18
+
 # bmake Settings
 MAKE_SYS_PATH ?= /usr/share/mk
 export MAKESYSPATH = ${MAKE_SYS_PATH}
@@ -16,6 +29,14 @@ NO_CACHE ?=
 CONTAINER_ENGINE ?= docker
 CONTAINER_REPOSITORY ?= ghcr.io/elastic/ebpf-builder
 CONTAINER_PULL_TAG ?= 20221121-1315
+ifeq (${BPF_COMPILER},clang)
+	# There is no published image for the clang build: build it locally with
+	# `make container BPF_COMPILER=clang`.
+	CONTAINER_DOCKERFILE ?= docker/Dockerfile.clang.builder
+	CONTAINER_LOCAL_TAG ?= ebpf-builder-clang:${USER}-latest
+	CONTAINER_IMAGE ?= ${CONTAINER_LOCAL_TAG}
+endif
+CONTAINER_DOCKERFILE ?= docker/Dockerfile.builder
 CONTAINER_LOCAL_TAG ?= ebpf-builder:${USER}-latest
 
 IMAGEPACK_REPOSITORY ?= ghcr.io/elastic/ebpf-imagepack
@@ -43,11 +64,23 @@ endif
 endif
 
 PWD = $(shell pwd)
-BUILD_DIR ?= ${PWD}/artifacts-${ARCH}
+ifeq (${BPF_COMPILER},zig)
+	BUILD_NAME = ${ARCH}
+else ifeq (${BPF_COMPILER},clang)
+	BUILD_NAME = ${ARCH}-clang
+else
+$(error BPF_COMPILER must be zig or clang, got '${BPF_COMPILER}')
+endif
+BUILD_DIR ?= ${PWD}/artifacts-${BUILD_NAME}
 PKG_DIR ?= ${BUILD_DIR}/package
 MDATA_DIR ?= ${BUILD_DIR}/package/share/elastic/ebpf
 CMAKE_FLAGS = -DARCH=${ARCH}
-ARTIFACTS_PATH ?= ${PWD}/artifacts-${ARCH}
+ifeq (${BPF_COMPILER},clang)
+	CMAKE_FLAGS += -DUSE_ZIG_BPF_COMPILER=False -DBPF_CLANG=${BPF_CLANG} -DBPF_MCPU=v1
+	# Keep the clang run's initramfs and results apart from the default build's
+	MKT_ARGS = -n ${BUILD_NAME}
+endif
+ARTIFACTS_PATH ?= ${PKG_DIR}
 
 # Debug settings
 ifdef DEBUG
@@ -70,7 +103,7 @@ ifdef BUILD_CONTAINER_IMAGE
 	${MAKE} container
 endif
 	${CONTAINER_RUN_CMD} \
-	${MAKE} build DEBUG=${DEBUG} ARCH=${ARCH} EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS}
+	${MAKE} build DEBUG=${DEBUG} ARCH=${ARCH} EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS} BPF_COMPILER=${BPF_COMPILER} BPF_CLANG=${BPF_CLANG}
 endif
 
 package:
@@ -88,11 +121,11 @@ ifdef BUILD_CONTAINER_IMAGE
 	${MAKE} container
 endif
 	${CONTAINER_RUN_CMD} \
-	${MAKE} package DEBUG=${DEBUG} ARCH=${ARCH} EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS}
+	${MAKE} package DEBUG=${DEBUG} ARCH=${ARCH} EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS} BPF_COMPILER=${BPF_COMPILER} BPF_CLANG=${BPF_CLANG}
 endif
 
 container:
-	${CONTAINER_ENGINE} buildx build ${NO_CACHE} --progress plain --platform=linux/${ARCH} -t ${CONTAINER_LOCAL_TAG} -f docker/Dockerfile.builder .
+	${CONTAINER_ENGINE} buildx build ${NO_CACHE} --progress plain --platform=linux/${ARCH} -t ${CONTAINER_LOCAL_TAG} -f ${CONTAINER_DOCKERFILE} .
 
 tag-container:
 	${CONTAINER_ENGINE} tag ${CONTAINER_LOCAL_TAG} ${CONTAINER_IMAGE}
@@ -171,7 +204,7 @@ ifndef IMG_FILTER
 	exit 1
 endif
 	go install github.com/florianl/bluebox@b8590fb1850f56df6e6d7786931fcabdc1e9173d
-	cd testing && ./run_tests.sh ${ARCH} ${ARTIFACTS_PATH} ${PWD}/kernel-images/${IMG_FILTER}/${ARCH}/*
+	cd testing && ./run_tests.sh ${MKT_ARGS} ${ARCH} ${ARTIFACTS_PATH} ${PWD}/kernel-images/${IMG_FILTER}/${ARCH}/*
 
 testbins: testbinpath $(TESTBIN_PROGS)
 
