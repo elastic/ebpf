@@ -11,9 +11,9 @@ http_archive(
 
 http_archive(
     name = "rules_cc",
-    sha256 = "1e19e9a3bc3d4ee91d7fcad00653485ee6c798efbbf9588d40b34cbfbded143d",
-    strip_prefix = "rules_cc-68cb652a71e7e7e2858c50593e5a9e3b94e5b9a9",
-    urls = ["https://github.com/bazelbuild/rules_cc/archive/68cb652a71e7e7e2858c50593e5a9e3b94e5b9a9.zip"],  # 2021-05-14T14:51:14Z
+    sha256 = "4f507ac904b758ac4a1551b2812901ca224b6dd4a226e499d2ae92003946160a",
+    strip_prefix = "rules_cc-14c39139c0ac30d0cdfa426502c49164ca6fb5c1",
+    urls = ["https://github.com/bazelbuild/rules_cc/archive/14c39139c0ac30d0cdfa426502c49164ca6fb5c1.zip"],  # 2021-05-14T14:51:14Z
 )
 
 http_archive(
