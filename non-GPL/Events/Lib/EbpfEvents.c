@@ -316,13 +316,65 @@ static int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj, uint6
     bool has_bpf_tramp = features & EBPF_FEATURE_BPF_TRAMP;
     bool has_ipv6      = features & EBPF_FEATURE_IPV6;
 
-    // do_renameat2 kprobe and fentry probe are mutually exclusive.
-    // disable auto-loading of kprobe if `do_renameat2` exists in BTF and
-    // if bpf trampolines are supported on the current arch, and vice-versa.
-    if (has_bpf_tramp && BTF_FUNC_EXISTS(btf, do_renameat2)) {
-        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__do_renameat2, false);
+    // do_unlinkat, do_renameat2 and do_filp_open were renamed in 7.0 with the
+    // same arguments, and each name has a fentry/fexit and a k[ret]probe program.
+    // Load only one of the four. Use the new name only if the old one is missing
+    // from BTF and the new one is present: pahole can leave out a function that
+    // the kernel still has (it did with do_renameat2), and a kprobe on the old
+    // name still attaches there. Use fentry/fexit if bpf trampolines are
+    // supported and the function is in BTF, otherwise the k[ret]probe.
+    if (!BTF_FUNC_EXISTS(btf, do_unlinkat) && BTF_FUNC_EXISTS(btf, filename_unlinkat)) {
+        err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_unlinkat, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__do_unlinkat, false);
+        if (has_bpf_tramp) {
+            err = err ?: bpf_program__set_autoload(obj->progs.kprobe__filename_unlinkat, false);
+        } else {
+            err = err ?: bpf_program__set_autoload(obj->progs.fentry__filename_unlinkat, false);
+        }
     } else {
+        err = err ?: bpf_program__set_autoload(obj->progs.fentry__filename_unlinkat, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__filename_unlinkat, false);
+        if (has_bpf_tramp && BTF_FUNC_EXISTS(btf, do_unlinkat)) {
+            err = err ?: bpf_program__set_autoload(obj->progs.kprobe__do_unlinkat, false);
+        } else {
+            err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_unlinkat, false);
+        }
+    }
+
+    if (!BTF_FUNC_EXISTS(btf, do_renameat2) && BTF_FUNC_EXISTS(btf, filename_renameat2)) {
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_renameat2, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__do_renameat2, false);
+        if (has_bpf_tramp) {
+            err = err ?: bpf_program__set_autoload(obj->progs.kprobe__filename_renameat2, false);
+        } else {
+            err = err ?: bpf_program__set_autoload(obj->progs.fentry__filename_renameat2, false);
+        }
+    } else {
+        err = err ?: bpf_program__set_autoload(obj->progs.fentry__filename_renameat2, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__filename_renameat2, false);
+        if (has_bpf_tramp && BTF_FUNC_EXISTS(btf, do_renameat2)) {
+            err = err ?: bpf_program__set_autoload(obj->progs.kprobe__do_renameat2, false);
+        } else {
+            err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_renameat2, false);
+        }
+    }
+
+    if (!BTF_FUNC_EXISTS(btf, do_filp_open) && BTF_FUNC_EXISTS(btf, do_file_open)) {
+        err = err ?: bpf_program__set_autoload(obj->progs.fexit__do_filp_open, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__do_filp_open, false);
+        if (has_bpf_tramp) {
+            err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__do_file_open, false);
+        } else {
+            err = err ?: bpf_program__set_autoload(obj->progs.fexit__do_file_open, false);
+        }
+    } else {
+        err = err ?: bpf_program__set_autoload(obj->progs.fexit__do_file_open, false);
+        err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__do_file_open, false);
+        if (has_bpf_tramp && BTF_FUNC_EXISTS(btf, do_filp_open)) {
+            err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__do_filp_open, false);
+        } else {
+            err = err ?: bpf_program__set_autoload(obj->progs.fexit__do_filp_open, false);
+        }
     }
 
     // tcp_v6_connect kprobes and fexit probe are mutually exclusive.
@@ -367,11 +419,9 @@ static int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj, uint6
     // fentry/fexit progs if EBPF_FEATURE_BPF_TRAMP is not in `features` and
     // enable the k[ret]probe counterpart.
     if (has_bpf_tramp) {
-        err = err ?: bpf_program__set_autoload(obj->progs.kprobe__do_unlinkat, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__mnt_want_write, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__vfs_unlink, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__vfs_unlink, false);
-        err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__do_filp_open, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__vfs_rename, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__vfs_rename, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__disassociate_ctty, false);
@@ -389,11 +439,9 @@ static int probe_set_autoload(struct btf *btf, struct EventProbe_bpf *obj, uint6
         err = err ?: bpf_program__set_autoload(obj->progs.kprobe__chown_common, false);
         err = err ?: bpf_program__set_autoload(obj->progs.kretprobe__chown_common, false);
     } else {
-        err = err ?: bpf_program__set_autoload(obj->progs.fentry__do_unlinkat, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__mnt_want_write, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__vfs_unlink, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__vfs_unlink, false);
-        err = err ?: bpf_program__set_autoload(obj->progs.fexit__do_filp_open, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__vfs_rename, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fexit__vfs_rename, false);
         err = err ?: bpf_program__set_autoload(obj->progs.fentry__disassociate_ctty, false);

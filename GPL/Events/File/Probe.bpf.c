@@ -54,6 +54,20 @@ int BPF_KPROBE(kprobe__do_unlinkat)
     return do_unlinkat__enter();
 }
 
+// do_unlinkat was renamed to filename_unlinkat in 7.0 with the same arguments.
+// The loader autoloads only one of the two names.
+SEC("fentry/filename_unlinkat")
+int BPF_PROG(fentry__filename_unlinkat)
+{
+    return do_unlinkat__enter();
+}
+
+SEC("kprobe/filename_unlinkat")
+int BPF_KPROBE(kprobe__filename_unlinkat)
+{
+    return do_unlinkat__enter();
+}
+
 static int mnt_want_write__enter(struct vfsmount *mnt)
 {
     struct ebpf_events_state *state = NULL;
@@ -349,6 +363,24 @@ int BPF_KRETPROBE(kretprobe__do_filp_open, struct file *ret)
     return do_filp_open__exit(ret);
 }
 
+// do_filp_open was renamed to do_file_open in 7.0 with the same arguments.
+// The loader autoloads only one of the two names.
+SEC("fexit/do_file_open")
+int BPF_PROG(fexit__do_file_open,
+             int dfd,
+             struct filename *pathname,
+             const struct open_flags *op,
+             struct file *ret)
+{
+    return do_filp_open__exit(ret);
+}
+
+SEC("kretprobe/do_file_open")
+int BPF_KRETPROBE(kretprobe__do_file_open, struct file *ret)
+{
+    return do_filp_open__exit(ret);
+}
+
 static int do_renameat2__enter()
 {
     struct ebpf_events_state state = {};
@@ -377,6 +409,20 @@ int BPF_PROG(fentry__do_renameat2)
 
 SEC("kprobe/do_renameat2")
 int BPF_KPROBE(kprobe__do_renameat2)
+{
+    return do_renameat2__enter();
+}
+
+// do_renameat2 was renamed to filename_renameat2 in 7.0 with the same
+// arguments. The loader autoloads only one of the two names.
+SEC("fentry/filename_renameat2")
+int BPF_PROG(fentry__filename_renameat2)
+{
+    return do_renameat2__enter();
+}
+
+SEC("kprobe/filename_renameat2")
+int BPF_KPROBE(kprobe__filename_renameat2)
 {
     return do_renameat2__enter();
 }
