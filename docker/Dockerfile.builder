@@ -36,7 +36,6 @@ RUN mkdir -p $SCRATCH
 
 COPY --from=bpftool-builder $SCRATCH/kernel/tools/bpf/bpftool/bpftool /usr/local/bin/bpftool
 
-RUN yum install -y centos-release-scl-rh epel-release
 RUN yum upgrade -y
 RUN yum install -y binutils \
     file \
