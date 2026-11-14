@@ -1,4 +1,4 @@
-from debian:bookworm
+from debian:bookworm@sha256:268fb24c39bca92d326dd83ea3abebe4a3f7751c804ffef23bb6d857dd343ff8
 
 RUN dpkg --add-architecture arm64
 RUN apt-get -y update
