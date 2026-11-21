@@ -8,7 +8,7 @@ ARG SCRATCH=/misc/scratch
 # a static bpftool on a newer ubuntu and copy it to centos7
 # builder image to generate skeleton headers.
 
-FROM docker.io/ubuntu:jammy as bpftool-builder
+FROM docker.io/ubuntu:jammy@sha256:f64b2ffc2f10ab8f8505aa56b2664bd846cbb9df87c7e2532e30f7667021c0e6 as bpftool-builder
 ARG SCRATCH
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -30,7 +30,7 @@ RUN CFLAGS=-static make -C $SCRATCH/kernel/tools/bpf/bpftool
 
 
 # Stage 2: Centos 7 ebpf-builder
-FROM docker.io/centos:7 as ebpf-builder
+FROM docker.io/centos:7@sha256:be65f488b7764ad3638f236b7b515b3678369a5124c47b8d32916d6487418ea4 as ebpf-builder
 ARG SCRATCH
 RUN mkdir -p $SCRATCH
 
